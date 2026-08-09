@@ -1,0 +1,5 @@
+POST /api/v1/properties
+{"ownerUserId":"7e339009-29a2-4c34-83fa-e844d19db719","name":"Structure Test Property"}
+
+HTTP 201
+{"data":{"id":"7c272392-0fb8-4996-819a-ddcc572c4ca2","name":"Structure Test Property", ...},"message":"Property created successfully","success":true}

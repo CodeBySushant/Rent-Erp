@@ -1,0 +1,22 @@
+# Verification that the updatedAt fix works (JPA Auditing + saveAndFlush)
+# createdAt stays at insert time; updatedAt refreshes on update.
+
+CREATE:
+  id         = 46446f68-467b-46f8-bf1e-03e5ccfde270
+  createdAt  = 2026-07-30T11:30:54.124843Z
+  updatedAt  = 2026-07-30T11:30:54.124843Z   (same as createdAt on insert — correct)
+
+UPDATE (name changed):
+{
+    "data": {
+        "id": "46446f68-467b-46f8-bf1e-03e5ccfde270",
+        "name": "Audit Test2 UPDATED",
+        "createdAt": "2026-07-30T11:30:54.124843Z",   <-- unchanged
+        "updatedAt": "2026-07-30T11:30:55.507097Z"     <-- refreshed (~1s later) ✅
+    },
+    "message": "User updated successfully",
+    "success": true
+}
+
+RESULT: updatedAt now correctly differs from createdAt in the write response.
+Before the fix, both showed the insert timestamp.

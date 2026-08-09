@@ -1,0 +1,4 @@
+DELETE /api/v1/floors/e9dec9e4-1c78-4aea-b822-3fda135f043e
+
+HTTP 400
+{"message":"Floor cannot be deleted while it still has active rooms — deactivate its rooms first","success":false}

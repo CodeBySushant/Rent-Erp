@@ -1,0 +1,5 @@
+PUT /api/v1/charge-templates/73ba14e4-fe34-4ecc-b3f5-eece063c4464
+{"amount":0}
+
+HTTP 400
+{"message":"Charge amount is zero — set zeroAmountAcknowledged=true to confirm this is intentional","success":false}

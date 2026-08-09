@@ -1,0 +1,5 @@
+POST /api/v1/properties
+{"ownerUserId":"7e339009-29a2-4c34-83fa-e844d19db719","name":"Access Test Property"}
+
+HTTP 201
+{"data":{"id":"a741187f-9e7e-456c-b1c8-17ca9566e9bd","ownerUserId":"7e339009-29a2-4c34-83fa-e844d19db719","name":"Access Test Property", ...},"message":"Property created successfully","success":true}

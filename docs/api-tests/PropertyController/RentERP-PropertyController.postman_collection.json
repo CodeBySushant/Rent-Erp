@@ -1,0 +1,345 @@
+{
+  "info": {
+    "name": "Rent ERP — PropertyController",
+    "description": "CRUD endpoints for the properties table. Base URL, ownerUserId1/2 and propertyId are collection variables — create owner users via UserController first, then set ownerUserId1/2, then run this collection top to bottom.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "ownerUserId1", "value": "", "type": "string" },
+    { "key": "ownerUserId2", "value": "", "type": "string" },
+    { "key": "propertyId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Properties",
+      "item": [
+        {
+          "name": "01 — Create property (owner1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('success true', () => pm.expect(body.success).to.be.true);",
+                  "if (body.data && body.data.id) {",
+                  "  pm.collectionVariables.set('propertyId', body.data.id);",
+                  "  console.log('Saved propertyId =', body.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerUserId\": \"{{ownerUserId1}}\",\n  \"name\": \"Baneshwor Apartment\",\n  \"address\": \"Baneshwor-10\",\n  \"city\": \"Kathmandu\",\n  \"electricityBillingMode\": \"SUB_METERED\",\n  \"waterMode\": \"KUKL_SPLIT\",\n  \"billingDay\": 5,\n  \"gracePeriodDays\": 7\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties"]
+            },
+            "description": "Creates a new property under ownerUserId1. Returns 201 with the created property, including default billing-mode config for any field not supplied."
+          }
+        },
+        {
+          "name": "01b — Create second property (owner2)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerUserId\": \"{{ownerUserId2}}\",\n  \"name\": \"Patan Heights\",\n  \"city\": \"Lalitpur\",\n  \"electricityBillingMode\": \"MAIN_METER_ONLY\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties"]
+            },
+            "description": "Second property under a different owner — used to prove the ?ownerUserId filter on GET /properties actually scopes results."
+          }
+        },
+        {
+          "name": "02 — Create with non-existent owner (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('success false', () => pm.expect(pm.response.json().success).to.be.false);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerUserId\": \"00000000-0000-0000-0000-000000000000\",\n  \"name\": \"Ghost Property\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties"]
+            },
+            "description": "ownerUserId does not exist in users table. Service checks existence explicitly before insert, so this returns 404 (not a raw FK-violation 500)."
+          }
+        },
+        {
+          "name": "03 — Create with blank name (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('success false', () => pm.expect(pm.response.json().success).to.be.false);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerUserId\": \"{{ownerUserId1}}\",\n  \"name\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties"]
+            },
+            "description": "Bean Validation rejects a blank property name. Expected: 400 Bad Request."
+          }
+        },
+        {
+          "name": "04 — Get property by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('id matches', () => pm.expect(pm.response.json().data.id).to.eql(pm.collectionVariables.get('propertyId')));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties/{{propertyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties", "{{propertyId}}"]
+            },
+            "description": "Fetches a single property by UUID. Uses the propertyId saved by request 01."
+          }
+        },
+        {
+          "name": "05 — Get property by id (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties", "00000000-0000-0000-0000-000000000000"]
+            },
+            "description": "Fetches a non-existent property. Expected: 404 Not Found."
+          }
+        },
+        {
+          "name": "06 — Get all properties (paginated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('has pagination fields', () => {",
+                  "  const d = pm.response.json().data;",
+                  "  pm.expect(d).to.have.property('content');",
+                  "  pm.expect(d).to.have.property('totalElements');",
+                  "  pm.expect(d).to.have.property('totalPages');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties"]
+            },
+            "description": "Fetches all properties with default pagination (page=0, size=20, sort=createdAt desc). No ownerUserId filter — returns every owner's properties."
+          }
+        },
+        {
+          "name": "07 — Get all properties filtered by owner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('only owner1 properties returned', () => {",
+                  "  const content = pm.response.json().data.content;",
+                  "  content.forEach(p => pm.expect(p.ownerUserId).to.eql(pm.collectionVariables.get('ownerUserId1')));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties?ownerUserId={{ownerUserId1}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties"],
+              "query": [{ "key": "ownerUserId", "value": "{{ownerUserId1}}" }]
+            },
+            "description": "?ownerUserId= scopes the list to one landlord's own properties — this is the query the mobile app's 'my properties' screen will use."
+          }
+        },
+        {
+          "name": "08 — Update property",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('name updated', () => pm.expect(pm.response.json().data.name).to.eql('Baneshwor Apartment - Block A'));",
+                  "pm.test('neaTariffMode updated', () => pm.expect(pm.response.json().data.neaTariffMode).to.eql('BLENDED_RATE'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Baneshwor Apartment - Block A\",\n  \"gracePeriodDays\": 10,\n  \"neaTariffMode\": \"BLENDED_RATE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties/{{propertyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties", "{{propertyId}}"]
+            },
+            "description": "Partial update — only non-null fields are applied. ownerUserId is not updatable here (ownership transfer is a separate, dedicated workflow/table)."
+          }
+        },
+        {
+          "name": "09 — Delete property (soft delete)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties/{{propertyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties", "{{propertyId}}"]
+            },
+            "description": "Soft delete — sets is_active=false. The row is never removed. Idempotent: deleting an already-inactive property still returns 200."
+          }
+        },
+        {
+          "name": "10 — Get property after delete (active=false)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('active is false', () => pm.expect(pm.response.json().data.active).to.be.false);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties/{{propertyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties", "{{propertyId}}"]
+            },
+            "description": "Confirms soft delete worked — the property still exists but active=false."
+          }
+        },
+        {
+          "name": "10b — Update non-existent property (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"X\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties", "00000000-0000-0000-0000-000000000000"]
+            },
+            "description": "Updating a non-existent property returns 404."
+          }
+        }
+      ]
+    }
+  ]
+}

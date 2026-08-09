@@ -1,0 +1,4 @@
+GET /api/v1/charge-templates/73ba14e4-fe34-4ecc-b3f5-eece063c4464
+
+HTTP 200
+{"data":{"active":false,"deactivationMode":"THIS_CYCLE_PRORATED", ...},"message":"Charge template fetched successfully","success":true}

@@ -1,0 +1,5 @@
+POST /api/v1/charge-templates
+{"propertyId":"6cc0ffc3-8fa0-495f-9fdc-cd4558415904","name":"Garbage","amount":100,"splitBasis":"FIXED_PER_TENANT"}
+
+HTTP 201
+{"data":{"id":"d1b08798-08c2-4cd2-b10d-6c6fc6b3a7fb","name":"Garbage","amount":100,"splitBasis":"FIXED_PER_TENANT","zeroAmountAcknowledged":false,"deactivationMode":null,"active":true, ...},"message":"Charge template created successfully","success":true}

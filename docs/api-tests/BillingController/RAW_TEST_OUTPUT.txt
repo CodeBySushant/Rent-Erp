@@ -1,0 +1,55 @@
+############ FIXTURE ############
+owner=79aea0cc-ee08-47cd-a116-130c3de429f8
+prop=cc0dae02-5fd6-4b42-b3ee-a7bb5ab2fb20
+M1=dabc514a-9ba1-40c7-9472-2c1fb5a03d0a M2=d26551c4-9285-4e3e-bd71-44fed6cdf885 M3=db91484e-13ea-4321-ab3f-ba07e2db8636
+############ 1. TARIFF CRUD ############
+  PASS: tariff create success (True)
+  PASS: tariff get (ae525bf6-24ab-4cf0-b4b7-5da6e31cf2e7)
+  PASS: tariff effective on 2082-06-01 (ae525bf6-24ab-4cf0-b4b7-5da6e31cf2e7)
+  PASS: tariff list has >=1 (True)
+  PASS: tariff duplicate effectiveFrom -> 409 (409)
+  PASS: tariff update ok (not referenced) (NEA 2082 rev)
+############ 2. GENERATE RUN (MAIN_METER_ONLY, B9 reconciliation) ############
+  PASS: run generated DRAFT (DRAFT)
+  PASS: run tenantCount=3 (3)
+  PASS: B9: electricity shares sum == 1000 exactly (1000.0)
+  M3 rent/prorated/days = 4129.03 True 16
+  PASS: M3 prorated flag (True)
+  PASS: M3 daysOccupied=16 (16)
+  PASS: due date = generated + grace(7) = 2082-05-08 (2082-05-08)
+############ 3. IDEMPOTENCY (B10) ############
+  PASS: idempotent replay returns same run id (a61bfb75-077b-4763-9eac-0f54c38c4bac)
+############ 4. DUPLICATE PERIOD (B10) ############
+  PASS: duplicate live run same period -> 409 (409)
+############ 5. B13 OLDEST-FIRST ############
+  PASS: confirm May while Apr draft exists -> 400 (B13) (400)
+############ 6. CONFIRM (oldest Apr first) ############
+  PASS: confirm Apr run -> CONFIRMED (CONFIRMED)
+  PASS: Apr bills now ISSUED (ISSUED)
+  PASS: now confirm May ok (CONFIRMED)
+  PASS: re-confirm Apr -> 400 (400)
+############ 7. SEGMENTS ############
+  PASS: segments count = 3 (3)
+############ 8. CANCEL + REGENERATE (B8) ############
+  PASS: cancel Jun -> CANCELLED (CANCELLED)
+  PASS: Jun bills CANCELLED (CANCELLED)
+  PASS: regenerate same period after cancel -> DRAFT (DRAFT)
+############ 9. GUARDRAILS ############
+  PASS: invalid BS date -> 400 (400)
+  PASS: MAIN_METER without total -> 400 (400)
+  PASS: SUB_METERED generate -> 400 (pass2) (400)
+############ 10. EMPTY RUN (B11) ############
+  PASS: empty run tenantCount=0 (0)
+  PASS: empty run totalBilled=0 (0.0)
+############ 11. OPENING BALANCE (T7) + ADVANCE (T8) + ADJUSTMENT (P9) ############
+  PASS: adjustment created PENDING (PENDING)
+  bill3: rent 10000.0 elec 1500.0 prev 500.0 adj 200.0 adv 3000.0 total 9200.0
+  PASS: T7 previousBalance=500 (500.0)
+  PASS: P9 adjustmentsAmount=200 (200.0)
+  PASS: T8 advanceApplied=3000 (3000.0)
+  PASS: total_due=9200 (9200.0)
+  PASS: adjustment now APPLIED (APPLIED)
+############ 12. TARIFF DELETE ############
+  PASS: tariff soft delete (200)
+
+############ RESULTS: PASS=35 FAIL=0 ############

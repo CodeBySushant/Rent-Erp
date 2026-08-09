@@ -1,0 +1,2 @@
+{"data":{"active":true,"createdAt":"2026-07-30T11:11:44.398460Z","id":"e4758429-5021-410e-94f3-6ada5113be2b","kycStatus":"PENDING","name":"Sita Gurung","phone":"9801112222","preferredLanguage":"ne","role":"TENANT","updatedAt":"2026-07-30T11:11:44.398461Z"},"message":"User created successfully","success":true,"timestamp":"2026-07-30T11:11:44.447485Z"}
+HTTP_STATUS:201

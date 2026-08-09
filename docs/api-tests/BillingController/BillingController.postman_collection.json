@@ -1,0 +1,680 @@
+{
+  "info": {
+    "name": "RentERP \u2014 BillingController (Phase 5, pass 1 + 2)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Tariff versions, billing runs, tenant bills, adjustments. Set {{baseUrl}}=http://localhost:8080/api/v1 and the {{propertyId}}/{{runId}}/{{membershipId}}/{{tariffId}} variables from earlier responses."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "propertyId",
+      "value": ""
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "membershipId",
+      "value": ""
+    },
+    {
+      "key": "tariffId",
+      "value": ""
+    },
+    {
+      "key": "billId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Tariff versions",
+      "item": [
+        {
+          "name": "Create tariff",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tariffs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tariffs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"NEA 2082\",\n  \"effectiveFromBs\": \"2082-01-01\",\n  \"slabs\": [\n    {\n      \"uptoUnits\": 20,\n      \"ratePerUnit\": 8.5\n    },\n    {\n      \"uptoUnits\": null,\n      \"ratePerUnit\": 11.0\n    }\n  ],\n  \"demandCharge\": 75,\n  \"serviceCharge\": 0,\n  \"minimumCharge\": 0,\n  \"vatPercent\": 13\n}"
+            }
+          }
+        },
+        {
+          "name": "Get tariff",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tariffs/{{tariffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tariffs",
+                "{{tariffId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List tariffs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tariffs?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tariffs?page=0&size=20"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Effective on date",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tariffs/effective?asOfBs=2082-06-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tariffs",
+                "effective?asOfBs=2082-06-01"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update tariff",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tariffs/{{tariffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tariffs",
+                "{{tariffId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"NEA 2082 rev\",\n  \"effectiveFromBs\": \"2082-01-01\",\n  \"slabs\": [\n    {\n      \"uptoUnits\": null,\n      \"ratePerUnit\": 12\n    }\n  ],\n  \"demandCharge\": 80,\n  \"serviceCharge\": 0,\n  \"minimumCharge\": 0,\n  \"vatPercent\": 13\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete tariff (soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tariffs/{{tariffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tariffs",
+                "{{tariffId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Billing runs",
+      "item": [
+        {
+          "name": "Generate run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/properties/{{propertyId}}/billing-runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "properties",
+                "{{propertyId}}",
+                "billing-runs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billingMonthBs\": \"2082-04\",\n  \"periodStartBs\": \"2082-04-01\",\n  \"periodEndBs\": \"2082-04-31\",\n  \"generatedAtBs\": \"2082-05-01\",\n  \"electricityTotalAmount\": 1000,\n  \"waterFixedAmount\": 300,\n  \"idempotencyKey\": \"apr-run-1\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get run",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/billing-runs/{{runId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "billing-runs",
+                "{{runId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List runs for property",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/properties/{{propertyId}}/billing-runs?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "properties",
+                "{{propertyId}}",
+                "billing-runs?page=0&size=20"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Run segments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/billing-runs/{{runId}}/segments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "billing-runs",
+                "{{runId}}",
+                "segments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Run bills",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/billing-runs/{{runId}}/bills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "billing-runs",
+                "{{runId}}",
+                "bills"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Confirm run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/billing-runs/{{runId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "billing-runs",
+                "{{runId}}",
+                "confirm"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "Cancel run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/billing-runs/{{runId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "billing-runs",
+                "{{runId}}",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"wrong reading\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenant bills & adjustments",
+      "item": [
+        {
+          "name": "Get tenant bill",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tenant-bills/{{billId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tenant-bills",
+                "{{billId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Membership bill history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/memberships/{{membershipId}}/bills?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "memberships",
+                "{{membershipId}}",
+                "bills?page=0&size=20"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create one-time adjustment (P9)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/memberships/{{membershipId}}/adjustments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "memberships",
+                "{{membershipId}}",
+                "adjustments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjustmentType\": \"CHARGE\",\n  \"amount\": 200,\n  \"reason\": \"broken window\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List adjustments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/memberships/{{membershipId}}/adjustments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "memberships",
+                "{{membershipId}}",
+                "adjustments"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pass 2 \u2014 metered / corrections / async",
+      "item": [
+        {
+          "name": "Generate SUB_METERED FLAT_RATE run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/properties/{{propertyId}}/billing-runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "properties",
+                "{{propertyId}}",
+                "billing-runs"
+              ]
+            },
+            "description": "SUB_METERED + FLAT_RATE: per-tenant electricity = confirmed sub-meter units x rate.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billingMonthBs\": \"2082-04\",\n  \"periodStartBs\": \"2082-04-01\",\n  \"periodEndBs\": \"2082-04-31\",\n  \"generatedAtBs\": \"2082-05-01\",\n  \"electricityRatePerUnit\": 15\n}"
+            }
+          }
+        },
+        {
+          "name": "Generate SUB_METERED BLENDED_RATE run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/properties/{{propertyId}}/billing-runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "properties",
+                "{{propertyId}}",
+                "billing-runs"
+              ]
+            },
+            "description": "BLENDED_RATE: main-meter units -> tariff slabs -> blended rate; nea_* stored on the run.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billingMonthBs\": \"2082-04\",\n  \"periodStartBs\": \"2082-04-01\",\n  \"periodEndBs\": \"2082-04-31\",\n  \"generatedAtBs\": \"2082-05-01\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Generate CUSTOM split run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/properties/{{propertyId}}/billing-runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "properties",
+                "{{propertyId}}",
+                "billing-runs"
+              ]
+            },
+            "description": "CUSTOM split: per-membership weights (3:1 -> 750/250).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billingMonthBs\": \"2082-04\",\n  \"periodStartBs\": \"2082-04-01\",\n  \"periodEndBs\": \"2082-04-31\",\n  \"generatedAtBs\": \"2082-05-01\",\n  \"electricityTotalAmount\": 1000,\n  \"customWeights\": {\n    \"<membershipId-A>\": 3,\n    \"<membershipId-B>\": 1\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Generate KUKL + boring water run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/properties/{{propertyId}}/billing-runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "properties",
+                "{{propertyId}}",
+                "billing-runs"
+              ]
+            },
+            "description": "KUKL_AND_BORING water: both amounts split segment-aware across tenants.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billingMonthBs\": \"2082-04\",\n  \"periodStartBs\": \"2082-04-01\",\n  \"periodEndBs\": \"2082-04-31\",\n  \"generatedAtBs\": \"2082-05-01\",\n  \"waterKuklAmount\": 800,\n  \"waterBoringAmount\": 200\n}"
+            }
+          }
+        },
+        {
+          "name": "Generate ASYNC run (B15)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/properties/{{propertyId}}/billing-runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "properties",
+                "{{propertyId}}",
+                "billing-runs"
+              ]
+            },
+            "description": "Force the async worker path; poll the progress endpoint until COMPLETED.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billingMonthBs\": \"2082-04\",\n  \"periodStartBs\": \"2082-04-01\",\n  \"periodEndBs\": \"2082-04-31\",\n  \"generatedAtBs\": \"2082-05-01\",\n  \"async\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Get run progress (B15 poll)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/billing-runs/{{runId}}/progress",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "billing-runs",
+                "{{runId}}",
+                "progress"
+              ]
+            },
+            "description": "Async progress: RUNNING -> COMPLETED | FAILED. Poll ~2s."
+          }
+        },
+        {
+          "name": "Correct bill \u2014 unpaid (cancel+regenerate)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tenant-bills/{{billId}}/correct",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tenant-bills",
+                "{{billId}}",
+                "correct"
+              ]
+            },
+            "description": "Unpaid bill -> CANCEL_REGENERATE: original cancelled, replacement issued, supersedes chain.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correctedTotalDue\": 12000,\n  \"reason\": \"missed a charge\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Correct bill \u2014 paid/partial (next-bill adjustment)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tenant-bills/{{billId}}/correct",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tenant-bills",
+                "{{billId}}",
+                "correct"
+              ]
+            },
+            "description": "Paid/partial bill -> NEXT_BILL_ADJUSTMENT: PENDING tenant_bill_adjustments row carried to the next bill.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deltaAmount\": 300,\n  \"reason\": \"extra service\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

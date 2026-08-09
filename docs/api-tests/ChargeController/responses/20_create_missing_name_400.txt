@@ -1,0 +1,5 @@
+POST /api/v1/charge-templates
+{"propertyId":"6cc0ffc3-8fa0-495f-9fdc-cd4558415904","amount":10,"splitBasis":"SHARED"}
+
+HTTP 400
+{"message":"Charge name is required","success":false}

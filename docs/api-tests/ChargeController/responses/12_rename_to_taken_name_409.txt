@@ -1,0 +1,5 @@
+PUT /api/v1/charge-templates/8959cd8d-4720-4839-a872-020491467ebe
+{"name":"Garbage Collection"}
+
+HTTP 409
+{"message":"ChargeTemplate already exists with propertyId+name = 6cc0ffc3-8fa0-495f-9fdc-cd4558415904+Garbage Collection","success":false}

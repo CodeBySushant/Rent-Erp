@@ -1,0 +1,1 @@
+{"data":{"active":true,"createdAt":"2026-07-30T13:32:27.615530Z","id":"b0049890-c7c2-4f47-83ae-65e4e61b02cd","kycStatus":"PENDING","name":"Sunita Gurung","phone":"9822223333","preferredLanguage":"en","role":"LANDLORD","updatedAt":"2026-07-30T13:32:27.615530Z"},"message":"User created successfully","success":true,"timestamp":"2026-07-30T13:32:27.770758Z"}

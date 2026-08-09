@@ -1,0 +1,4 @@
+DELETE /api/v1/rooms/a828a54e-c4e7-449a-a295-3fa6d4830994
+
+HTTP 200
+{"message":"Room deactivated successfully","success":true}

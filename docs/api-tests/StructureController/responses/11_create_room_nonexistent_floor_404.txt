@@ -1,0 +1,5 @@
+POST /api/v1/rooms
+{"floorId":"00000000-0000-0000-0000-000000000000","name":"Ghost Room"}
+
+HTTP 404
+{"message":"Floor not found with id = 00000000-0000-0000-0000-000000000000","success":false}

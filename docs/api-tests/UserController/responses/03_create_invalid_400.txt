@@ -1,0 +1,2 @@
+{"message":"Phone must be a valid 10-digit Nepal number starting with 97 or 98","success":false,"timestamp":"2026-07-30T11:12:01.101746Z"}
+HTTP_STATUS:400

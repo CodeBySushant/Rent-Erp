@@ -1,0 +1,4 @@
+GET /api/v1/floors/93a42393-a6db-49ab-8f95-b052e67c3f3c
+
+HTTP 200
+{"data":{"id":"93a42393-a6db-49ab-8f95-b052e67c3f3c","name":"Ground Floor","floorNumber":0, ...},"message":"Floor fetched successfully","success":true}

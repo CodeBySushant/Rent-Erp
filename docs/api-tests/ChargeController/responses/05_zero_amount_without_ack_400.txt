@@ -1,0 +1,5 @@
+POST /api/v1/charge-templates
+{"propertyId":"6cc0ffc3-8fa0-495f-9fdc-cd4558415904","name":"Maintenance","amount":0,"splitBasis":"FIXED_PER_TENANT"}
+
+HTTP 400
+{"message":"Charge amount is zero — set zeroAmountAcknowledged=true to confirm this is intentional","success":false}

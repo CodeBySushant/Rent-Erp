@@ -1,0 +1,22 @@
+GET /api/v1/property-access?propertyId=a741187f-9e7e-456c-b1c8-17ca9566e9bd
+
+HTTP 200
+{
+    "data": {
+        "content": [
+            {
+                "active": true,
+                "createdAt": "2026-07-30T14:41:39.902697Z",
+                "grantedBy": null,
+                "id": "2d79e607-759c-44cc-a5a8-b390bbbf6550",
+                "propertyId": "a741187f-9e7e-456c-b1c8-17ca9566e9bd",
+                "role": "OWNER",
+                "updatedAt": "2026-07-30T14:41:39.902697Z",
+                "userId": "7e339009-29a2-4c34-83fa-e844d19db719"
+            }
+        ],
+        "last": true, "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
+    },
+    "message": "Property access fetched successfully",
+    "success": true
+}

@@ -1,0 +1,8 @@
+GET /api/v1/rooms?propertyId=7c272392-0fb8-4996-819a-ddcc572c4ca2
+
+HTTP 200
+{"data":{"content":[
+  {"id":"032a3a27-2190-4e3d-87a9-1e18435633f3","floorId":"93a42393-a6db-49ab-8f95-b052e67c3f3c","name":"301", ...},
+  {"id":"a828a54e-c4e7-449a-a295-3fa6d4830994","floorId":"e9dec9e4-1c78-4aea-b822-3fda135f043e","name":"302", ...},
+  {"id":"4aa85abb-79d3-48f3-b013-3a696dd43c6a","floorId":"e9dec9e4-1c78-4aea-b822-3fda135f043e","name":"301", ...}
+],"totalElements":3},"message":"Rooms fetched successfully","success":true}

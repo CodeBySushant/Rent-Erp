@@ -1,0 +1,13 @@
+GET /api/v1/floors?propertyId=7c272392-0fb8-4996-819a-ddcc572c4ca2
+
+HTTP 200
+{
+    "data": {
+        "content": [
+            {"id":"93a42393-a6db-49ab-8f95-b052e67c3f3c","name":"Ground Floor","floorNumber":0, ...},
+            {"id":"e9dec9e4-1c78-4aea-b822-3fda135f043e","name":"1st Floor","floorNumber":1, ...}
+        ],
+        "totalElements": 2
+    },
+    "message": "Floors fetched successfully", "success": true
+}

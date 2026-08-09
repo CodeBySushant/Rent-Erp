@@ -1,0 +1,7 @@
+DELETE /api/v1/charge-templates/8959cd8d-4720-4839-a872-020491467ebe
+(no deactivationMode query param)
+
+HTTP 200
+{"message":"Charge template deactivated successfully","success":true}
+
+Follow-up GET confirms: active=false, deactivationMode=NEXT_CYCLE (the default)

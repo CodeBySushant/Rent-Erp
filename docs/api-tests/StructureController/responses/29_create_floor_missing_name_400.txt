@@ -1,0 +1,5 @@
+POST /api/v1/floors
+{"propertyId":"7c272392-0fb8-4996-819a-ddcc572c4ca2","floorNumber":5}
+
+HTTP 400
+{"message":"Floor name is required","success":false}

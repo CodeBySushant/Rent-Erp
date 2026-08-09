@@ -1,0 +1,4 @@
+GET /api/v1/floors/00000000-0000-0000-0000-000000000000
+
+HTTP 404
+{"message":"Floor not found with id = 00000000-0000-0000-0000-000000000000","success":false}

@@ -1,0 +1,5 @@
+PUT /api/v1/charge-templates/d1b08798-08c2-4cd2-b10d-6c6fc6b3a7fb
+{"name":"Garbage Collection","amount":150,"splitBasis":"SHARED"}
+
+HTTP 200
+{"data":{"id":"d1b08798-08c2-4cd2-b10d-6c6fc6b3a7fb","name":"Garbage Collection","amount":150,"splitBasis":"SHARED","updatedAt":"2026-07-31T04:51:33.196505Z", ...},"message":"Charge template updated successfully","success":true}

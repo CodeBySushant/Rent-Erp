@@ -1,0 +1,5 @@
+POST /api/v1/property-access
+{"propertyId":"00000000-0000-0000-0000-000000000000","userId":"b0049890-c7c2-4f47-83ae-65e4e61b02cd","role":"MANAGER"}
+
+HTTP 404
+{"message":"Property not found with id = 00000000-0000-0000-0000-000000000000","success":false}

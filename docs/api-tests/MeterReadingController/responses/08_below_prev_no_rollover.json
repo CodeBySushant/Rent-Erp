@@ -1,0 +1,1 @@
+{"message":"readingValue 80 is less than the previous confirmed reading 100.00 — set rolloverConfirmed=true if the meter genuinely rolled over (§14.1 M1); otherwise this is an entry error (§14.1 M2)","success":false,"timestamp":"2026-07-31T06:46:14.362843Z"}

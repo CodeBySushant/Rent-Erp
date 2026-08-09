@@ -1,0 +1,5 @@
+POST /api/v1/floors
+{"propertyId":"7c272392-0fb8-4996-819a-ddcc572c4ca2","name":"1st Floor","floorNumber":1}
+
+HTTP 201
+{"data":{"id":"e9dec9e4-1c78-4aea-b822-3fda135f043e","propertyId":"7c272392-0fb8-4996-819a-ddcc572c4ca2","name":"1st Floor","floorNumber":1,"active":true, ...},"message":"Floor created successfully","success":true}

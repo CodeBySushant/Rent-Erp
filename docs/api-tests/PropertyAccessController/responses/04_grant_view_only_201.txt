@@ -1,0 +1,16 @@
+POST /api/v1/property-access
+{"propertyId":"a741187f-9e7e-456c-b1c8-17ca9566e9bd","userId":"412eb8f3-c913-4ef1-b60f-b7036bfddd39","role":"VIEW_ONLY","grantedBy":"7e339009-29a2-4c34-83fa-e844d19db719"}
+
+HTTP 201
+{
+    "data": {
+        "active": true, "createdAt": "2026-07-30T14:41:59.408593Z",
+        "grantedBy": "7e339009-29a2-4c34-83fa-e844d19db719",
+        "id": "53c2bf4e-4f1b-417e-8e85-eae293d1ff82",
+        "propertyId": "a741187f-9e7e-456c-b1c8-17ca9566e9bd",
+        "role": "VIEW_ONLY",
+        "updatedAt": "2026-07-30T14:41:59.408593Z",
+        "userId": "412eb8f3-c913-4ef1-b60f-b7036bfddd39"
+    },
+    "message": "Property access granted successfully", "success": true
+}

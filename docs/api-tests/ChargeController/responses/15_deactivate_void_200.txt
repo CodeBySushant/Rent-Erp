@@ -1,0 +1,6 @@
+DELETE /api/v1/charge-templates/d1b08798-08c2-4cd2-b10d-6c6fc6b3a7fb?deactivationMode=VOID
+
+HTTP 200
+{"message":"Charge template deactivated successfully","success":true}
+
+Follow-up GET confirms: active=false, deactivationMode=VOID

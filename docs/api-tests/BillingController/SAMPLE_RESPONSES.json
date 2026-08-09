@@ -1,0 +1,117 @@
+### Sample: GET /billing-runs/{id}
+{
+    "data": {
+        "async": false,
+        "billingMonthBs": "2082-04",
+        "cancellationReason": null,
+        "cancelledAt": null,
+        "cancelledBy": null,
+        "confirmedAt": null,
+        "confirmedBy": null,
+        "createdAt": "2026-07-31T16:06:33.998580Z",
+        "generatedAtBs": "2082-05-01",
+        "id": "694ab26c-7c59-4ea8-ad2d-b0949890d515",
+        "idempotencyKey": null,
+        "neaBlendedRate": null,
+        "neaTotalBill": null,
+        "notes": null,
+        "periodEndBs": "2082-04-31",
+        "periodStartBs": "2082-04-01",
+        "propertyId": "b2b2899d-cba2-4941-8c70-d2b4beb4fc51",
+        "status": "DRAFT",
+        "tariffMode": "FLAT_RATE",
+        "tariffVersionId": null,
+        "tenantCount": 1,
+        "totalBilled": 13534.0,
+        "updatedAt": "2026-07-31T16:06:34.076040Z"
+    },
+    "message": "Billing run fetched",
+    "success": true,
+    "timestamp": "2026-07-31T16:06:34.382279Z"
+}
+
+### Sample: GET /billing-runs/{id}/bills (note line_items JSONB snapshot)
+{
+    "data": [
+        {
+            "adjustmentsAmount": 0.0,
+            "advanceAppliedAmount": 0.0,
+            "amountPaid": 0.0,
+            "balanceDue": 13534.0,
+            "billingMonthBs": "2082-04",
+            "billingRunId": "694ab26c-7c59-4ea8-ad2d-b0949890d515",
+            "chargesAmount": 0.0,
+            "createdAt": "2026-07-31T16:06:34.068125Z",
+            "daysInPeriod": 31,
+            "daysOccupied": 31,
+            "dueDateBs": "2082-05-08",
+            "electricityAmount": 1234.0,
+            "generatedAtBs": "2082-05-01",
+            "gracePeriodDays": 7,
+            "id": "d5349353-68a6-4aff-98fb-06259ad18dff",
+            "lineItems": [
+                {
+                    "label": "Rent",
+                    "type": "RENT",
+                    "quantity": null,
+                    "rate": null,
+                    "amount": 12000.0,
+                    "note": null
+                },
+                {
+                    "label": "Electricity",
+                    "type": "ELECTRICITY",
+                    "quantity": null,
+                    "rate": null,
+                    "amount": 1234.0,
+                    "note": "main-meter share, equal split"
+                },
+                {
+                    "label": "Water",
+                    "type": "WATER",
+                    "quantity": null,
+                    "rate": null,
+                    "amount": 300.0,
+                    "note": null
+                }
+            ],
+            "membershipId": "f5372570-92b2-4d02-8d1a-b72c880b27a3",
+            "notes": null,
+            "paymentStatus": "UNPAID",
+            "penaltyAmount": 0.0,
+            "periodEndBs": "2082-04-31",
+            "periodStartBs": "2082-04-01",
+            "previousBalance": 0.0,
+            "propertyId": "b2b2899d-cba2-4941-8c70-d2b4beb4fc51",
+            "prorated": false,
+            "rentAmount": 12000.0,
+            "roundingAdjustment": 0.0,
+            "status": "DRAFT",
+            "subtotal": 13534.0,
+            "supersededByBillId": null,
+            "supersedesBillId": null,
+            "tdsAmount": 0.0,
+            "totalDue": 13534.0,
+            "updatedAt": "2026-07-31T16:06:34.068125Z",
+            "waterAmount": 300.0
+        }
+    ],
+    "message": "Bills fetched",
+    "success": true,
+    "timestamp": "2026-07-31T16:06:34.837217Z"
+}
+
+### Sample: GET /tariffs (list)
+{
+    "data": {
+        "content": [],
+        "last": true,
+        "page": 0,
+        "size": 3,
+        "totalElements": 0,
+        "totalPages": 0
+    },
+    "message": "Tariff versions fetched",
+    "success": true,
+    "timestamp": "2026-07-31T16:06:35.091834Z"
+}

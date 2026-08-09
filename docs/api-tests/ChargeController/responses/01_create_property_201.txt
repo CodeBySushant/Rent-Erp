@@ -1,0 +1,5 @@
+POST /api/v1/properties
+{"ownerUserId":"7e339009-29a2-4c34-83fa-e844d19db719","name":"Charge Test Property"}
+
+HTTP 201
+{"data":{"id":"6cc0ffc3-8fa0-495f-9fdc-cd4558415904","name":"Charge Test Property", ...},"message":"Property created successfully","success":true}

@@ -1,0 +1,2 @@
+{"data":{"active":true,"createdAt":"2026-07-30T11:11:30.464358Z","id":"7e339009-29a2-4c34-83fa-e844d19db719","kycStatus":"PENDING","name":"Ram Shrestha","phone":"9812345678","preferredLanguage":"en","role":"LANDLORD","updatedAt":"2026-07-30T11:11:30.464360Z"},"message":"User fetched successfully","success":true,"timestamp":"2026-07-30T11:12:01.286114Z"}
+HTTP_STATUS:200

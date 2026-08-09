@@ -1,0 +1,5 @@
+PUT /api/v1/rooms/4aa85abb-79d3-48f3-b013-3a696dd43c6a
+{"name":"301-A"}
+
+HTTP 200
+{"data":{"id":"4aa85abb-79d3-48f3-b013-3a696dd43c6a","name":"301-A","updatedAt":"2026-07-31T04:21:58.414237Z", ...},"message":"Room updated successfully","success":true}

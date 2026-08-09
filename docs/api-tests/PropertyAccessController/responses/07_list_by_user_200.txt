@@ -1,0 +1,4 @@
+GET /api/v1/property-access?userId=e4758429-5021-410e-94f3-6ada5113be2b
+
+HTTP 200
+{"data":{"content":[{"id":"c9b5729f-65f1-4760-b5c7-a34dd6bfe617","propertyId":"a741187f-9e7e-456c-b1c8-17ca9566e9bd","userId":"e4758429-5021-410e-94f3-6ada5113be2b","role":"MANAGER", ...}],"totalElements":1},"success":true}

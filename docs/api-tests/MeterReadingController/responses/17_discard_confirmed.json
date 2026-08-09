@@ -1,0 +1,1 @@
+{"message":"Only PENDING readings may be discarded — this reading is CONFIRMED (spec §7.5: chain is immutable once confirmed)","success":false,"timestamp":"2026-07-31T06:46:15.820206Z"}

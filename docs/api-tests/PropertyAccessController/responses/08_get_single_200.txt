@@ -1,0 +1,4 @@
+GET /api/v1/property-access/c9b5729f-65f1-4760-b5c7-a34dd6bfe617
+
+HTTP 200
+{"data":{"id":"c9b5729f-65f1-4760-b5c7-a34dd6bfe617","role":"MANAGER", ...},"message":"Property access fetched successfully","success":true}

@@ -1,0 +1,5 @@
+PUT /api/v1/charge-templates/73ba14e4-fe34-4ecc-b3f5-eece063c4464
+{"amount":0,"zeroAmountAcknowledged":true}
+
+HTTP 200
+{"data":{"id":"73ba14e4-fe34-4ecc-b3f5-eece063c4464","amount":0,"zeroAmountAcknowledged":true,"updatedAt":"2026-07-31T04:51:33.361059Z", ...},"message":"Charge template updated successfully","success":true}

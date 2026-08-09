@@ -1,0 +1,5 @@
+PUT /api/v1/property-access/2d79e607-759c-44cc-a5a8-b390bbbf6550
+{"role":"MANAGER"}
+
+HTTP 400
+{"message":"OWNER access cannot be modified through this endpoint — use ownership transfer instead","success":false}

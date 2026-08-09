@@ -1,0 +1,28 @@
+# ── Backend ──────────────────────────
+backend/logs/
+backend/target/
+backend/.env
+backend/.mvn/
+backend/*.iml
+backend/.idea/
+backend/.classpath
+backend/.project
+backend/.settings/
+
+# ── Frontend ─────────────────────────
+frontend/node_modules/
+frontend/.expo/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.local
+
+# ── General ──────────────────────────
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+
+# ── Spec documents (large binary, not source) ────
+Rent_ERP_Specification.docx

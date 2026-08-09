@@ -1,0 +1,5 @@
+POST /api/v1/charge-templates
+{"propertyId":"6cc0ffc3-8fa0-495f-9fdc-cd4558415904","name":"Internet","amount":500,"splitBasis":"FIXED_PER_TENANT"}
+
+HTTP 409
+{"message":"ChargeTemplate already exists with propertyId+name = 6cc0ffc3-8fa0-495f-9fdc-cd4558415904+Internet","success":false}

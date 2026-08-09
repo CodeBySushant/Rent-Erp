@@ -1,0 +1,5 @@
+POST /api/v1/rooms
+{"floorId":"e9dec9e4-1c78-4aea-b822-3fda135f043e","name":"301"}
+
+HTTP 201
+{"data":{"id":"4aa85abb-79d3-48f3-b013-3a696dd43c6a","floorId":"e9dec9e4-1c78-4aea-b822-3fda135f043e","name":"301","active":true, ...},"message":"Room created successfully","success":true}

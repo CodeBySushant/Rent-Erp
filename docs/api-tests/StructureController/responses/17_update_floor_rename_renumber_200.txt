@@ -1,0 +1,5 @@
+PUT /api/v1/floors/93a42393-a6db-49ab-8f95-b052e67c3f3c
+{"name":"Basement","floorNumber":-1}
+
+HTTP 200
+{"data":{"id":"93a42393-a6db-49ab-8f95-b052e67c3f3c","name":"Basement","floorNumber":-1,"updatedAt":"2026-07-31T04:21:58.257095Z", ...},"message":"Floor updated successfully","success":true}

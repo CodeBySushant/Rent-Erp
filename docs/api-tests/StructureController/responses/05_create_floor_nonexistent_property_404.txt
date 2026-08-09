@@ -1,0 +1,5 @@
+POST /api/v1/floors
+{"propertyId":"00000000-0000-0000-0000-000000000000","name":"Ghost Floor","floorNumber":5}
+
+HTTP 404
+{"message":"Property not found with id = 00000000-0000-0000-0000-000000000000","success":false}

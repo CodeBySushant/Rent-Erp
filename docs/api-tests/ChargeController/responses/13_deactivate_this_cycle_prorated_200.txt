@@ -1,0 +1,4 @@
+DELETE /api/v1/charge-templates/73ba14e4-fe34-4ecc-b3f5-eece063c4464?deactivationMode=THIS_CYCLE_PRORATED
+
+HTTP 200
+{"message":"Charge template deactivated successfully","success":true}

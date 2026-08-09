@@ -1,0 +1,5 @@
+POST /api/v1/floors
+{"propertyId":"7c272392-0fb8-4996-819a-ddcc572c4ca2","name":"Too High","floorNumber":300}
+
+HTTP 400
+{"message":"Floor number must be between -5 and 200","success":false}

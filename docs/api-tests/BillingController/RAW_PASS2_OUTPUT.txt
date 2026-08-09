@@ -1,0 +1,43 @@
+owner=bf3b4b7b-5bbd-4acd-a7f3-22e77ac4e0cd  base=555412
+############ 1. SUB_METERED FLAT_RATE ############
+  PASS: sub-metered run DRAFT (DRAFT)
+  PASS: M1 elec = 150u x 15 = 2250 (2250.0)
+  PASS: M2 elec = 60u x 15 = 900 (900.0)
+############ 2. NEA BLENDED_RATE ############
+  PASS: blended run tariffMode (BLENDED_RATE)
+  PASS: nea blended rate = 13.5035 (13.5035)
+  PASS: nea total bill = 1350.35 (1350.35)
+  PASS: B9: sum electricity reconciles to NEA total 1350.35 (1350.35)
+############ 3. SEGMENT ENGINE (T9 mid-month join) ############
+  PASS: T9 M1 elec = 2300 (pre-join days fully on M1) (2300.0)
+  PASS: T9 M2 elec = 800 (only post-join days) (800.0)
+  PASS: T9 electricity reconciles to 3100 (3100.0)
+  PASS: segment count = 3 (3)
+  PASS: M2 has a MID_MONTH_JOIN segment (True)
+############ 4. KUKL / BORING WATER ############
+  PASS: KUKL+boring water each = 500 (500.0)
+  PASS: KUKL+boring water reconciles to 1000 (1000.0)
+  PASS: missing kukl amount -> 400 (400)
+############ 5. CUSTOM SPLIT ############
+  PASS: CUSTOM 3:1 -> M1 elec = 750 (750.0)
+  PASS: CUSTOM 3:1 -> M2 elec = 250 (250.0)
+  PASS: CUSTOM missing weights -> 400 (400)
+############ 6. M17 OVERAGE (BLOCK) ############
+  PASS: M17 sub>main+3% with BLOCK -> 400 (400)
+############ 7. B8 CORRECTION — unpaid cancel+regenerate ############
+  PASS: unpaid correction -> CANCEL_REGENERATE (CANCEL_REGENERATE)
+  PASS: original bill now CANCELLED (CANCELLED)
+  PASS: replacement total = old + 500 (12000.0)
+  PASS: replacement supersedes original (ISSUED)
+############ 8. B8 CORRECTION — paid/partial next-bill adjustment (psql-assisted) ############
+  PASS: paid/partial correction -> NEXT_BILL_ADJUSTMENT (NEXT_BILL_ADJUSTMENT)
+  PASS: original paid bill stays ISSUED (ISSUED)
+  PASS: BILL_CORRECTION adjustment created PENDING (True)
+############ 9. B15 ASYNC + PROGRESS POLLING ############
+  PASS: async run flagged async=true (True)
+  PASS: async progress reached COMPLETED (COMPLETED)
+  PASS: async progress processed 2/2 (2)
+  PASS: async run built 2 bills (2)
+  PASS: async run confirmable after completion (CONFIRMED)
+
+############ PASS=31 FAIL=0 ############

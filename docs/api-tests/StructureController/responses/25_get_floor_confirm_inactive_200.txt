@@ -1,0 +1,4 @@
+GET /api/v1/floors/e9dec9e4-1c78-4aea-b822-3fda135f043e
+
+HTTP 200
+{"data":{"id":"e9dec9e4-1c78-4aea-b822-3fda135f043e","active":false,"updatedAt":"2026-07-31T04:22:08.736245Z", ...},"message":"Floor fetched successfully","success":true}

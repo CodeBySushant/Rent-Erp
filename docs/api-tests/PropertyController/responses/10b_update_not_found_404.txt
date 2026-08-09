@@ -1,0 +1,2 @@
+{"message":"Property not found with id = 00000000-0000-0000-0000-000000000000","success":false,"timestamp":"2026-07-30T13:33:35.927207Z"}
+HTTP_STATUS:404

@@ -1,0 +1,5 @@
+PUT /api/v1/rooms/a828a54e-c4e7-449a-a295-3fa6d4830994
+{"name":"301-A"}
+
+HTTP 409
+{"message":"Room already exists with floorId+name = e9dec9e4-1c78-4aea-b822-3fda135f043e+301-A","success":false}

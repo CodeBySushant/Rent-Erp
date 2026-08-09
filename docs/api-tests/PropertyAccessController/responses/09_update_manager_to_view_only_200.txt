@@ -1,0 +1,13 @@
+PUT /api/v1/property-access/c9b5729f-65f1-4760-b5c7-a34dd6bfe617
+{"role":"VIEW_ONLY"}
+
+HTTP 200
+{
+    "data": {
+        "id": "c9b5729f-65f1-4760-b5c7-a34dd6bfe617",
+        "role": "VIEW_ONLY",
+        "createdAt": "2026-07-30T14:41:59.176863Z",
+        "updatedAt": "2026-07-30T14:42:19.191743Z"
+    },
+    "message": "Property access updated successfully", "success": true
+}

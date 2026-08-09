@@ -1,0 +1,17 @@
+package com.renterp.domain.tenancy.repository;
+
+import com.renterp.domain.tenancy.entity.TenantProfile;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface TenantProfileRepository extends JpaRepository<TenantProfile, UUID> {
+    Optional<TenantProfile> findByUserId(UUID userId);
+    boolean existsByUserId(UUID userId);
+    Page<TenantProfile> findAll(Pageable pageable);
+}

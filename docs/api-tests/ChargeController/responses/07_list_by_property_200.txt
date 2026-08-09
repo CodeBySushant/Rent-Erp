@@ -1,0 +1,8 @@
+GET /api/v1/charge-templates?propertyId=6cc0ffc3-8fa0-495f-9fdc-cd4558415904
+
+HTTP 200
+{"data":{"content":[
+  {"id":"8959cd8d-4720-4839-a872-020491467ebe","name":"Maintenance","amount":0.0, ...},
+  {"id":"d1b08798-08c2-4cd2-b10d-6c6fc6b3a7fb","name":"Garbage","amount":100.0, ...},
+  {"id":"73ba14e4-fe34-4ecc-b3f5-eece063c4464","name":"Internet","amount":4000.0, ...}
+],"totalElements":3},"message":"Charge templates fetched successfully","success":true}

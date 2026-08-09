@@ -1,0 +1,5 @@
+POST /api/v1/floors
+{"propertyId":"7c272392-0fb8-4996-819a-ddcc572c4ca2","name":"Duplicate Ground","floorNumber":0}
+
+HTTP 409
+{"message":"Floor already exists with propertyId+floorNumber = 7c272392-0fb8-4996-819a-ddcc572c4ca2+0","success":false}

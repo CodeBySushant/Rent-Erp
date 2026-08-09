@@ -1,0 +1,5 @@
+POST /api/v1/property-access
+{"propertyId":"a741187f-9e7e-456c-b1c8-17ca9566e9bd","userId":"b0049890-c7c2-4f47-83ae-65e4e61b02cd","role":"OWNER"}
+
+HTTP 400
+{"message":"OWNER access is created automatically when a property is created and cannot be granted directly","success":false}

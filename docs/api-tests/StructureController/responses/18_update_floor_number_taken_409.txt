@@ -1,0 +1,5 @@
+PUT /api/v1/floors/e9dec9e4-1c78-4aea-b822-3fda135f043e
+{"floorNumber":-1}
+
+HTTP 409
+{"message":"Floor already exists with propertyId+floorNumber = 7c272392-0fb8-4996-819a-ddcc572c4ca2+-1","success":false}

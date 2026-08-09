@@ -1,0 +1,4 @@
+DELETE /api/v1/property-access/2d79e607-759c-44cc-a5a8-b390bbbf6550
+
+HTTP 400
+{"message":"OWNER access cannot be revoked — use ownership transfer instead","success":false}

@@ -1,0 +1,5 @@
+PUT /api/v1/property-access/53c2bf4e-4f1b-417e-8e85-eae293d1ff82
+{"role":"OWNER"}
+
+HTTP 400
+{"message":"A grant cannot be changed to OWNER — use ownership transfer instead","success":false}

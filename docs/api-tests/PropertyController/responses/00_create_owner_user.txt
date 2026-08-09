@@ -1,0 +1,2 @@
+{"data":{"active":true,"createdAt":"2026-07-30T13:29:22.124297Z","id":"412eb8f3-c913-4ef1-b60f-b7036bfddd39","kycStatus":"PENDING","name":"Bimal Rai","phone":"9811112222","preferredLanguage":"en","role":"LANDLORD","updatedAt":"2026-07-30T13:29:22.124297Z"},"message":"User created successfully","success":true,"timestamp":"2026-07-30T13:29:22.343634Z"}
+HTTP_STATUS:201

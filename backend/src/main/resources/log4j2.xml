@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="30">
+
+    <Properties>
+        <!-- Full pattern for file logs: timestamp, level, thread, logger, message -->
+        <Property name="FILE_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %logger{40} - %msg%n%throwable</Property>
+        <Property name="LOG_DIR">logs</Property>
+        <Property name="APP">rent-erp</Property>
+    </Properties>
+
+    <Appenders>
+
+        <!-- ── Console (colored) ──────────────────────────────────────────────── -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout>
+                <!--
+                    %d    — timestamp
+                    %highlight — colored level
+                    [%t]  — thread name (virtual threads show as "virtual-X")
+                    %style{%logger{36}}{cyan} — logger name in cyan
+                    %msg  — message
+                    %n    — newline
+                    %throwable — full stack trace on error
+                -->
+                <Pattern>%d{HH:mm:ss.SSS} %highlight{%-5level}{FATAL=red blink, ERROR=red bold, WARN=yellow bold, INFO=green, DEBUG=cyan, TRACE=white} [%t] %style{%logger{36}}{bright,cyan} - %msg%n%throwable</Pattern>
+            </PatternLayout>
+        </Console>
+
+        <!-- ── Main rolling file ──────────────────────────────────────────────── -->
+        <RollingFile name="FileAppender"
+                     fileName="${LOG_DIR}/${APP}.log"
+                     filePattern="${LOG_DIR}/${APP}-%d{yyyy-MM-dd}-%i.log.gz"
+                     immediateFlush="true">
+            <PatternLayout pattern="${FILE_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="50MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+        <!-- ── SQL-only rolling file (keep shorter — can be huge) ─────────────── -->
+        <RollingFile name="SqlAppender"
+                     fileName="${LOG_DIR}/${APP}-sql.log"
+                     filePattern="${LOG_DIR}/${APP}-sql-%d{yyyy-MM-dd}-%i.log.gz"
+                     immediateFlush="true">
+            <PatternLayout pattern="${FILE_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="20MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
+
+    </Appenders>
+
+    <Loggers>
+
+        <!-- ── Application code: DEBUG ────────────────────────────────────────── -->
+        <Logger name="com.renterp" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+        </Logger>
+
+        <!-- ── SQL queries (DEBUG shows the query) ────────────────────────────── -->
+        <Logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="SqlAppender"/>
+        </Logger>
+
+        <!-- ── SQL bind parameters (TRACE shows actual values) ────────────────── -->
+        <Logger name="org.hibernate.orm.jdbc.bind" level="TRACE" additivity="false">
+            <AppenderRef ref="SqlAppender"/>
+        </Logger>
+
+        <!-- ── Hibernate statistics / slow queries ────────────────────────────── -->
+        <Logger name="org.hibernate.stat" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+        </Logger>
+
+        <!-- ── Flyway migration progress ──────────────────────────────────────── -->
+        <Logger name="org.flywaydb" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+        </Logger>
+
+        <!-- ── db-scheduler job execution ─────────────────────────────────────── -->
+        <Logger name="com.github.kagkarlsson" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+        </Logger>
+
+        <!-- ── HikariCP connection pool ───────────────────────────────────────── -->
+        <Logger name="com.zaxxer.hikari" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+        </Logger>
+
+        <!-- ── Spring Web (request mapping, filter chain) ─────────────────────── -->
+        <Logger name="org.springframework.web" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+        </Logger>
+
+        <!-- ── Spring Security filter decisions ───────────────────────────────── -->
+        <Logger name="org.springframework.security" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+        </Logger>
+
+        <!-- ── Spring Framework internals (INFO to avoid noise) ───────────────── -->
+        <Logger name="org.springframework" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+        </Logger>
+
+        <!-- ── Root: WARN catches everything not explicitly configured ─────────── -->
+        <Root level="WARN">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+        </Root>
+
+    </Loggers>
+
+</Configuration>
