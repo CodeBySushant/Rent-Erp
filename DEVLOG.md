@@ -544,6 +544,13 @@ draft and a script that lists the branch's commits. No code or schema change.
 `AuthController` (OTP + password login, register, refresh, logout, me) with JWT access tokens and rotating refresh tokens in `user_sessions` (V13); every controller now authorizes from the token via `AccessGuard` / `ResourceAccess` (owner / manager / view-only per property, tenants limited to their own membership); `tenant_profiles.created_by` (V14); standard error `code` on every error; Hindi accepted. Detail: [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md). Tests: `mvn test` 34/34, [AuthController](docs/api-tests/AuthController/TEST_RESULTS.md) 46/46, [Authorization](docs/api-tests/Authorization/TEST_RESULTS.md).
 
 ---
+
+### [2026-10-02] File uploads
+
+`FileController` (`/files`): multipart upload, metadata, protected download, delete; `stored_files` (V15); local storage behind a `FileStorage` port. Detail: [DEVLOG_FILE.md](docs/devlog/DEVLOG_FILE.md). Tests: [FileController](docs/api-tests/FileController/TEST_RESULTS.md).
+
+---
+
 ## Controller Log
 
 | Controller | Status | Detail | Tests |
@@ -558,6 +565,8 @@ draft and a script that lists the branch's commits. No code or schema change.
 | MeterReadingController + CoverageEventController | ✅ Complete, tested; §14.1 M1/M2/M3/M4/M5/M6/M9/M10/M13/M16 handled; M14/M15/M17 deferred | [DEVLOG_METERREADING.md](docs/devlog/DEVLOG_METERREADING.md) | [35/35 passed](docs/api-tests/MeterReadingController/TEST_RESULTS.md) |
 | TenancyController (profiles + KYC + join + memberships + room-assignments + blocks) | ✅ Complete, tested; §14.3 T1/T2/T3/T4/T5/T6/T7/T10 handled; T8/T9/T11/T12/T13/T14/T15 deferred | [DEVLOG_TENANCY.md](docs/devlog/DEVLOG_TENANCY.md) | [45/45 passed](docs/api-tests/TenancyController/TEST_RESULTS.md) |
 | TenantFinanceController (deposits + advance rent + opening balances + rent increments) | ✅ Complete, tested; §14.3 T7 completion + T14 (atomic rent-increment apply). Piggybacks `room_assignments.monthly_rent`. Deposit status transitions deferred to Vacancy, consumption to Billing. | [DEVLOG_TENANTFINANCE.md](docs/devlog/DEVLOG_TENANTFINANCE.md) | [33/33 passed](docs/api-tests/TenantFinanceController/TEST_RESULTS.md) |
+| AuthController (+ authorization on every controller) | ✅ Complete, tested (branch `feature/app-integration`) | [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md) | [46/46](docs/api-tests/AuthController/TEST_RESULTS.md), [authz](docs/api-tests/Authorization/TEST_RESULTS.md) |
+| FileController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_FILE.md](docs/devlog/DEVLOG_FILE.md) | [files](docs/api-tests/FileController/TEST_RESULTS.md) |
 | BillingController (tariffs + billing runs + tenant bills + adjustments + corrections + async) + BsCalendar | ✅ **Pass 1 + 2 complete**, tested; §14.2 B3/B4/B5/B8/B9/B10/B11/B13/B14/B15 + M9/M14/M17 + T7/T8/T9/P9 + CUSTOM. Full metered engine (SUB_METERED, NEA blended, segment engine, KUKL/boring, overage, corrections, async workers). Resolves Open Verification Item #1 (BS calendar). Penalty deferred to Payment phase. | [DEVLOG_BILLING.md](docs/devlog/DEVLOG_BILLING.md) | [35/35 + 31/31 + 14/14 unit passed](docs/api-tests/BillingController/TEST_RESULTS.md) |
 
 **Global convention adopted (2026-07-30):** JPA Auditing via `BaseAuditEntity` (`@CreatedDate`/`@LastModifiedDate`). Mutable entities extend it; append-only entities use `@CreatedDate` + `AuditingEntityListener`. Services use `saveAndFlush()` on update/delete so responses carry a fresh `updatedAt`. Applies to all future controllers.

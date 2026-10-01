@@ -28,7 +28,9 @@ function Call([string]$method, [string]$path, $body = $null, [string]$token = $n
         $json = $body | ConvertTo-Json -Depth 6 -Compress
         $req.Content = New-Object System.Net.Http.StringContent($json, [System.Text.Encoding]::UTF8, 'application/json')
     }
-    $res = $client.SendAsync($req).Result
+    $res = $null
+    try { $res = $client.SendAsync($req).Result } catch { }
+    if ($res -eq $null) { throw ('No response from ' + $BaseUrl + ' - is the backend running?') }
     $text = $res.Content.ReadAsStringAsync().Result
     $parsed = $null
     if ($text) { try { $parsed = $text | ConvertFrom-Json } catch { } }

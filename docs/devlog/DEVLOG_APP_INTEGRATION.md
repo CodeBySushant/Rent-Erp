@@ -74,3 +74,7 @@ Order and scope of the work are agreed task by task; each task gets an entry bel
 
 `ResourceAccess` checks on all remaining controllers (structure, charges, meters, readings, coverage events, tenancy, tenant finance, billing, tariffs). Tenants read only their own membership and what hangs off it. `tenant_profiles.created_by` (V14) so a landlord can see a tenant they just entered. Lists require a property for non-admins. Live test: `docs/api-tests/Authorization/authz_test.ps1`.
 
+### [2026-10-02] File uploads
+
+`POST/GET/DELETE /api/v1/files` with `stored_files` (V15): type sniffed from the bytes, 5 MB cap, server-generated keys, private by default, readable by the uploader, the file's property and (QR only) its active tenants. `FileStorage` port with local-disk storage; S3 / Supabase Storage later behind the same API. Detail: [DEVLOG_FILE.md](DEVLOG_FILE.md). App: `FileRepository.upload` and `ApiClient.authHeaders` for showing protected images.
+

@@ -39,6 +39,12 @@ spring:
     validate-on-migrate: true
     out-of-order: false
 
+  # ── Uploads (POST /api/v1/files) ─────────────────────────────────────────────
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
   # ── Virtual Threads (Java 25 / Spring Boot 4.1) ──────────────────────────────
   threads:
     virtual:
@@ -69,6 +75,11 @@ app:
     password:
       max-failed-attempts: 5          # in a row, before the password login locks
       lock-minutes: 15
+  files:
+    # Uploaded files. Local folder in development; switching to S3 / Supabase
+    # Storage replaces LocalFileStorage, not this API.
+    local-dir: ${FILES_DIR:./uploads}
+    max-bytes: 5242880                # 5 MB per file
 
 # ── db-scheduler ────────────────────────────────────────────────────────────────
 db-scheduler:

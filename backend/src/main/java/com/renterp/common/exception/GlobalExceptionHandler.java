@@ -15,6 +15,9 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
@@ -145,6 +148,30 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.METHOD_NOT_ALLOWED)
                 .body(ApiResponse.failure(
                         "Method " + ex.getMethod() + " is not supported here.", "METHOD_NOT_ALLOWED"));
+    }
+
+    // ── Uploads ────────────────────────────────────────────────────────────────
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUploadTooLarge(MaxUploadSizeExceededException ex) {
+        return ResponseEntity
+                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ApiResponse.failure("This file is too large to upload.", "FILE_TOO_LARGE"));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingPart(MissingServletRequestPartException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.failure(
+                        "Missing required part '" + ex.getRequestPartName() + "'.", "MISSING_PARAMETER"));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMultipart(MultipartException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.failure("The upload could not be read. Send it as multipart/form-data.",
+                        "MALFORMED_REQUEST"));
     }
 
     // ── 403 from Spring Security method checks ────────────────────────────────

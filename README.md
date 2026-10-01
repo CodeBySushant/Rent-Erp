@@ -352,6 +352,8 @@ All routes are under `/api/v1`. **On `feature/app-integration`, every route need
 | `/tariffs` | TariffController |
 | `/properties/{id}/billing-runs`, `/billing-runs` | BillingRunController |
 | `/tenant-bills`, `/memberships/{id}/bills` | TenantBillController |
+| `/auth` | AuthController (branch `feature/app-integration`) |
+| `/files` | FileController (branch `feature/app-integration`) |
 
 ### Response envelope
 
