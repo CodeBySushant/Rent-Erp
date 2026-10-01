@@ -512,6 +512,24 @@ Deferred: B1/B2/B3 (needs meter readings), B6 (already in ChargeController), B7 
 
 ---
 
+## Phase 6 — App integration (branch `feature/app-integration`)
+
+Work to make this backend serve the Rentlo Flutter app. It lives on its own
+branch and reaches `main` as one pull request. Detail, decisions and the gap
+list: [docs/devlog/DEVLOG_APP_INTEGRATION.md](docs/devlog/DEVLOG_APP_INTEGRATION.md).
+Commits: [docs/BRANCH_COMMITS.md](docs/BRANCH_COMMITS.md). PR draft:
+[docs/PR_APP_INTEGRATION.md](docs/PR_APP_INTEGRATION.md).
+
+---
+
+### [2026-10-02] Branch created, integration log started
+
+Branch cut from an up-to-date `main`. Added the integration devlog (with the
+audit of `main`: no auth, Hindi rejected, missing 401/410/429 and 400 for
+malformed input, screen-shaped reads, unbuilt domains, docs drift), the PR
+draft and a script that lists the branch's commits. No code or schema change.
+
+---
 ## Controller Log
 
 | Controller | Status | Detail | Tests |

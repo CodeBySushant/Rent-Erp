@@ -419,4 +419,6 @@ SQL statements and bind parameters go to `backend/logs/rent-erp-sql.log` — use
 
 Phase 5 complete: billing engine, meters and readings, tenancy, tenant finance, and property structure are all implemented and tested.
 
+**Branch `feature/app-integration`:** Phase 6 — making the backend serve the Rentlo Flutter app (authentication, Hindi, error codes the app relies on, screen-shaped reads). Progress and reasons: [docs/devlog/DEVLOG_APP_INTEGRATION.md](docs/devlog/DEVLOG_APP_INTEGRATION.md); commits: [docs/BRANCH_COMMITS.md](docs/BRANCH_COMMITS.md).
+
 **Not yet built:** the auth flow (OTP via Sparrow SMS, JWT filter, session management). The entities and tables exist from V1, but there is no `AuthController` — hence `permitAll()` security and explicit `ownerUserId` parameters in request bodies where an authenticated principal would normally supply it.
