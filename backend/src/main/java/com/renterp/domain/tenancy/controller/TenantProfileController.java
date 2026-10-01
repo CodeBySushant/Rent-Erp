@@ -1,5 +1,6 @@
 package com.renterp.domain.tenancy.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.tenancy.dto.*;
@@ -21,16 +22,22 @@ public class TenantProfileController {
 
     private final TenantProfileService service;
 
-    public TenantProfileController(TenantProfileService service) { this.service = service; }
+    private final ResourceAccess access;
+
+    public TenantProfileController(ResourceAccess access,
+            TenantProfileService service) {
+        this.access = access; this.service = service; }
 
     @PostMapping
     public ResponseEntity<ApiResponse<TenantProfileResponse>> create(@Valid @RequestBody CreateTenantProfileRequest req) {
+        access.createTenantProfile(req.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Tenant profile created", service.createProfile(req)));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<TenantProfileResponse>> get(@PathVariable UUID id) {
+        access.tenantProfile(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Tenant profile fetched", service.getProfileById(id)));
     }
 
@@ -44,11 +51,13 @@ public class TenantProfileController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<TenantProfileResponse>> update(@PathVariable UUID id,
                                                                       @Valid @RequestBody UpdateTenantProfileRequest req) {
+        access.tenantProfile(id, ResourceAccess.Level.WRITE);
         return ResponseEntity.ok(ApiResponse.success("Tenant profile updated", service.updateProfile(id, req)));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
+        access.tenantProfile(id, ResourceAccess.Level.WRITE);
         service.deleteProfile(id);
         return ResponseEntity.ok(ApiResponse.success("Tenant profile soft-deleted"));
     }
@@ -58,29 +67,34 @@ public class TenantProfileController {
     @PostMapping("/{id}/kyc")
     public ResponseEntity<ApiResponse<TenantKycResponse>> submitKyc(@PathVariable UUID id,
                                                                      @Valid @RequestBody SubmitKycRequest req) {
+        access.tenantProfile(id, ResourceAccess.Level.WRITE);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("KYC submitted", service.submitKyc(id, req)));
     }
 
     @GetMapping("/{id}/kyc")
     public ResponseEntity<ApiResponse<TenantKycResponse>> getKyc(@PathVariable UUID id) {
+        access.tenantProfile(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("KYC fetched", service.getKyc(id)));
     }
 
     @PostMapping("/{id}/kyc/approve")
     public ResponseEntity<ApiResponse<TenantKycResponse>> approveKyc(@PathVariable UUID id) {
+        access.tenantProfileDecide(id);
         return ResponseEntity.ok(ApiResponse.success("KYC approved", service.approveKyc(id)));
     }
 
     @PostMapping("/{id}/kyc/reject")
     public ResponseEntity<ApiResponse<TenantKycResponse>> rejectKyc(@PathVariable UUID id,
                                                                      @Valid @RequestBody KycDecisionRequest req) {
+        access.tenantProfileDecide(id);
         return ResponseEntity.ok(ApiResponse.success("KYC rejected", service.rejectKyc(id, req)));
     }
 
     @PostMapping("/{id}/kyc/flag")
     public ResponseEntity<ApiResponse<TenantKycResponse>> flagKyc(@PathVariable UUID id,
                                                                    @Valid @RequestBody KycDecisionRequest req) {
+        access.tenantProfileDecide(id);
         return ResponseEntity.ok(ApiResponse.success("KYC flagged for admin review", service.flagKyc(id, req)));
     }
 }

@@ -1,5 +1,6 @@
 package com.renterp.domain.structure.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.structure.dto.CreateRoomRequest;
@@ -27,7 +28,11 @@ public class RoomController {
 
     private final RoomService roomService;
 
-    public RoomController(RoomService roomService) {
+    private final ResourceAccess access;
+
+    public RoomController(ResourceAccess access,
+            RoomService roomService) {
+        this.access = access;
         this.roomService = roomService;
     }
 
@@ -35,6 +40,7 @@ public class RoomController {
     @PostMapping
     public ResponseEntity<ApiResponse<RoomResponse>> createRoom(
             @Valid @RequestBody CreateRoomRequest request) {
+        access.floor(request.getFloorId(), ResourceAccess.Level.WRITE);
 
         log.debug("POST /api/v1/rooms — floor: {}, name: {}", request.getFloorId(), request.getName());
         RoomResponse response = roomService.createRoom(request);
@@ -46,6 +52,7 @@ public class RoomController {
     // ── GET /api/v1/rooms/{id} ───────────────────────────────────────────────────
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<RoomResponse>> getRoomById(@PathVariable UUID id) {
+        access.room(id, ResourceAccess.Level.READ);
         log.debug("GET /api/v1/rooms/{}", id);
         RoomResponse response = roomService.getRoomById(id);
         return ResponseEntity.ok(ApiResponse.success("Room fetched successfully", response));
@@ -63,6 +70,11 @@ public class RoomController {
             @RequestParam(required = false) UUID propertyId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
+        if (floorId != null) {
+            access.floor(floorId, ResourceAccess.Level.READ);
+        } else {
+            access.propertyList(propertyId);
+        }
 
         log.debug("GET /api/v1/rooms — floor: {}, property: {}, page: {}, size: {}",
                 floorId, propertyId, pageable.getPageNumber(), pageable.getPageSize());
@@ -75,6 +87,7 @@ public class RoomController {
     public ResponseEntity<ApiResponse<RoomResponse>> updateRoom(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateRoomRequest request) {
+        access.room(id, ResourceAccess.Level.WRITE);
 
         log.debug("PUT /api/v1/rooms/{}", id);
         RoomResponse response = roomService.updateRoom(id, request);
@@ -87,6 +100,7 @@ public class RoomController {
     // later phases.
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteRoom(@PathVariable UUID id) {
+        access.room(id, ResourceAccess.Level.WRITE);
         log.debug("DELETE /api/v1/rooms/{}", id);
         roomService.deleteRoom(id);
         return ResponseEntity.ok(ApiResponse.success("Room deactivated successfully"));

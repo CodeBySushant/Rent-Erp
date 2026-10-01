@@ -1,5 +1,6 @@
 package com.renterp.domain.structure.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.structure.dto.CreateFloorRequest;
@@ -27,7 +28,11 @@ public class FloorController {
 
     private final FloorService floorService;
 
-    public FloorController(FloorService floorService) {
+    private final ResourceAccess access;
+
+    public FloorController(ResourceAccess access,
+            FloorService floorService) {
+        this.access = access;
         this.floorService = floorService;
     }
 
@@ -35,6 +40,7 @@ public class FloorController {
     @PostMapping
     public ResponseEntity<ApiResponse<FloorResponse>> createFloor(
             @Valid @RequestBody CreateFloorRequest request) {
+        access.property(request.getPropertyId(), ResourceAccess.Level.WRITE);
 
         log.debug("POST /api/v1/floors — property: {}, name: {}", request.getPropertyId(), request.getName());
         FloorResponse response = floorService.createFloor(request);
@@ -46,6 +52,7 @@ public class FloorController {
     // ── GET /api/v1/floors/{id} ──────────────────────────────────────────────────
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<FloorResponse>> getFloorById(@PathVariable UUID id) {
+        access.floor(id, ResourceAccess.Level.READ);
         log.debug("GET /api/v1/floors/{}", id);
         FloorResponse response = floorService.getFloorById(id);
         return ResponseEntity.ok(ApiResponse.success("Floor fetched successfully", response));
@@ -65,6 +72,7 @@ public class FloorController {
             @RequestParam(required = false) UUID propertyId,
             @PageableDefault(size = 20, sort = "floorNumber", direction = Sort.Direction.ASC)
             Pageable pageable) {
+        access.propertyList(propertyId);
 
         log.debug("GET /api/v1/floors — property: {}, page: {}, size: {}",
                 propertyId, pageable.getPageNumber(), pageable.getPageSize());
@@ -77,6 +85,7 @@ public class FloorController {
     public ResponseEntity<ApiResponse<FloorResponse>> updateFloor(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateFloorRequest request) {
+        access.floor(id, ResourceAccess.Level.WRITE);
 
         log.debug("PUT /api/v1/floors/{}", id);
         FloorResponse response = floorService.updateFloor(id, request);
@@ -87,6 +96,7 @@ public class FloorController {
     // Soft delete only — sets is_active = false. Blocked if the floor still has active rooms.
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteFloor(@PathVariable UUID id) {
+        access.floor(id, ResourceAccess.Level.WRITE);
         log.debug("DELETE /api/v1/floors/{}", id);
         floorService.deleteFloor(id);
         return ResponseEntity.ok(ApiResponse.success("Floor deactivated successfully"));

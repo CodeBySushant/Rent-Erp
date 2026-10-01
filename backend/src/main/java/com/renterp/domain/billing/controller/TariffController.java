@@ -1,5 +1,6 @@
 package com.renterp.domain.billing.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.billing.dto.CreateTariffRequest;
@@ -32,12 +33,17 @@ public class TariffController {
 
     private final TariffVersionService tariffService;
 
-    public TariffController(TariffVersionService tariffService) {
+    private final ResourceAccess access;
+
+    public TariffController(ResourceAccess access,
+            TariffVersionService tariffService) {
+        this.access = access;
         this.tariffService = tariffService;
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<TariffResponse>> create(@Valid @RequestBody CreateTariffRequest req) {
+        access.requireAdmin();
         log.debug("POST /api/v1/tariffs — effectiveFrom: {}", req.getEffectiveFromBs());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Tariff version created", tariffService.create(req)));
@@ -65,11 +71,13 @@ public class TariffController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<TariffResponse>> update(@PathVariable UUID id,
                                                               @Valid @RequestBody UpdateTariffRequest req) {
+        access.requireAdmin();
         return ResponseEntity.ok(ApiResponse.success("Tariff version updated", tariffService.update(id, req)));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
+        access.requireAdmin();
         tariffService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Tariff version deactivated"));
     }

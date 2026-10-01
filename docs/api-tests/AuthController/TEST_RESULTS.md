@@ -23,4 +23,4 @@ powershell -ExecutionPolicy Bypass -File docs\api-tests\AuthController\auth_test
 
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
-| — | — | — | First run pending |
+| 2026-10-02 | 46 | 0 | Windows 11, PostgreSQL 17.10, JDK 25.0.4; `mvn clean install` 34/34 |

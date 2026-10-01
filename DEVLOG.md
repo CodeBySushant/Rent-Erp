@@ -539,6 +539,11 @@ draft and a script that lists the branch's commits. No code or schema change.
 **Testing:** unit tests `JwtServiceTest`, `TokenHasherTest`, `PasswordPolicyTest`, `AccessGuardTest`; live script `docs/api-tests/AuthController/auth_test.ps1`. Detail: [docs/devlog/DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md).
 
 ---
+### [2026-10-02] Authentication and authorization
+
+`AuthController` (OTP + password login, register, refresh, logout, me) with JWT access tokens and rotating refresh tokens in `user_sessions` (V13); every controller now authorizes from the token via `AccessGuard` / `ResourceAccess` (owner / manager / view-only per property, tenants limited to their own membership); `tenant_profiles.created_by` (V14); standard error `code` on every error; Hindi accepted. Detail: [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md). Tests: `mvn test` 34/34, [AuthController](docs/api-tests/AuthController/TEST_RESULTS.md) 46/46, [Authorization](docs/api-tests/Authorization/TEST_RESULTS.md).
+
+---
 ## Controller Log
 
 | Controller | Status | Detail | Tests |

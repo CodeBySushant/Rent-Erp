@@ -57,6 +57,11 @@ public class AccessGuard {
                 ApiException.unauthorized("UNAUTHENTICATED", "Please log in to continue."));
     }
 
+    /** Whether this request is subject to checks (see {@link #shouldCheck()}). */
+    public boolean checking() {
+        return shouldCheck();
+    }
+
     /**
      * True when the request should be checked: there is a caller, or
      * enforcement is on (in which case a missing caller is a 401).

@@ -65,3 +65,12 @@ Order and scope of the work are agreed task by task; each task gets an entry bel
 - **Hindi (G2):** V13 allows `hi` in `users` and `tenant_profiles`; DTO patterns updated.
 - **Errors (G3):** `ApiException` (status + code), every error body carries `code`; 400 for malformed input, 409 for constraint violations, 401/403/410/429/503 where they apply.
 - **Decisions:** JWT signed with the JDK (no new dependency); `AUTH_ENFORCED` defaults to true and exists only so the owner's Postman collections still run locally; the app's `ownerUserId` query parameter is ignored for non-admins.
+
+### [2026-10-02] Authentication, sessions, error codes, Hindi (G1–G3)
+
+`AuthController` (8 endpoints), access + refresh tokens with rotation and per-request session checks, BCrypt passwords with lockout, rate-limited OTP (log sender only in `APP_ENV=local`), standard error codes, Hindi for users and tenant profiles (V13). Authorization started on users, properties and property access. Detail: [DEVLOG_AUTH.md](DEVLOG_AUTH.md). Live test 46/46, `mvn clean install` 34/34. Also fixed: `JwtService` constructor wiring, and the context test never loading `.env` (pre-existing).
+
+### [2026-10-02] Authorization on every domain (G1, data scoping)
+
+`ResourceAccess` checks on all remaining controllers (structure, charges, meters, readings, coverage events, tenancy, tenant finance, billing, tariffs). Tenants read only their own membership and what hangs off it. `tenant_profiles.created_by` (V14) so a landlord can see a tenant they just entered. Lists require a property for non-admins. Live test: `docs/api-tests/Authorization/authz_test.ps1`.
+

@@ -1,5 +1,6 @@
 package com.renterp.domain.tenancy.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.tenancy.dto.*;
@@ -23,18 +24,25 @@ public class MembershipController {
 
     private final MembershipService service;
 
-    public MembershipController(MembershipService service) { this.service = service; }
+    private final ResourceAccess access;
+
+    public MembershipController(ResourceAccess access,
+            MembershipService service) {
+        this.access = access; this.service = service; }
 
     // Direct-create path used by unlinked/existing-tenant onboarding (spec §10.3 / T7).
     // Linked tenants land here via POST /join-requests/{id}/accept instead.
     @PostMapping
     public ResponseEntity<ApiResponse<MembershipResponse>> create(@Valid @RequestBody CreateMembershipRequest req) {
+        access.property(req.getPropertyId(), ResourceAccess.Level.WRITE);
+        access.tenantProfile(req.getTenantProfileId(), ResourceAccess.Level.READ);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Membership created", service.createDirect(req)));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<MembershipResponse>> get(@PathVariable UUID id) {
+        access.membership(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Membership fetched", service.getById(id)));
     }
 
@@ -44,6 +52,7 @@ public class MembershipController {
             @RequestParam(required = false) UUID tenantProfileId,
             @RequestParam(required = false) MembershipStatus status,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        access.tenancyList(propertyId, tenantProfileId);
         Page<MembershipResponse> page = service.list(propertyId, tenantProfileId, status, pageable);
         return ResponseEntity.ok(ApiResponse.success("Memberships fetched", PagedResponse.from(page)));
     }
@@ -51,6 +60,7 @@ public class MembershipController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<MembershipResponse>> update(@PathVariable UUID id,
                                                                     @Valid @RequestBody UpdateMembershipRequest req) {
+        access.membership(id, ResourceAccess.Level.WRITE);
         return ResponseEntity.ok(ApiResponse.success("Membership updated", service.update(id, req)));
     }
 
@@ -60,6 +70,7 @@ public class MembershipController {
     @PostMapping("/{id}/terminate")
     public ResponseEntity<ApiResponse<MembershipResponse>> terminate(@PathVariable UUID id,
                                                                       @Valid @RequestBody TerminateMembershipRequest req) {
+        access.membership(id, ResourceAccess.Level.WRITE);
         return ResponseEntity.ok(ApiResponse.success("Membership terminated", service.terminate(id, req)));
     }
 
@@ -68,12 +79,15 @@ public class MembershipController {
     @PostMapping("/{id}/room-assignments")
     public ResponseEntity<ApiResponse<RoomAssignmentResponse>> assignRoom(@PathVariable UUID id,
                                                                             @Valid @RequestBody CreateRoomAssignmentRequest req) {
+        access.membership(id, ResourceAccess.Level.WRITE);
+        access.room(req.getRoomId(), ResourceAccess.Level.WRITE);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Room assigned", service.assignRoom(id, req)));
     }
 
     @GetMapping("/{id}/room-assignments")
     public ResponseEntity<ApiResponse<List<RoomAssignmentResponse>>> listAssignments(@PathVariable UUID id) {
+        access.membership(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Room assignments fetched", service.listAssignments(id)));
     }
 
@@ -83,6 +97,7 @@ public class MembershipController {
     public ResponseEntity<ApiResponse<RoomAssignmentResponse>> endAssignment(@PathVariable UUID id,
                                                                               @PathVariable UUID assignmentId,
                                                                               @Valid @RequestBody EndRoomAssignmentRequest req) {
+        access.membership(id, ResourceAccess.Level.WRITE);
         return ResponseEntity.ok(ApiResponse.success("Room assignment ended",
                 service.endAssignment(id, assignmentId, req)));
     }

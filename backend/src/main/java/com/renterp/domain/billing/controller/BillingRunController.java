@@ -1,5 +1,6 @@
 package com.renterp.domain.billing.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.billing.dto.*;
@@ -27,7 +28,11 @@ public class BillingRunController {
     private final BillingRunService billingRunService;
     private final TenantBillService tenantBillService;
 
-    public BillingRunController(BillingRunService billingRunService, TenantBillService tenantBillService) {
+    private final ResourceAccess access;
+
+    public BillingRunController(ResourceAccess access,
+            BillingRunService billingRunService, TenantBillService tenantBillService) {
+        this.access = access;
         this.billingRunService = billingRunService;
         this.tenantBillService = tenantBillService;
     }
@@ -38,6 +43,7 @@ public class BillingRunController {
             @PathVariable UUID propertyId,
             @Valid @RequestBody CreateBillingRunRequest req,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKeyHeader) {
+        access.property(propertyId, ResourceAccess.Level.WRITE);
 
         if (idempotencyKeyHeader != null && req.getIdempotencyKey() == null) {
             req.setIdempotencyKey(idempotencyKeyHeader);
@@ -49,6 +55,7 @@ public class BillingRunController {
 
     @GetMapping("/api/v1/billing-runs/{id}")
     public ResponseEntity<ApiResponse<BillingRunResponse>> getRun(@PathVariable UUID id) {
+        access.billingRun(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Billing run fetched", billingRunService.getRun(id)));
     }
 
@@ -56,23 +63,27 @@ public class BillingRunController {
     public ResponseEntity<ApiResponse<PagedResponse<BillingRunResponse>>> listRuns(
             @PathVariable UUID propertyId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        access.property(propertyId, ResourceAccess.Level.READ);
         Page<BillingRunResponse> page = billingRunService.listRuns(propertyId, pageable);
         return ResponseEntity.ok(ApiResponse.success("Billing runs fetched", PagedResponse.from(page)));
     }
 
     @GetMapping("/api/v1/billing-runs/{id}/segments")
     public ResponseEntity<ApiResponse<List<BillingRunSegmentResponse>>> getSegments(@PathVariable UUID id) {
+        access.billingRun(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Segments fetched", billingRunService.getSegments(id)));
     }
 
     @GetMapping("/api/v1/billing-runs/{id}/bills")
     public ResponseEntity<ApiResponse<List<TenantBillResponse>>> getBills(@PathVariable UUID id) {
+        access.billingRun(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Bills fetched", tenantBillService.listByRun(id)));
     }
 
     // B15 — poll async run progress (RUNNING → COMPLETED | FAILED).
     @GetMapping("/api/v1/billing-runs/{id}/progress")
     public ResponseEntity<ApiResponse<BillingRunProgressResponse>> getProgress(@PathVariable UUID id) {
+        access.billingRun(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Progress fetched", billingRunService.getProgress(id)));
     }
 
@@ -80,6 +91,7 @@ public class BillingRunController {
     public ResponseEntity<ApiResponse<BillingRunResponse>> confirm(
             @PathVariable UUID id,
             @RequestBody(required = false) ConfirmBillingRunRequest req) {
+        access.billingRun(id, ResourceAccess.Level.WRITE);
         return ResponseEntity.ok(ApiResponse.success("Billing run confirmed", billingRunService.confirm(id, req)));
     }
 
@@ -87,6 +99,7 @@ public class BillingRunController {
     public ResponseEntity<ApiResponse<BillingRunResponse>> cancel(
             @PathVariable UUID id,
             @Valid @RequestBody CancelBillingRunRequest req) {
+        access.billingRun(id, ResourceAccess.Level.WRITE);
         return ResponseEntity.ok(ApiResponse.success("Billing run cancelled", billingRunService.cancel(id, req)));
     }
 }

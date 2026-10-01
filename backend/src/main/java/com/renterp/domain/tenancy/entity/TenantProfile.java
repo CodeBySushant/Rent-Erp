@@ -25,6 +25,11 @@ public class TenantProfile extends BaseAuditEntity {
     @Column(name = "user_id", columnDefinition = "uuid")
     private UUID userId;
 
+    // The account that created this profile (a landlord entering an unlinked
+    // tenant, or the tenant themself). NULL for profiles created before V14.
+    @Column(name = "created_by", columnDefinition = "uuid", updatable = false)
+    private UUID createdBy;
+
     @Column(name = "full_name", nullable = false, length = 255)
     private String fullName;
 

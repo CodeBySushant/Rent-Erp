@@ -1,5 +1,9 @@
 package com.renterp.domain.tenancy.service;
 
+import java.util.Optional;
+import java.util.List;
+import com.renterp.domain.auth.security.AuthUser;
+import com.renterp.domain.auth.security.AccessGuard;
 import com.renterp.common.exception.DuplicateResourceException;
 import com.renterp.common.exception.InvalidOperationException;
 import com.renterp.common.exception.ResourceNotFoundException;
@@ -34,15 +38,18 @@ public class TenantProfileService {
     private final TenantKycRepository kycRepository;
     private final TenantPropertyMembershipRepository membershipRepository;
     private final UserRepository userRepository;
+    private final AccessGuard guard;
 
     public TenantProfileService(TenantProfileRepository profileRepository,
                                  TenantKycRepository kycRepository,
                                  TenantPropertyMembershipRepository membershipRepository,
-                                 UserRepository userRepository) {
+                                 UserRepository userRepository,
+                                 AccessGuard guard) {
         this.profileRepository = profileRepository;
         this.kycRepository = kycRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
+        this.guard = guard;
     }
 
     // ── Profile ─────────────────────────────────────────────────────────────
@@ -65,6 +72,7 @@ public class TenantProfileService {
 
         TenantProfile p = TenantProfile.builder()
                 .userId(req.getUserId())
+                .createdBy(guard.current().map(AuthUser::userId).orElse(null))
                 .fullName(req.getFullName())
                 .phone(req.getPhone())
                 .whatsappNumber(req.getWhatsappNumber())
@@ -86,8 +94,22 @@ public class TenantProfileService {
 
     @Transactional(readOnly = true)
     public Page<TenantProfileResponse> listProfiles(Pageable pageable) {
-        return profileRepository.findAll(pageable).map(TenantProfileResponse::from);
+        // Admins and unenforced developer requests see every profile; everyone
+        // else only their own, the ones they created, and their properties'
+        // tenants (members or join requests).
+        Optional<List<UUID>> visible = guard.visiblePropertyIds();
+        if (visible.isEmpty()) {
+            return profileRepository.findAll(pageable).map(TenantProfileResponse::from);
+        }
+        List<UUID> propertyIds = visible.get().isEmpty()
+                ? List.of(NO_PROPERTY) : visible.get();
+        UUID callerId = guard.requireUser().userId();
+        return profileRepository.findVisible(callerId, propertyIds, pageable)
+                .map(TenantProfileResponse::from);
     }
+
+    /** Placeholder for an empty IN list (no property has this id). */
+    private static final UUID NO_PROPERTY = new UUID(0L, 0L);
 
     @Transactional
     public TenantProfileResponse updateProfile(UUID id, UpdateTenantProfileRequest req) {

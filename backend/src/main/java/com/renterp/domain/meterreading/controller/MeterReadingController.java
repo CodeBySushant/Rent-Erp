@@ -1,5 +1,6 @@
 package com.renterp.domain.meterreading.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.meterreading.dto.*;
@@ -29,8 +30,12 @@ public class MeterReadingController {
     private final MeterReadingService readingService;
     private final MeterReplacementService replacementService;
 
-    public MeterReadingController(MeterReadingService readingService,
+    private final ResourceAccess access;
+
+    public MeterReadingController(ResourceAccess access,
+            MeterReadingService readingService,
                                    MeterReplacementService replacementService) {
+        this.access = access;
         this.readingService = readingService;
         this.replacementService = replacementService;
     }
@@ -40,6 +45,7 @@ public class MeterReadingController {
     @PostMapping("/api/v1/meters/{meterId}/readings")
     public ResponseEntity<ApiResponse<MeterReadingResponse>> submit(
             @PathVariable UUID meterId, @Valid @RequestBody SubmitReadingRequest request) {
+        access.meter(meterId, ResourceAccess.Level.WRITE);
         log.debug("POST /meters/{}/readings — type: {}, date: {}", meterId, request.getReadingType(), request.getReadingDateBs());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -53,6 +59,7 @@ public class MeterReadingController {
             @RequestParam(required = false) ReadingStatus status,
             @PageableDefault(size = 20, sort = "readingDateBs", direction = Sort.Direction.DESC)
             Pageable pageable) {
+        access.meter(meterId, ResourceAccess.Level.READ);
         log.debug("GET /meters/{}/readings — type: {}, status: {}", meterId, type, status);
         Page<MeterReadingResponse> page = readingService.getReadingsForMeter(meterId, type, status, pageable);
         return ResponseEntity.ok(ApiResponse.success("Readings fetched successfully", PagedResponse.from(page)));
@@ -62,18 +69,21 @@ public class MeterReadingController {
 
     @GetMapping("/api/v1/readings/{id}")
     public ResponseEntity<ApiResponse<MeterReadingResponse>> get(@PathVariable UUID id) {
+        access.reading(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Reading fetched successfully", readingService.getReadingById(id)));
     }
 
     // Confirm — PENDING → CONFIRMED. Once confirmed, the row is immutable (§7.5).
     @PostMapping("/api/v1/readings/{id}/confirm")
     public ResponseEntity<ApiResponse<MeterReadingResponse>> confirm(@PathVariable UUID id) {
+        access.reading(id, ResourceAccess.Level.WRITE);
         return ResponseEntity.ok(ApiResponse.success("Reading confirmed", readingService.confirmReading(id)));
     }
 
     // Discard — only while PENDING; a draft the landlord decided not to submit.
     @DeleteMapping("/api/v1/readings/{id}")
     public ResponseEntity<ApiResponse<Void>> discard(@PathVariable UUID id) {
+        access.reading(id, ResourceAccess.Level.WRITE);
         readingService.discardPendingReading(id);
         return ResponseEntity.ok(ApiResponse.success("PENDING reading discarded"));
     }
@@ -83,6 +93,7 @@ public class MeterReadingController {
     @PostMapping("/api/v1/readings/{id}/corrections")
     public ResponseEntity<ApiResponse<MeterReadingResponse>> correct(
             @PathVariable UUID id, @Valid @RequestBody CorrectionRequest request) {
+        access.reading(id, ResourceAccess.Level.WRITE);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Correction recorded", readingService.correctReading(id, request)));
@@ -92,6 +103,7 @@ public class MeterReadingController {
 
     @GetMapping("/api/v1/meters/{meterId}/estimation-hint")
     public ResponseEntity<ApiResponse<EstimationHintResponse>> estimationHint(@PathVariable UUID meterId) {
+        access.meter(meterId, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Estimation hint computed", readingService.estimationHint(meterId)));
     }
 
@@ -100,6 +112,7 @@ public class MeterReadingController {
     @PostMapping("/api/v1/meters/{meterId}/replacement")
     public ResponseEntity<ApiResponse<ReplacementEventResponse>> replace(
             @PathVariable UUID meterId, @Valid @RequestBody CreateReplacementRequest request) {
+        access.meter(meterId, ResourceAccess.Level.WRITE);
         log.debug("POST /meters/{}/replacement — date: {}", meterId, request.getReplacementDateBs());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -108,6 +121,7 @@ public class MeterReadingController {
 
     @GetMapping("/api/v1/meters/{meterId}/replacement-events")
     public ResponseEntity<ApiResponse<List<ReplacementEventResponse>>> listReplacements(@PathVariable UUID meterId) {
+        access.meter(meterId, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Replacement events fetched", replacementService.listForMeter(meterId)));
     }
 }

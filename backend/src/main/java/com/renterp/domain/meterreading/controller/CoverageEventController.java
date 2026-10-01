@@ -1,5 +1,6 @@
 package com.renterp.domain.meterreading.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.meterreading.dto.CoverageEventResponse;
@@ -26,7 +27,11 @@ public class CoverageEventController {
 
     private final CoverageEventService service;
 
-    public CoverageEventController(CoverageEventService service) {
+    private final ResourceAccess access;
+
+    public CoverageEventController(ResourceAccess access,
+            CoverageEventService service) {
+        this.access = access;
         this.service = service;
     }
 
@@ -34,6 +39,7 @@ public class CoverageEventController {
     // single owning meter in its URL.
     @PostMapping
     public ResponseEntity<ApiResponse<CoverageEventResponse>> create(@Valid @RequestBody CreateCoverageEventRequest request) {
+        access.property(request.getPropertyId(), ResourceAccess.Level.WRITE);
         log.debug("POST /coverage-events — type: {}, meters: {}", request.getEventType(), request.getAffectedMeters().size());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -42,6 +48,7 @@ public class CoverageEventController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CoverageEventResponse>> get(@PathVariable UUID id) {
+        access.coverageEvent(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Coverage event fetched successfully", service.getEvent(id)));
     }
 
@@ -50,6 +57,7 @@ public class CoverageEventController {
             @RequestParam UUID propertyId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
+        access.property(propertyId, ResourceAccess.Level.READ);
         Page<CoverageEventResponse> page = service.listByProperty(propertyId, pageable);
         return ResponseEntity.ok(ApiResponse.success("Coverage events fetched successfully", PagedResponse.from(page)));
     }

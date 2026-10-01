@@ -1,5 +1,6 @@
 package com.renterp.domain.meter.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.meter.dto.*;
@@ -28,7 +29,11 @@ public class MeterController {
 
     private final MeterService meterService;
 
-    public MeterController(MeterService meterService) {
+    private final ResourceAccess access;
+
+    public MeterController(ResourceAccess access,
+            MeterService meterService) {
+        this.access = access;
         this.meterService = meterService;
     }
 
@@ -36,6 +41,7 @@ public class MeterController {
     @PostMapping
     public ResponseEntity<ApiResponse<MeterResponse>> createMeter(
             @Valid @RequestBody CreateMeterRequest request) {
+        access.property(request.getPropertyId(), ResourceAccess.Level.WRITE);
 
         log.debug("POST /api/v1/meters — property: {}, label: {}, type: {}",
                 request.getPropertyId(), request.getLabel(), request.getMeterType());
@@ -48,6 +54,7 @@ public class MeterController {
     // ── GET /api/v1/meters/{id} ─────────────────────────────────────────────────
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<MeterResponse>> getMeterById(@PathVariable UUID id) {
+        access.meter(id, ResourceAccess.Level.READ);
         log.debug("GET /api/v1/meters/{}", id);
         return ResponseEntity.ok(ApiResponse.success("Meter fetched successfully",
                 meterService.getMeterById(id)));
@@ -62,6 +69,7 @@ public class MeterController {
             @RequestParam(required = false) MeterPurpose meterPurpose,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
+        access.propertyList(propertyId);
 
         log.debug("GET /api/v1/meters — property: {}, type: {}, purpose: {}",
                 propertyId, meterType, meterPurpose);
@@ -74,6 +82,7 @@ public class MeterController {
     public ResponseEntity<ApiResponse<MeterResponse>> updateMeter(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateMeterRequest request) {
+        access.meter(id, ResourceAccess.Level.WRITE);
 
         log.debug("PUT /api/v1/meters/{}", id);
         return ResponseEntity.ok(ApiResponse.success("Meter updated successfully",
@@ -85,6 +94,7 @@ public class MeterController {
     // end coverage first. Never removes the record; meters remain readable for historical bills.
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deactivateMeter(@PathVariable UUID id) {
+        access.meter(id, ResourceAccess.Level.WRITE);
         log.debug("DELETE /api/v1/meters/{}", id);
         meterService.deactivateMeter(id);
         return ResponseEntity.ok(ApiResponse.success("Meter deactivated successfully"));
@@ -97,6 +107,8 @@ public class MeterController {
     public ResponseEntity<ApiResponse<MeterRoomCoverageResponse>> addRoomCoverage(
             @PathVariable UUID id,
             @Valid @RequestBody CreateMeterRoomCoverageRequest request) {
+        access.meter(id, ResourceAccess.Level.WRITE);
+        access.room(request.getRoomId(), ResourceAccess.Level.WRITE);
 
         log.debug("POST /api/v1/meters/{}/coverage — room: {}", id, request.getRoomId());
         MeterRoomCoverageResponse response = meterService.addRoomCoverage(id, request);
@@ -108,6 +120,7 @@ public class MeterController {
     // GET /api/v1/meters/{id}/coverage — full dated coverage history for this meter.
     @GetMapping("/{id}/coverage")
     public ResponseEntity<ApiResponse<List<MeterRoomCoverageResponse>>> listRoomCoverage(@PathVariable UUID id) {
+        access.meter(id, ResourceAccess.Level.READ);
         log.debug("GET /api/v1/meters/{}/coverage", id);
         return ResponseEntity.ok(ApiResponse.success("Coverage rows fetched successfully",
                 meterService.listRoomCoverage(id)));
@@ -120,6 +133,7 @@ public class MeterController {
             @PathVariable UUID id,
             @PathVariable UUID coverageId,
             @Valid @RequestBody EndMeterRoomCoverageRequest request) {
+        access.meter(id, ResourceAccess.Level.WRITE);
 
         log.debug("PATCH /api/v1/meters/{}/coverage/{}/end — to: {}",
                 id, coverageId, request.getEffectiveToBs());
@@ -134,6 +148,7 @@ public class MeterController {
     public ResponseEntity<ApiResponse<InfrastructureMeterScopeResponse>> addInfrastructureScope(
             @PathVariable UUID id,
             @Valid @RequestBody CreateInfrastructureMeterScopeRequest request) {
+        access.meter(id, ResourceAccess.Level.WRITE);
 
         log.debug("POST /api/v1/meters/{}/infra-scope — scopeBy: {}", id, request.getScopeBy());
         InfrastructureMeterScopeResponse response = meterService.addInfrastructureScope(id, request);
@@ -145,6 +160,7 @@ public class MeterController {
     @GetMapping("/{id}/infra-scope")
     public ResponseEntity<ApiResponse<List<InfrastructureMeterScopeResponse>>> listInfrastructureScope(
             @PathVariable UUID id) {
+        access.meter(id, ResourceAccess.Level.READ);
 
         log.debug("GET /api/v1/meters/{}/infra-scope", id);
         return ResponseEntity.ok(ApiResponse.success("Infrastructure scope rows fetched successfully",
@@ -157,6 +173,7 @@ public class MeterController {
     public ResponseEntity<ApiResponse<Void>> deleteInfrastructureScope(
             @PathVariable UUID id,
             @PathVariable UUID scopeId) {
+        access.meter(id, ResourceAccess.Level.WRITE);
 
         log.debug("DELETE /api/v1/meters/{}/infra-scope/{}", id, scopeId);
         meterService.deleteInfrastructureScope(id, scopeId);

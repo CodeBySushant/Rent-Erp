@@ -1,5 +1,6 @@
 package com.renterp.domain.charge.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.charge.dto.ChargeTemplateResponse;
@@ -28,7 +29,11 @@ public class ChargeTemplateController {
 
     private final ChargeTemplateService chargeTemplateService;
 
-    public ChargeTemplateController(ChargeTemplateService chargeTemplateService) {
+    private final ResourceAccess access;
+
+    public ChargeTemplateController(ResourceAccess access,
+            ChargeTemplateService chargeTemplateService) {
+        this.access = access;
         this.chargeTemplateService = chargeTemplateService;
     }
 
@@ -36,6 +41,7 @@ public class ChargeTemplateController {
     @PostMapping
     public ResponseEntity<ApiResponse<ChargeTemplateResponse>> createChargeTemplate(
             @Valid @RequestBody CreateChargeTemplateRequest request) {
+        access.property(request.getPropertyId(), ResourceAccess.Level.WRITE);
 
         log.debug("POST /api/v1/charge-templates — property: {}, name: {}",
                 request.getPropertyId(), request.getName());
@@ -48,6 +54,7 @@ public class ChargeTemplateController {
     // ── GET /api/v1/charge-templates/{id} ────────────────────────────────────────
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ChargeTemplateResponse>> getChargeTemplateById(@PathVariable UUID id) {
+        access.chargeTemplate(id, ResourceAccess.Level.READ);
         log.debug("GET /api/v1/charge-templates/{}", id);
         ChargeTemplateResponse response = chargeTemplateService.getChargeTemplateById(id);
         return ResponseEntity.ok(ApiResponse.success("Charge template fetched successfully", response));
@@ -61,6 +68,7 @@ public class ChargeTemplateController {
             @RequestParam(required = false) UUID propertyId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
+        access.propertyList(propertyId);
 
         log.debug("GET /api/v1/charge-templates — property: {}, page: {}, size: {}",
                 propertyId, pageable.getPageNumber(), pageable.getPageSize());
@@ -73,6 +81,7 @@ public class ChargeTemplateController {
     public ResponseEntity<ApiResponse<ChargeTemplateResponse>> updateChargeTemplate(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateChargeTemplateRequest request) {
+        access.chargeTemplate(id, ResourceAccess.Level.WRITE);
 
         log.debug("PUT /api/v1/charge-templates/{}", id);
         ChargeTemplateResponse response = chargeTemplateService.updateChargeTemplate(id, request);
@@ -88,6 +97,7 @@ public class ChargeTemplateController {
     public ResponseEntity<ApiResponse<Void>> deactivateChargeTemplate(
             @PathVariable UUID id,
             @RequestParam(required = false, defaultValue = "NEXT_CYCLE") DeactivationMode deactivationMode) {
+        access.chargeTemplate(id, ResourceAccess.Level.WRITE);
 
         log.debug("DELETE /api/v1/charge-templates/{} — mode: {}", id, deactivationMode);
         chargeTemplateService.deactivateChargeTemplate(id, deactivationMode);

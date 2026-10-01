@@ -1,5 +1,6 @@
 package com.renterp.domain.billing.controller;
 
+import com.renterp.domain.auth.security.ResourceAccess;
 import com.renterp.common.response.ApiResponse;
 import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.billing.dto.AdjustmentResponse;
@@ -29,9 +30,13 @@ public class TenantBillController {
     private final BillAdjustmentService adjustmentService;
     private final BillCorrectionService correctionService;
 
-    public TenantBillController(TenantBillService tenantBillService,
+    private final ResourceAccess access;
+
+    public TenantBillController(ResourceAccess access,
+            TenantBillService tenantBillService,
                                BillAdjustmentService adjustmentService,
                                BillCorrectionService correctionService) {
+        this.access = access;
         this.tenantBillService = tenantBillService;
         this.adjustmentService = adjustmentService;
         this.correctionService = correctionService;
@@ -39,6 +44,7 @@ public class TenantBillController {
 
     @GetMapping("/api/v1/tenant-bills/{id}")
     public ResponseEntity<ApiResponse<TenantBillResponse>> getBill(@PathVariable UUID id) {
+        access.tenantBill(id, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Tenant bill fetched", tenantBillService.getById(id)));
     }
 
@@ -47,6 +53,7 @@ public class TenantBillController {
     public ResponseEntity<ApiResponse<BillCorrectionResponse>> correctBill(
             @PathVariable UUID id,
             @Valid @RequestBody CorrectBillRequest req) {
+        access.tenantBill(id, ResourceAccess.Level.WRITE);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Bill corrected", correctionService.correct(id, req)));
     }
@@ -55,6 +62,7 @@ public class TenantBillController {
     public ResponseEntity<ApiResponse<PagedResponse<TenantBillResponse>>> listBills(
             @PathVariable UUID mid,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        access.membership(mid, ResourceAccess.Level.READ);
         Page<TenantBillResponse> page = tenantBillService.listByMembership(mid, pageable);
         return ResponseEntity.ok(ApiResponse.success("Tenant bills fetched", PagedResponse.from(page)));
     }
@@ -65,12 +73,14 @@ public class TenantBillController {
     public ResponseEntity<ApiResponse<AdjustmentResponse>> createAdjustment(
             @PathVariable UUID mid,
             @Valid @RequestBody CreateAdjustmentRequest req) {
+        access.membership(mid, ResourceAccess.Level.WRITE);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Adjustment recorded", adjustmentService.create(mid, req)));
     }
 
     @GetMapping("/api/v1/memberships/{mid}/adjustments")
     public ResponseEntity<ApiResponse<List<AdjustmentResponse>>> listAdjustments(@PathVariable UUID mid) {
+        access.membership(mid, ResourceAccess.Level.READ);
         return ResponseEntity.ok(ApiResponse.success("Adjustments fetched",
                 adjustmentService.listForMembership(mid)));
     }

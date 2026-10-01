@@ -5,6 +5,8 @@ import com.renterp.domain.tenancy.entity.TenantPropertyMembership.MembershipStat
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -25,4 +27,10 @@ public interface TenantPropertyMembershipRepository extends JpaRepository<Tenant
 
     // Billing engine iterates every ACTIVE membership in a property (non-paged).
     List<TenantPropertyMembership> findByPropertyIdAndStatus(UUID propertyId, MembershipStatus status);
+
+    /** Every property this tenant profile has (or had) a membership in. */
+    @Query(
+            "select distinct m.propertyId from TenantPropertyMembership m where m.tenantProfileId = :profileId")
+    List<UUID> findPropertyIdsByTenantProfileId(
+            @Param("profileId") UUID profileId);
 }
