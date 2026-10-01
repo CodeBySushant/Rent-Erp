@@ -14,10 +14,18 @@ app's screens need, and fixes found while integrating. Existing behaviour on
 | Area | Change | Migration | Tests |
 |---|---|---|---|
 | Docs | Branch log, PR draft, branch commit log generator | — | — |
+| Auth | `/api/v1/auth/*`: OTP sign-up and login, email + password login, refresh (rotating), logout, me. Tokens required for every other endpoint. | V13 | unit + `auth_test.ps1` |
+| Authorization | `AccessGuard`; users (self/admin), properties and property access (by grant). `GET /properties` scoped to the caller. | — | `AccessGuardTest`, `auth_test.ps1` |
+| Errors | `code` on every error; 400 for malformed input / bad ids; 409 for constraint violations; 401/403/410/429/503 | — | `auth_test.ps1` |
+| Hindi | `hi` accepted for users and tenant profiles | V13 | `auth_test.ps1` |
 
 ## Breaking changes / migration notes
 
-None yet.
+* **Every endpoint except `/api/v1/auth/*` and `/actuator/health` now needs a bearer token.** Set `AUTH_ENFORCED=false` in a local `.env` to run the earlier Postman collections unchanged.
+* `POST /properties`: the owner is the caller; `ownerUserId` in the body is used only by an admin.
+* `GET /properties?ownerUserId=` is ignored for non-admins (they see their own properties).
+* `POST /users` and `GET /users` are admin-only (accounts are created by `/auth/register`).
+* Error bodies gained a `code` field (additive).
 
 ## How to test
 

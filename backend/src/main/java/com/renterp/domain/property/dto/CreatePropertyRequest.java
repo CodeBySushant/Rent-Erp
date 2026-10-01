@@ -17,7 +17,6 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -31,7 +30,8 @@ public class CreatePropertyRequest {
 
     // No auth context wired yet (Phase 1 only did OTP entities, not the JWT filter) —
     // owner is passed explicitly until an authenticated-principal resolver exists.
-    @NotNull(message = "Owner user id is required")
+    // Ignored for a logged-in owner: the property belongs to the caller. Only an
+    // admin (or a dev request with AUTH_ENFORCED=false) names an owner here.
     private UUID ownerUserId;
 
     @NotBlank(message = "Property name is required")

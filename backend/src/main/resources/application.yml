@@ -50,6 +50,26 @@ spring:
       name: ${DEV_SECURITY_USER}
       password: ${DEV_SECURITY_PASSWORD}
 
+# ── Application ─────────────────────────────────────────────────────────────────
+app:
+  env: ${APP_ENV}                     # local | staging | production
+  auth:
+    jwt-secret: ${JWT_SECRET}         # >= 32 characters; signs access tokens
+    # Requests without a token are rejected unless AUTH_ENFORCED=false
+    # (developer .env only, to run the pre-auth Postman collections).
+    enforce: ${AUTH_ENFORCED:true}
+    access-token-minutes: 15
+    refresh-token-days: 30
+    otp:
+      ttl-seconds: 300                # a code lives 5 minutes
+      resend-after-seconds: 45        # wait before asking for another code
+      max-sends-per-hour: 5           # per phone + purpose
+      max-attempts: 5                 # wrong tries before the code is burned
+      verification-token-minutes: 15  # sign-up proof lifetime
+    password:
+      max-failed-attempts: 5          # in a row, before the password login locks
+      lock-minutes: 15
+
 # ── db-scheduler ────────────────────────────────────────────────────────────────
 db-scheduler:
   enabled: true

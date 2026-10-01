@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,6 +18,9 @@ import java.util.UUID;
 public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
     Page<Property> findByOwnerUserId(UUID ownerUserId, Pageable pageable);
+
+    // Properties the caller holds an access grant on (authorization-scoped list).
+    Page<Property> findByIdIn(Collection<UUID> ids, Pageable pageable);
 
     // Concurrency layer 2 of B10 (double-tap Generate / two devices): the billing engine
     // takes a PESSIMISTIC_WRITE lock on the property row before creating a run, so two

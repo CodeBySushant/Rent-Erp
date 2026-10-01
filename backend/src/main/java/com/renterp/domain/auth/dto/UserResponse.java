@@ -13,6 +13,7 @@ public class UserResponse {
 
     private final UUID id;
     private final String phone;
+    private final String email;
     private final String name;
     private final UserRole role;
     private final KycStatus kycStatus;
@@ -24,6 +25,7 @@ public class UserResponse {
     private UserResponse(User user) {
         this.id = user.getId();
         this.phone = user.getPhone();
+        this.email = user.getEmail();
         this.name = user.getName();
         this.role = user.getRole();
         this.kycStatus = user.getKycStatus();

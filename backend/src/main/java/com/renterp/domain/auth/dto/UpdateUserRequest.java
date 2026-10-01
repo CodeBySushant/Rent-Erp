@@ -12,7 +12,7 @@ public class UpdateUserRequest {
     @Size(max = 255, message = "Name must not exceed 255 characters")
     private String name;
 
-    @Pattern(regexp = "^(en|ne)$", message = "Language must be 'en' or 'ne'")
+    @Pattern(regexp = "^(en|hi|ne)$", message = "Language must be 'en', 'hi' or 'ne'")
     private String preferredLanguage;
 
     // FCM token updated when device re-registers for push notifications

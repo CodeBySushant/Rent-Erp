@@ -25,7 +25,7 @@ public class CreateTenantProfileRequest {
     @Size(max = 20)
     private String whatsappNumber;
 
-    @Pattern(regexp = "^(en|ne)$", message = "preferredLanguage must be 'en' or 'ne'")
+    @Pattern(regexp = "^(en|hi|ne)$", message = "preferredLanguage must be 'en', 'hi' or 'ne'")
     private String preferredLanguage = "en";
 
     private TenantCategory tenantCategory = TenantCategory.INDIVIDUAL;

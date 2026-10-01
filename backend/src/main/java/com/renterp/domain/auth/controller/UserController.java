@@ -5,6 +5,7 @@ import com.renterp.common.response.PagedResponse;
 import com.renterp.domain.auth.dto.CreateUserRequest;
 import com.renterp.domain.auth.dto.UpdateUserRequest;
 import com.renterp.domain.auth.dto.UserResponse;
+import com.renterp.domain.auth.security.AccessGuard;
 import com.renterp.domain.auth.service.UserService;
 import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
@@ -26,9 +27,11 @@ public class UserController {
     private static final Logger log = LogManager.getLogger(UserController.class);
 
     private final UserService userService;
+    private final AccessGuard accessGuard;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, AccessGuard accessGuard) {
         this.userService = userService;
+        this.accessGuard = accessGuard;
     }
 
     // ── POST /api/v1/users ─────────────────────────────────────────────────────
@@ -37,6 +40,9 @@ public class UserController {
             @Valid @RequestBody CreateUserRequest request) {
 
         log.debug("POST /api/v1/users — phone: {}", request.getPhone());
+        // Accounts are created through /api/v1/auth/register; this direct
+        // create is an admin tool.
+        accessGuard.requireAdmin();
         UserResponse response = userService.createUser(request);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -47,6 +53,7 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable UUID id) {
         log.debug("GET /api/v1/users/{}", id);
+        accessGuard.requireSelfOrAdmin(id);
         UserResponse response = userService.getUserById(id);
         return ResponseEntity.ok(ApiResponse.success("User fetched successfully", response));
     }
@@ -65,6 +72,7 @@ public class UserController {
             Pageable pageable) {
 
         log.debug("GET /api/v1/users — page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        accessGuard.requireAdmin();
         Page<UserResponse> page = userService.getAllUsers(pageable);
         return ResponseEntity.ok(ApiResponse.success("Users fetched successfully", PagedResponse.from(page)));
     }
@@ -76,6 +84,7 @@ public class UserController {
             @Valid @RequestBody UpdateUserRequest request) {
 
         log.debug("PUT /api/v1/users/{}", id);
+        accessGuard.requireSelfOrAdmin(id);
         UserResponse response = userService.updateUser(id, request);
         return ResponseEntity.ok(ApiResponse.success("User updated successfully", response));
     }
@@ -85,6 +94,7 @@ public class UserController {
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable UUID id) {
         log.debug("DELETE /api/v1/users/{}", id);
+        accessGuard.requireSelfOrAdmin(id);
         userService.deleteUser(id);
         return ResponseEntity.ok(ApiResponse.success("User deactivated successfully"));
     }

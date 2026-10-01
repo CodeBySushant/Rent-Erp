@@ -20,6 +20,6 @@ public class CreateUserRequest {
 
     private UserRole role = UserRole.LANDLORD;
 
-    @Pattern(regexp = "^(en|ne)$", message = "Language must be 'en' or 'ne'")
+    @Pattern(regexp = "^(en|hi|ne)$", message = "Language must be 'en', 'hi' or 'ne'")
     private String preferredLanguage = "en";
 }

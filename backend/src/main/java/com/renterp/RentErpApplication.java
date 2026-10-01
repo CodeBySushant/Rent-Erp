@@ -25,7 +25,8 @@ public class RentErpApplication {
      *  - .env is silently skipped if the file does not exist (production has no .env)
      *  - Missing required vars surface as startup failure in application.yml (no defaults)
      */
-    private static void loadDotenv() {
+    // Package-private so the Spring context test can load backend/.env too.
+    static void loadDotenv() {
         Dotenv dotenv = Dotenv.configure()
                 .directory("./")
                 .ignoreIfMissing()

@@ -40,7 +40,31 @@ public class OtpAttempt {
     @Builder.Default
     private boolean used = false;
 
+    // ── V13 ───────────────────────────────────────────────────────────────────
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private Purpose purpose = Purpose.LOGIN;
+
+    // Set when a SIGNUP code is checked successfully.
+    private Instant verifiedAt;
+
+    // SHA-256 (hex) of the single-use token /auth/otp/verify hands back;
+    // /auth/register spends it (tokenUsedAt).
+    @Column(length = 64)
+    private String verificationTokenHash;
+
+    private Instant tokenUsedAt;
+
+    // The account a CHANGE_PHONE code was requested by.
+    @Column(name = "user_id", columnDefinition = "uuid")
+    private UUID userId;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
+
+    public enum Purpose {
+        SIGNUP, LOGIN, CHANGE_PHONE
+    }
 }

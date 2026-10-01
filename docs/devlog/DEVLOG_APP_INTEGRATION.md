@@ -57,3 +57,11 @@ Order and scope of the work are agreed task by task; each task gets an entry bel
 - Added this log, the Phase 6 section in `DEVLOG.md`, `docs/PR_APP_INTEGRATION.md`
   and `scripts/update_branch_log.ps1` (generates `docs/BRANCH_COMMITS.md`).
 - No code or schema change.
+
+### [2026-10-02] G1 + G2 + G3: authentication, authorization foundation, Hindi, error codes
+
+- **Auth (G1):** `AuthController` with the eight endpoints the app's auth screens call, sessions in `user_sessions`, rotated refresh tokens, OTP and password limits, dev-only OTP logging. Detail and decisions: `DEVLOG_AUTH.md`.
+- **Authorization:** `AccessGuard`, used by services. This pass covers users, properties and property access; the remaining domains follow (structure, meters, readings, tenancy, finance, billing).
+- **Hindi (G2):** V13 allows `hi` in `users` and `tenant_profiles`; DTO patterns updated.
+- **Errors (G3):** `ApiException` (status + code), every error body carries `code`; 400 for malformed input, 409 for constraint violations, 401/403/410/429/503 where they apply.
+- **Decisions:** JWT signed with the JDK (no new dependency); `AUTH_ENFORCED` defaults to true and exists only so the owner's Postman collections still run locally; the app's `ownerUserId` query parameter is ignored for non-admins.

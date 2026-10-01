@@ -18,7 +18,7 @@ public class UpdateTenantProfileRequest {
     @Size(max = 20)
     private String whatsappNumber;
 
-    @Pattern(regexp = "^(en|ne)$", message = "preferredLanguage must be 'en' or 'ne'")
+    @Pattern(regexp = "^(en|hi|ne)$", message = "preferredLanguage must be 'en', 'hi' or 'ne'")
     private String preferredLanguage;
 
     private TenantCategory tenantCategory;

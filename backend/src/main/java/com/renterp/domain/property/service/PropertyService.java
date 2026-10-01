@@ -1,11 +1,15 @@
 package com.renterp.domain.property.service;
 
+import com.renterp.common.exception.ApiException;
 import com.renterp.common.exception.InvalidOperationException;
 import com.renterp.common.exception.ResourceNotFoundException;
 import com.renterp.domain.property.dto.CreatePropertyRequest;
 import com.renterp.domain.property.dto.PropertyResponse;
 import com.renterp.domain.property.dto.UpdatePropertyRequest;
 import com.renterp.domain.auth.repository.UserRepository;
+import com.renterp.domain.auth.security.AccessGuard;
+import com.renterp.domain.auth.security.AuthUser;
+import com.renterp.domain.propertyaccess.entity.PropertyAccess.AccessRole;
 import com.renterp.domain.meter.repository.MeterRepository;
 import com.renterp.domain.property.entity.Property;
 import com.renterp.domain.property.entity.Property.ElectricityBillingMode;
@@ -18,6 +22,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -29,32 +35,49 @@ public class PropertyService {
     private final UserRepository userRepository;
     private final PropertyAccessService propertyAccessService;
     private final MeterRepository meterRepository;
+    private final AccessGuard accessGuard;
 
     public PropertyService(PropertyRepository propertyRepository, UserRepository userRepository,
                             PropertyAccessService propertyAccessService,
-                            MeterRepository meterRepository) {
+                            MeterRepository meterRepository, AccessGuard accessGuard) {
         this.propertyRepository = propertyRepository;
         this.userRepository = userRepository;
         this.propertyAccessService = propertyAccessService;
         this.meterRepository = meterRepository;
+        this.accessGuard = accessGuard;
     }
 
     // ── Create ─────────────────────────────────────────────────────────────────
 
     @Transactional
     public PropertyResponse createProperty(CreatePropertyRequest request) {
-        log.debug("Creating property — owner: {}, name: {}", request.getOwnerUserId(), request.getName());
+        // The owner is the caller. Only an admin may create a property for
+        // someone else; a non-admin's ownerUserId in the body is ignored. A
+        // request with no caller (AUTH_ENFORCED=false, dev only) must name one.
+        Optional<AuthUser> caller = accessGuard.current();
+        UUID ownerUserId;
+        if (caller.isPresent() && !caller.get().isAdmin()) {
+            ownerUserId = caller.get().userId();
+        } else if (request.getOwnerUserId() != null) {
+            ownerUserId = request.getOwnerUserId();
+        } else if (caller.isPresent()) {
+            ownerUserId = caller.get().userId();
+        } else {
+            accessGuard.requireUser();
+            throw ApiException.badRequest("OWNER_REQUIRED", "ownerUserId is required");
+        }
+        log.debug("Creating property — owner: {}, name: {}", ownerUserId, request.getName());
 
         // Checked explicitly rather than left to the DB FK constraint — without this,
         // a bad ownerUserId falls through to GlobalExceptionHandler's generic 500
         // catch-all instead of a clean 404.
-        if (!userRepository.existsById(request.getOwnerUserId())) {
-            log.warn("Property creation failed — owner user not found: {}", request.getOwnerUserId());
-            throw new ResourceNotFoundException("User", "id", request.getOwnerUserId());
+        if (!userRepository.existsById(ownerUserId)) {
+            log.warn("Property creation failed — owner user not found: {}", ownerUserId);
+            throw new ResourceNotFoundException("User", "id", ownerUserId);
         }
 
         Property property = Property.builder()
-                .ownerUserId(request.getOwnerUserId())
+                .ownerUserId(ownerUserId)
                 .name(request.getName())
                 .address(request.getAddress())
                 .city(request.getCity())
@@ -99,6 +122,7 @@ public class PropertyService {
     @Transactional(readOnly = true)
     public PropertyResponse getPropertyById(UUID id) {
         log.debug("Fetching property by id: {}", id);
+        accessGuard.requirePropertyAccess(id, AccessRole.VIEW_ONLY);
 
         Property property = propertyRepository.findById(id)
                 .orElseThrow(() -> {
@@ -116,9 +140,20 @@ public class PropertyService {
     public Page<PropertyResponse> getAllProperties(UUID ownerUserId, Pageable pageable) {
         log.debug("Fetching properties — owner: {}, page: {}, size: {}", ownerUserId, pageable.getPageNumber(), pageable.getPageSize());
 
-        Page<Property> page = (ownerUserId != null)
-                ? propertyRepository.findByOwnerUserId(ownerUserId, pageable)
-                : propertyRepository.findAll(pageable);
+        // A logged-in owner, manager or viewer sees the properties they hold a
+        // grant on - the ownerUserId filter is only honoured for an admin (or a
+        // dev request with no token).
+        Optional<List<UUID>> visible = accessGuard.visiblePropertyIds();
+        Page<Property> page;
+        if (visible.isPresent()) {
+            page = visible.get().isEmpty()
+                    ? Page.empty(pageable)
+                    : propertyRepository.findByIdIn(visible.get(), pageable);
+        } else {
+            page = (ownerUserId != null)
+                    ? propertyRepository.findByOwnerUserId(ownerUserId, pageable)
+                    : propertyRepository.findAll(pageable);
+        }
 
         Page<PropertyResponse> response = page.map(PropertyResponse::from);
         log.debug("Properties fetched — total: {}, page: {}/{}", response.getTotalElements(), response.getNumber() + 1, response.getTotalPages());
@@ -130,6 +165,7 @@ public class PropertyService {
     @Transactional
     public PropertyResponse updateProperty(UUID id, UpdatePropertyRequest request) {
         log.debug("Updating property — id: {}", id);
+        accessGuard.requirePropertyAccess(id, AccessRole.MANAGER);
 
         Property property = propertyRepository.findById(id)
                 .orElseThrow(() -> {
@@ -246,6 +282,7 @@ public class PropertyService {
     @Transactional
     public void deleteProperty(UUID id) {
         log.debug("Soft deleting property — id: {}", id);
+        accessGuard.requirePropertyAccess(id, AccessRole.OWNER);
 
         Property property = propertyRepository.findById(id)
                 .orElseThrow(() -> {

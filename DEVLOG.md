@@ -530,11 +530,21 @@ malformed input, screen-shaped reads, unbuilt domains, docs drift), the PR
 draft and a script that lists the branch's commits. No code or schema change.
 
 ---
+### [2026-10-02] Authentication, authorization foundation, error codes, Hindi
+
+**Built:** `AuthController` — `/auth/otp/request`, `/otp/verify`, `/register`, `/login` (OTP), `/login/password`, `/refresh`, `/logout`, `/me`. HS256 access tokens (15 min, JDK crypto, no new dependency) naming a `user_sessions` row; refresh tokens (30 days) stored hashed and rotated on every refresh; the filter checks the session on every request, so logout is immediate. OTP: hashed, 5 min, resend 45 s, 5/hour, 5 wrong tries burn it; codes go to the log only when `APP_ENV=local`, elsewhere `/otp/request` returns 503 until an SMS provider exists. BCrypt passwords, case-insensitive email, 15-minute lockout after 5 wrong passwords. `SecurityConfig` now requires a token for everything except auth and health. `AccessGuard` (property rights from `property_access`) applied to users, properties and property access: `GET /properties` is scoped to the caller and `POST /properties` makes the caller the owner. Every error now carries a `code`; malformed JSON / bad UUIDs / missing params are 400 (were 500), constraint violations 409. **V13** adds the auth columns and allows Hindi (`hi`) for users and tenant profiles.
+
+**`AUTH_ENFORCED`** (default true) can be set false in a developer `.env` to run the earlier Postman collections without tokens.
+
+**Testing:** unit tests `JwtServiceTest`, `TokenHasherTest`, `PasswordPolicyTest`, `AccessGuardTest`; live script `docs/api-tests/AuthController/auth_test.ps1`. Detail: [docs/devlog/DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md).
+
+---
 ## Controller Log
 
 | Controller | Status | Detail | Tests |
 |-----------|--------|--------|-------|
-| UserController | ✅ Complete, tested & audit-fix applied | [DEVLOG_USER.md](docs/devlog/DEVLOG_USER.md) | [10/10 passed](docs/api-tests/UserController/TEST_RESULTS.md) |
+| UserController | ✅ Complete, tested & audit-fix applied; scoped to self/admin on `feature/app-integration` | [DEVLOG_USER.md](docs/devlog/DEVLOG_USER.md) | [10/10 passed](docs/api-tests/UserController/TEST_RESULTS.md) |
+| AuthController (+ security, AccessGuard) | 🚧 `feature/app-integration` — implemented, live run pending | [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md) | [auth_test.ps1](docs/api-tests/AuthController/TEST_RESULTS.md) |
 | PropertyController | ✅ Complete, tested & FK-check fix applied; §6.5 gate closed 2026-07-31 | [DEVLOG_PROPERTY.md](docs/devlog/DEVLOG_PROPERTY.md) | [12/12 passed](docs/api-tests/PropertyController/TEST_RESULTS.md) |
 | PropertyAccessController | ✅ Complete, tested, auto OWNER-grant wired into PropertyController | [DEVLOG_PROPERTYACCESS.md](docs/devlog/DEVLOG_PROPERTYACCESS.md) | [18/18 passed](docs/api-tests/PropertyAccessController/TEST_RESULTS.md) |
 | StructureController (Floor + Room) | ✅ Complete, tested | [DEVLOG_STRUCTURE.md](docs/devlog/DEVLOG_STRUCTURE.md) | [30/30 passed](docs/api-tests/StructureController/TEST_RESULTS.md) |

@@ -44,6 +44,9 @@ public class UserSession {
     // NULL = session still valid; set on logout or revocation
     private Instant revokedAt;
 
+    // Updated on every refresh; shown in the device list (V13).
+    private Instant lastUsedAt;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

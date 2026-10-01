@@ -4,6 +4,7 @@ import com.renterp.common.exception.DuplicateResourceException;
 import com.renterp.common.exception.InvalidOperationException;
 import com.renterp.common.exception.ResourceNotFoundException;
 import com.renterp.domain.auth.repository.UserRepository;
+import com.renterp.domain.auth.security.AccessGuard;
 import com.renterp.domain.property.repository.PropertyRepository;
 import com.renterp.domain.propertyaccess.dto.CreatePropertyAccessRequest;
 import com.renterp.domain.propertyaccess.dto.PropertyAccessResponse;
@@ -28,19 +29,24 @@ public class PropertyAccessService {
     private final PropertyAccessRepository propertyAccessRepository;
     private final PropertyRepository propertyRepository;
     private final UserRepository userRepository;
+    private final AccessGuard accessGuard;
 
     public PropertyAccessService(PropertyAccessRepository propertyAccessRepository,
                                   PropertyRepository propertyRepository,
-                                  UserRepository userRepository) {
+                                  UserRepository userRepository,
+                                  AccessGuard accessGuard) {
         this.propertyAccessRepository = propertyAccessRepository;
         this.propertyRepository = propertyRepository;
         this.userRepository = userRepository;
+        this.accessGuard = accessGuard;
     }
 
     // ── Create ─────────────────────────────────────────────────────────────────
 
     @Transactional
     public PropertyAccessResponse createAccess(CreatePropertyAccessRequest request) {
+        // Only the property's owner shares it.
+        accessGuard.requirePropertyAccess(request.getPropertyId(), AccessRole.OWNER);
         log.debug("Granting property access — property: {}, user: {}, role: {}",
                 request.getPropertyId(), request.getUserId(), request.getRole());
 
@@ -109,6 +115,7 @@ public class PropertyAccessService {
                     log.warn("Property access not found — id: {}", id);
                     return new ResourceNotFoundException("PropertyAccess", "id", id);
                 });
+        accessGuard.requirePropertyAccess(access.getPropertyId(), AccessRole.VIEW_ONLY);
 
         return PropertyAccessResponse.from(access);
     }
@@ -119,6 +126,14 @@ public class PropertyAccessService {
     public Page<PropertyAccessResponse> getAllAccess(UUID propertyId, UUID userId, Pageable pageable) {
         log.debug("Fetching property access — property: {}, user: {}, page: {}, size: {}",
                 propertyId, userId, pageable.getPageNumber(), pageable.getPageSize());
+
+        if (propertyId != null) {
+            accessGuard.requirePropertyAccess(propertyId, AccessRole.VIEW_ONLY);
+        } else if (userId != null) {
+            accessGuard.requireSelfOrAdmin(userId);
+        } else {
+            accessGuard.requireAdmin();
+        }
 
         Page<PropertyAccess> page;
         if (propertyId != null) {
@@ -143,6 +158,7 @@ public class PropertyAccessService {
                     log.warn("Update failed — property access not found — id: {}", id);
                     return new ResourceNotFoundException("PropertyAccess", "id", id);
                 });
+        accessGuard.requirePropertyAccess(access.getPropertyId(), AccessRole.OWNER);
 
         if (access.getRole() == AccessRole.OWNER) {
             throw new InvalidOperationException(
@@ -174,6 +190,7 @@ public class PropertyAccessService {
                     log.warn("Revoke failed — property access not found — id: {}", id);
                     return new ResourceNotFoundException("PropertyAccess", "id", id);
                 });
+        accessGuard.requirePropertyAccess(access.getPropertyId(), AccessRole.OWNER);
 
         if (access.getRole() == AccessRole.OWNER) {
             throw new InvalidOperationException(
