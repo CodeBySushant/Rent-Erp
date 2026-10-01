@@ -249,6 +249,33 @@ public final class BsCalendar {
                 "BS date overflow — beyond " + MAX_YEAR + "-12; extend BsCalendar's table");
     }
 
+    // ── AD → BS (added on feature/app-integration) ─────────────────────────────
+    // Screens ask "what is overdue today?" and "which readings are due this
+    // month?", which needs today's BS date. One fixed anchor is enough because
+    // the month-length table above already encodes every BS month: BS
+    // 2000-01-01 fell on AD 1943-04-14 (the same anchor the mobile app uses).
+
+    private static final java.time.LocalDate AD_ANCHOR = java.time.LocalDate.of(1943, 4, 14);
+    private static final String BS_ANCHOR = "2000-01-01";
+    private static final java.time.ZoneId NEPAL = java.time.ZoneId.of("Asia/Kathmandu");
+
+    /** The BS date of an AD date. */
+    public static String fromAd(java.time.LocalDate ad) {
+        long offset = java.time.temporal.ChronoUnit.DAYS.between(AD_ANCHOR, ad);
+        return fromEpochDay(toEpochDay(parse(BS_ANCHOR)) + offset).toString();
+    }
+
+    /** Today's BS date in Nepal time (UTC+05:45), which is what a user means by "today". */
+    public static String today() {
+        return fromAd(java.time.LocalDate.now(NEPAL));
+    }
+
+    /** The first day of the BS month containing {@code bs}, e.g. 2082-06-17 → 2082-06-01. */
+    public static String monthStart(String bs) {
+        BsDate d = parse(bs);
+        return new BsDate(d.year(), d.month(), 1).toString();
+    }
+
     /**
      * The BS date {@code days} after {@code bs} (e.g. due date = generation date + grace
      * period). {@code days} may be negative. Result is validated in-range.

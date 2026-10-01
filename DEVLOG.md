@@ -551,6 +551,12 @@ draft and a script that lists the branch's commits. No code or schema change.
 
 ---
 
+### [2026-10-02] Dashboard, property summary, tenant list
+
+`DashboardController`: `/dashboard`, `/properties/{id}/summary`, `/properties/{id}/tenants` — screen-shaped reads computed from current data; `BsCalendar.today()`. Detail: [DEVLOG_DASHBOARD.md](docs/devlog/DEVLOG_DASHBOARD.md). Tests: [DashboardController](docs/api-tests/DashboardController/TEST_RESULTS.md).
+
+---
+
 ## Controller Log
 
 | Controller | Status | Detail | Tests |
@@ -567,6 +573,7 @@ draft and a script that lists the branch's commits. No code or schema change.
 | TenantFinanceController (deposits + advance rent + opening balances + rent increments) | ✅ Complete, tested; §14.3 T7 completion + T14 (atomic rent-increment apply). Piggybacks `room_assignments.monthly_rent`. Deposit status transitions deferred to Vacancy, consumption to Billing. | [DEVLOG_TENANTFINANCE.md](docs/devlog/DEVLOG_TENANTFINANCE.md) | [33/33 passed](docs/api-tests/TenantFinanceController/TEST_RESULTS.md) |
 | AuthController (+ authorization on every controller) | ✅ Complete, tested (branch `feature/app-integration`) | [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md) | [46/46](docs/api-tests/AuthController/TEST_RESULTS.md), [authz](docs/api-tests/Authorization/TEST_RESULTS.md) |
 | FileController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_FILE.md](docs/devlog/DEVLOG_FILE.md) | [files](docs/api-tests/FileController/TEST_RESULTS.md) |
+| DashboardController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_DASHBOARD.md](docs/devlog/DEVLOG_DASHBOARD.md) | [dashboard](docs/api-tests/DashboardController/TEST_RESULTS.md) |
 | BillingController (tariffs + billing runs + tenant bills + adjustments + corrections + async) + BsCalendar | ✅ **Pass 1 + 2 complete**, tested; §14.2 B3/B4/B5/B8/B9/B10/B11/B13/B14/B15 + M9/M14/M17 + T7/T8/T9/P9 + CUSTOM. Full metered engine (SUB_METERED, NEA blended, segment engine, KUKL/boring, overage, corrections, async workers). Resolves Open Verification Item #1 (BS calendar). Penalty deferred to Payment phase. | [DEVLOG_BILLING.md](docs/devlog/DEVLOG_BILLING.md) | [35/35 + 31/31 + 14/14 unit passed](docs/api-tests/BillingController/TEST_RESULTS.md) |
 
 **Global convention adopted (2026-07-30):** JPA Auditing via `BaseAuditEntity` (`@CreatedDate`/`@LastModifiedDate`). Mutable entities extend it; append-only entities use `@CreatedDate` + `AuditingEntityListener`. Services use `saveAndFlush()` on update/delete so responses carry a fresh `updatedAt`. Applies to all future controllers.

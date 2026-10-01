@@ -76,6 +76,7 @@ if (-not (Test-Path $LogFile)) { throw ('Log file not found: ' + $LogFile) }
 $run = Get-Random -Minimum 100000 -Maximum 999999
 Write-Host ('Run ' + $run + ' against ' + $BaseUrl)
 
+# PowerShell variable names ignore case: $qrRes and $QR must not share a name.
 # Multipart upload. $bytes is the raw file; $purpose / $propertyId as query.
 function Upload([byte[]]$bytes, [string]$name, [string]$purpose, [string]$propertyId, [string]$token, [string]$part = 'file') {
     $url = $BaseUrl + '/files?purpose=' + $purpose
@@ -126,12 +127,12 @@ $P = (Call POST '/properties' @{ name = 'Files ' + $run; electricityBillingMode 
 Assert 'setup: property created' ([bool]$P)
 
 # --- Owner A uploads the payment QR --------------------------------------------
-$qr = Upload $png '..\..\qr.png' 'PAYMENT_QR' $P $A
-Check 'A uploads payment QR' $qr 201
-$QR = $qr.Body.data.id
-Assert 'response has a content url' ($qr.Body.data.url -eq ('/api/v1/files/' + $QR + '/content')) $qr.Raw
-Assert 'client folder names are dropped' ($qr.Body.data.originalName -eq 'qr.png') $qr.Raw
-Assert 'type comes from the bytes' ($qr.Body.data.contentType -eq 'image/png') $qr.Raw
+$qrRes = Upload $png '..\..\qr.png' 'PAYMENT_QR' $P $A
+Check 'A uploads payment QR' $qrRes 201
+$QR = $qrRes.Body.data.id
+Assert 'response has a content url' ($qrRes.Body.data.url -eq ('/api/v1/files/' + $QR + '/content')) $qrRes.Raw
+Assert 'client folder names are dropped' ($qrRes.Body.data.originalName -eq 'qr.png') $qrRes.Raw
+Assert 'type comes from the bytes' ($qrRes.Body.data.contentType -eq 'image/png') $qrRes.Raw
 $dl = Download $QR $A
 Assert 'A downloads the QR, same bytes' (($dl.Status -eq 200) -and ([Convert]::ToBase64String($dl.Bytes) -eq [Convert]::ToBase64String($png))) ('' + $dl.Status)
 Check 'A reads QR metadata' (Call GET ('/files/' + $QR) $null $A) 200
@@ -146,9 +147,9 @@ Check 'A accepts C' (Call POST ('/join-requests/' + $JR + '/accept') @{ startedA
 Assert 'active tenant C downloads the payment QR' ((Download $QR $C).Status -eq 200)
 
 # --- Tenant C uploads a payment proof for the property -------------------------
-$proof = Upload $pdf 'receipt.pdf' 'PAYMENT_PROOF' $P $C
-Check 'C uploads payment proof (PDF)' $proof 201
-$PROOF = $proof.Body.data.id
+$proofRes = Upload $pdf 'receipt.pdf' 'PAYMENT_PROOF' $P $C
+Check 'C uploads payment proof (PDF)' $proofRes 201
+$PROOF = $proofRes.Body.data.id
 Assert 'owner A can read the proof' ((Download $PROOF $A).Status -eq 200)
 Assert 'owner B cannot read the proof -> 403' ((Download $PROOF $B).Status -eq 403)
 Check 'C cannot upload a payment QR -> 403' (Upload $png 'qr.png' 'PAYMENT_QR' $P $C) 403 'FORBIDDEN'
@@ -161,9 +162,9 @@ Check 'unknown purpose -> 400' (Upload $png 'x.png' 'SELFIES' $null $A) 400 'INV
 Check 'missing file part -> 400' (Upload $png 'x.png' 'OTHER' $null $A 'document') 400 'MISSING_PARAMETER'
 Check 'over 5 MB -> 413' (Upload (Png 5500000) 'big.png' 'OTHER' $null $A) 413 'FILE_TOO_LARGE'
 Check 'upload without a token -> 401' (Upload $png 'x.png' 'OTHER' $null $null) 401 'UNAUTHENTICATED'
-$private = Upload $png 'selfie.png' 'KYC_SELFIE' $null $C
-Check 'C uploads a private selfie (no property)' $private 201
-Assert 'A cannot read C private selfie -> 403' ((Download $private.Body.data.id $A).Status -eq 403)
+$selfieRes = Upload $png 'selfie.png' 'KYC_SELFIE' $null $C
+Check 'C uploads a private selfie (no property)' $selfieRes 201
+Assert 'A cannot read C private selfie -> 403' ((Download $selfieRes.Body.data.id $A).Status -eq 403)
 
 # --- Delete --------------------------------------------------------------------
 Check 'B deletes A QR -> 403' (Call DELETE ('/files/' + $QR) $null $B) 403 'FORBIDDEN'

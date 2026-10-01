@@ -96,4 +96,23 @@ class BsCalendarTest {
         assertThrows(InvalidOperationException.class,
                 () -> BsCalendar.inclusiveDays("2082-03-20", "2082-03-15"));
     }
+
+    // ── AD → BS (feature/app-integration) ───────────────────────────────────
+
+    @org.junit.jupiter.api.Test
+    void fromAdMatchesKnownNewYears() {
+        // Nepali New Year (Baishakh 1) fell on these AD dates.
+        org.junit.jupiter.api.Assertions.assertEquals("2000-01-01",
+                BsCalendar.fromAd(java.time.LocalDate.of(1943, 4, 14)));
+        org.junit.jupiter.api.Assertions.assertEquals("2081-01-01",
+                BsCalendar.fromAd(java.time.LocalDate.of(2024, 4, 13)));
+        org.junit.jupiter.api.Assertions.assertEquals("2082-01-01",
+                BsCalendar.fromAd(java.time.LocalDate.of(2025, 4, 14)));
+    }
+
+    @org.junit.jupiter.api.Test
+    void monthStartAndTodayAreWellFormed() {
+        org.junit.jupiter.api.Assertions.assertEquals("2082-06-01", BsCalendar.monthStart("2082-06-17"));
+        org.junit.jupiter.api.Assertions.assertTrue(BsCalendar.isValid(BsCalendar.today()));
+    }
 }

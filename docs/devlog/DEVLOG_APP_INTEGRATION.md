@@ -78,3 +78,9 @@ Order and scope of the work are agreed task by task; each task gets an entry bel
 
 `POST/GET/DELETE /api/v1/files` with `stored_files` (V15): type sniffed from the bytes, 5 MB cap, server-generated keys, private by default, readable by the uploader, the file's property and (QR only) its active tenants. `FileStorage` port with local-disk storage; S3 / Supabase Storage later behind the same API. Detail: [DEVLOG_FILE.md](DEVLOG_FILE.md). App: `FileRepository.upload` and `ApiClient.authHeaders` for showing protected images.
 
+### [2026-10-02] Dashboard, property summary, tenant list
+
+`GET /dashboard`, `GET /properties/{id}/summary`, `GET /properties/{id}/tenants`: rooms / occupancy / tenants / join requests / owed / overdue / current billing / readings pending, and tenant rows with room names, rent, latest bill and amount owed, all from current data in a fixed number of queries. `BsCalendar.today()` (AD → BS). App: dashboard and property list read the summaries (2 requests instead of 1 + 2 per property); the tenant list is one request instead of 1 + 3 per tenant. Detail: [DEVLOG_DASHBOARD.md](DEVLOG_DASHBOARD.md).
+
+Also: `files_test.ps1` first run 25/28 — the 3 failures were a PowerShell variable-name clash in the script (`$qr` / `$QR`), fixed.
+

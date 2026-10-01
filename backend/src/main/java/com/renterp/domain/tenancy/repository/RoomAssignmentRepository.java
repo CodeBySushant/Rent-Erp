@@ -24,4 +24,7 @@ public interface RoomAssignmentRepository extends JpaRepository<RoomAssignment, 
     // Billing engine: a membership's currently-active room assignments (rent = sum of their
     // monthly_rent; room count = weight for ROOM_WEIGHTED splits).
     List<RoomAssignment> findByMembershipIdAndEffectiveToBsIsNull(UUID membershipId);
+
+    /** Current (open-ended) assignments of these memberships. */
+    List<RoomAssignment> findByMembershipIdInAndEffectiveToBsIsNull(java.util.Collection<UUID> membershipIds);
 }

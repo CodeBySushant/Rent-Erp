@@ -20,6 +20,7 @@ app's screens need, and fixes found while integrating. Existing behaviour on
 | Hindi | `hi` accepted for users and tenant profiles | V13 | `auth_test.ps1` |
 | Authorization (all domains) | `ResourceAccess` on every controller: property access for structure, charges, meters, readings, tenancy, finance, billing; tenants limited to their own membership and its bills/finance; tariffs admin-only to write; non-admin lists need `propertyId`; `tenant_profiles.created_by` | V14 | `authz_test.ps1` |
 | Files | `POST/GET/DELETE /files`, protected `/files/{id}/content`; type from bytes, 5 MB, private by default; local storage behind `FileStorage` | V15 | unit + `files_test.ps1` |
+| Dashboard | `GET /dashboard`, `/properties/{id}/summary`, `/properties/{id}/tenants`; `BsCalendar.today()` | — | `BsCalendarTest`, `dashboard_test.ps1` |
 
 ## Breaking changes / migration notes
 
