@@ -130,3 +130,9 @@ No API change. Tenant: My Bills (`/memberships/{id}/bills`), bill detail with pa
 
 `move_outs` (V19): notice (tenant or owner), withdraw, settle — deposit pays unpaid bills (as payments), then final charges and damages, rest refunded; tenancy ended and rooms freed; history kept. App: owner Vacate (notice / settle / record) and tenant Move out (notice / withdraw). Detail: [DEVLOG_MOVEOUT.md](DEVLOG_MOVEOUT.md).
 
+### [2026-10-02] Live run: move-out 29/29 (payments re-run 39/39)
+
+### [2026-10-02] Room transfer
+
+`POST /memberships/{id}/room-transfer`: old room closed and new room opened in one transaction with both rooms locked; refusals leave the tenant in place; history kept. App: tenant page → Add Rooms → move to another room / add a room. Detail: [DEVLOG_ROOM_TRANSFER.md](DEVLOG_ROOM_TRANSFER.md).
+
