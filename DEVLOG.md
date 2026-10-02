@@ -581,6 +581,12 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 ---
 
+### [2026-10-02] Payments (Phase 6)
+
+`PaymentController`: owner records, tenant proofs, approve / reject / withdraw, histories; `payments` (V18); billing runs with payments cannot be cancelled. Detail: [DEVLOG_PAYMENT.md](docs/devlog/DEVLOG_PAYMENT.md). Tests: [PaymentController](docs/api-tests/PaymentController/TEST_RESULTS.md).
+
+---
+
 ## Controller Log
 
 | Controller | Status | Detail | Tests |
@@ -598,6 +604,7 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 | AuthController (+ authorization on every controller) | ✅ Complete, tested (branch `feature/app-integration`) | [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md) | [46/46](docs/api-tests/AuthController/TEST_RESULTS.md), [authz](docs/api-tests/Authorization/TEST_RESULTS.md) |
 | FileController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_FILE.md](docs/devlog/DEVLOG_FILE.md) | [files](docs/api-tests/FileController/TEST_RESULTS.md) |
 | TenantOnboardingController (Add Tenant) | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_ONBOARDING.md](docs/devlog/DEVLOG_ONBOARDING.md) | [add tenant](docs/api-tests/TenantOnboarding/TEST_RESULTS.md) |
+| PaymentController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_PAYMENT.md](docs/devlog/DEVLOG_PAYMENT.md) | [payments](docs/api-tests/PaymentController/TEST_RESULTS.md) |
 | MyStayController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_MYSTAY.md](docs/devlog/DEVLOG_MYSTAY.md) | [my stay](docs/api-tests/MyStay/TEST_RESULTS.md) |
 | JoinByCodeController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_JOIN.md](docs/devlog/DEVLOG_JOIN.md) | [join](docs/api-tests/JoinByCode/TEST_RESULTS.md) |
 | DashboardController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_DASHBOARD.md](docs/devlog/DEVLOG_DASHBOARD.md) | [dashboard](docs/api-tests/DashboardController/TEST_RESULTS.md) |

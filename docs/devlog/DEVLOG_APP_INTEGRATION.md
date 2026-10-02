@@ -106,3 +106,9 @@ Also: `files_test.ps1` first run 25/28 — the 3 failures were a PowerShell vari
 
 No new endpoints: the app now drives the existing billing-run API. Create Bill (live) picks the period from the property's billing day (current or previous window), asks only for the figures the property's electricity / water modes need (NEA total, per-tenant fixed amount, rate per unit, KUKL / boring totals), creates a DRAFT with an Idempotency-Key (a retry replays the same run; a second run for the month is refused), reopens an existing draft or shows a sent month instead of making another, reviews per-tenant bills, then sends (confirm) or discards (cancel). Bills list shows the current month's bills with collected / remaining and Paid / Partly paid / Unpaid / Overdue; bill detail shows line items, paid, remaining and due date. Live test: `docs/api-tests/BillingFlow/billing_flow_test.ps1`.
 
+### [2026-10-02] Live run: billing flow 21/21
+
+### [2026-10-02] Payments (Phase 6)
+
+`payments` (V18): owner-recorded payments applied at once; tenant proofs pending until approved / rejected / withdrawn; applied exactly once under row locks with a DB check; never above what is owed; one pending proof per bill; Idempotency-Key replay; billing runs with payments cannot be cancelled; `pendingPayments` in summaries. App: owner bill detail records, approves and rejects payments. Detail: [DEVLOG_PAYMENT.md](DEVLOG_PAYMENT.md).
+

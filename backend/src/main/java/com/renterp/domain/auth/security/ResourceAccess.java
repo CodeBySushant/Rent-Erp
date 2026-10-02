@@ -7,6 +7,7 @@ import com.renterp.domain.charge.repository.ChargeTemplateRepository;
 import com.renterp.domain.meter.repository.MeterRepository;
 import com.renterp.domain.meterreading.repository.MeterCoverageEventRepository;
 import com.renterp.domain.meterreading.repository.MeterReadingRepository;
+import com.renterp.domain.payment.repository.PaymentRepository;
 import com.renterp.domain.propertyaccess.entity.PropertyAccess.AccessRole;
 import com.renterp.domain.structure.repository.FloorRepository;
 import com.renterp.domain.structure.repository.RoomRepository;
@@ -64,6 +65,7 @@ public class ResourceAccess {
     private final RentIncrementRepository increments;
     private final BillingRunRepository runs;
     private final TenantBillRepository bills;
+    private final PaymentRepository payments;
 
     public ResourceAccess(AccessGuard guard,
                           FloorRepository floors,
@@ -78,7 +80,8 @@ public class ResourceAccess {
                           TenantAdvanceRentRepository advances,
                           RentIncrementRepository increments,
                           BillingRunRepository runs,
-                          TenantBillRepository bills) {
+                          TenantBillRepository bills,
+                          PaymentRepository payments) {
         this.guard = guard;
         this.floors = floors;
         this.rooms = rooms;
@@ -93,6 +96,7 @@ public class ResourceAccess {
         this.increments = increments;
         this.runs = runs;
         this.bills = bills;
+        this.payments = payments;
     }
 
     // ── Property and lists ──────────────────────────────────────────────────
@@ -313,6 +317,43 @@ public class ResourceAccess {
                 membership(b.getMembershipId(), Level.READ);
             } else {
                 property(b.getPropertyId(), level);
+            }
+        });
+    }
+
+    /** Sending payment proof: only the tenant the bill was issued to. */
+    public void billOwnTenant(UUID billId) {
+        if (!guard.checking()) {
+            return;
+        }
+        guard.requireUser();
+        bills.findById(billId).ifPresent(b -> memberships.findById(b.getMembershipId()).ifPresent(m -> {
+            if (!isSelfProfile(m.getTenantProfileId())) {
+                throw ApiException.forbidden("Only the tenant of this bill can send payment proof.");
+            }
+        }));
+    }
+
+    /** A payment: the property at the level, or (read only) the tenant it belongs to. */
+    public void payment(UUID paymentId, Level level) {
+        payments.findById(paymentId).ifPresent(p -> {
+            if (level == Level.READ) {
+                membership(p.getMembershipId(), Level.READ);
+            } else {
+                property(p.getPropertyId(), level);
+            }
+        });
+    }
+
+    /** Withdrawing a proof: only the tenant who sent it. */
+    public void paymentOwnTenant(UUID paymentId) {
+        if (!guard.checking()) {
+            return;
+        }
+        AuthUser user = guard.requireUser();
+        payments.findById(paymentId).ifPresent(p -> {
+            if (!user.isAdmin() && !user.userId().equals(p.getSubmittedBy())) {
+                throw ApiException.forbidden("Only the tenant who sent this payment can withdraw it.");
             }
         });
     }

@@ -120,6 +120,16 @@ public class DashboardQueries {
                 .getSingleResult();
     }
 
+    /** Tenant payment proofs waiting for the owner. */
+    public long pendingPayments(UUID propertyId) {
+        return em.createQuery("""
+                select count(p) from Payment p where p.propertyId = :pid and p.status = :pending
+                """, Long.class)
+                .setParameter("pid", propertyId)
+                .setParameter("pending", com.renterp.domain.payment.entity.Payment.Status.PENDING)
+                .getSingleResult();
+    }
+
     public long activeMeters(UUID propertyId) {
         return em.createQuery("""
                 select count(m) from Meter m

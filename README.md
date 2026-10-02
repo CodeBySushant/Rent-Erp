@@ -358,6 +358,7 @@ All routes are under `/api/v1`. **On `feature/app-integration`, every route need
 | `POST /properties/{id}/tenants` | TenantOnboardingController — Add Tenant (branch `feature/app-integration`) |
 | `/join/{code}` | JoinByCodeController (branch `feature/app-integration`) |
 | `/me/stay` | MyStayController (branch `feature/app-integration`) |
+| `/tenant-bills/{id}/payments`, `/payment-proofs`, `/payments/{id}/…`, `/me/payments` | PaymentController (branch `feature/app-integration`) |
 
 ### Response envelope
 

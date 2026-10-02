@@ -83,7 +83,7 @@ public class DashboardService {
                 .toList();
 
         List<PropertySummaryResponse> items = visible.stream().map(p -> summary(p, today)).toList();
-        int rooms = 0, occupied = 0, tenants = 0, joins = 0, overdue = 0, readings = 0;
+        int rooms = 0, occupied = 0, tenants = 0, joins = 0, overdue = 0, readings = 0, payments = 0;
         BigDecimal outstanding = BigDecimal.ZERO, billed = BigDecimal.ZERO, collected = BigDecimal.ZERO;
         for (PropertySummaryResponse s : items) {
             rooms += s.totalRooms();
@@ -92,6 +92,7 @@ public class DashboardService {
             joins += s.pendingJoinRequests();
             overdue += s.overdueTenants();
             readings += s.readingsPending();
+            payments += s.pendingPayments();
             outstanding = outstanding.add(s.outstanding());
             if (s.currentBilling() != null) {
                 billed = billed.add(s.currentBilling().billed());
@@ -99,7 +100,7 @@ public class DashboardService {
             }
         }
         return new OwnerDashboardResponse(today, items.size(), rooms, occupied, Math.max(0, rooms - occupied),
-                tenants, joins, overdue, readings, outstanding, billed, collected, items);
+                tenants, joins, overdue, readings, payments, outstanding, billed, collected, items);
     }
 
     private PropertySummaryResponse summary(Property p, String today) {
@@ -126,6 +127,7 @@ public class DashboardService {
                 q.outstanding(id),
                 (int) q.activeMeters(id),
                 (int) q.metersWithoutReadingSince(id, BsCalendar.monthStart(today)),
+                (int) q.pendingPayments(id),
                 current);
     }
 

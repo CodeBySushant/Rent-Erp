@@ -14,6 +14,7 @@ import java.util.UUID;
  * @param outstanding        everything still owed on issued bills
  * @param metersActive       active meters
  * @param readingsPending    active meters with no confirmed reading this BS month
+ * @param pendingPayments    tenant payment proofs waiting for the owner
  * @param currentBilling     the newest non-cancelled billing run, or null if none
  */
 public record PropertySummaryResponse(
@@ -29,6 +30,7 @@ public record PropertySummaryResponse(
         BigDecimal outstanding,
         int metersActive,
         int readingsPending,
+        int pendingPayments,
         CurrentBilling currentBilling) {
 
     /**

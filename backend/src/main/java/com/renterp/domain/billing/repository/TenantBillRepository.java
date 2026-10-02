@@ -22,4 +22,9 @@ public interface TenantBillRepository extends JpaRepository<TenantBill, UUID> {
     List<TenantBill> findByMembershipIdAndStatusNot(UUID membershipId, Status status);
 
     long countByMembershipIdAndStatusNot(UUID membershipId, Status status);
+
+    /** The bill, locked for the rest of the transaction (applying a payment). */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select b from TenantBill b where b.id = :id")
+    java.util.Optional<TenantBill> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") UUID id);
 }

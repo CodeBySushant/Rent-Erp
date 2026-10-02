@@ -14,6 +14,7 @@ public record OwnerDashboardResponse(
         int pendingJoinRequests,
         int overdueTenants,
         int readingsPending,
+        int pendingPayments,
         BigDecimal outstanding,
         BigDecimal billedThisPeriod,
         BigDecimal collectedThisPeriod,

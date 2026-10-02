@@ -29,10 +29,13 @@ public class BillingRunController {
     private final TenantBillService tenantBillService;
 
     private final ResourceAccess access;
+    private final com.renterp.domain.payment.service.PaymentGuard paymentGuard;
 
     public BillingRunController(ResourceAccess access,
+            com.renterp.domain.payment.service.PaymentGuard paymentGuard,
             BillingRunService billingRunService, TenantBillService tenantBillService) {
         this.access = access;
+        this.paymentGuard = paymentGuard;
         this.billingRunService = billingRunService;
         this.tenantBillService = tenantBillService;
     }
@@ -100,6 +103,7 @@ public class BillingRunController {
             @PathVariable UUID id,
             @Valid @RequestBody CancelBillingRunRequest req) {
         access.billingRun(id, ResourceAccess.Level.WRITE);
+        paymentGuard.requireNoPaymentsOnRun(id);
         return ResponseEntity.ok(ApiResponse.success("Billing run cancelled", billingRunService.cancel(id, req)));
     }
 }
