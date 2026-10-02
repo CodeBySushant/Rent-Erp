@@ -120,3 +120,7 @@ Note for testing: a backend left running on port 8080 answers instead of the new
 
 No API change. Tenant: My Bills (`/memberships/{id}/bills`), bill detail with payment history and Withdraw, Pay Rent (amount, method, transaction ID, receipt photo from gallery or camera via `image_picker`) → upload (PAYMENT_PROOF) → `payment-proofs` (pending until the owner approves), Payments history (`/me/payments`).
 
+### [2026-10-02] Readings due and tenant readings
+
+`GET /properties/{id}/readings/due`, `GET /me/meters`, `POST /me/meters/{meterId}/readings`: this month's state per meter; tenants submit their own meters' readings (responsibility rules, first reading required, one per month, own photo), pending until the owner confirms. App: owner Readings and tenant Reading Centre on live data. Detail: [DEVLOG_READINGS_DUE.md](DEVLOG_READINGS_DUE.md).
+
