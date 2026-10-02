@@ -403,6 +403,24 @@ public class ResourceAccess {
         });
     }
 
+    /** Property viewers, or a tenant with an active tenancy at the property. */
+    public void propertyOrActiveTenant(UUID propertyId) {
+        if (!guard.checking()) {
+            return;
+        }
+        AuthUser user = guard.requireUser();
+        if (user.isAdmin() || guard.hasPropertyAccess(propertyId, Level.READ.role)) {
+            return;
+        }
+        boolean tenant = profiles.findByUserId(user.userId())
+                .flatMap(p -> memberships.findByTenantProfileIdAndPropertyIdAndStatus(p.getId(), propertyId,
+                        com.renterp.domain.tenancy.entity.TenantPropertyMembership.MembershipStatus.ACTIVE))
+                .isPresent();
+        if (!tenant) {
+            throw ApiException.forbidden("You do not have access to this property.");
+        }
+    }
+
     /** National reference data (tariffs): anyone signed in reads, only an admin writes. */
     public void requireAdmin() {
         guard.requireAdmin();

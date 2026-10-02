@@ -142,3 +142,9 @@ No API change. Tenant: My Bills (`/memberships/{id}/bills`), bill detail with pa
 
 `tenant_requests` (V20): room change, vacate, maintenance, other; approve / reject (note) / complete / withdraw; approving a vacate opens the move-out notice, approving a room change with a room transfers the tenant. App: owner Requests and tenant Requests / New Request on live data. Detail: [DEVLOG_REQUESTS.md](DEVLOG_REQUESTS.md).
 
+### [2026-10-02] Live run: requests 26/26 (move-out re-run 29/29)
+
+### [2026-10-02] Owner payment details
+
+`property_payment_details` (V21): QR (PAYMENT_QR upload of the same property), wallet and bank details per property; owners edit, active tenants read. App: Profile → Payment Details; tenant Pay Rent shows them. Detail: [DEVLOG_PAYMENT_DETAILS.md](DEVLOG_PAYMENT_DETAILS.md).
+
