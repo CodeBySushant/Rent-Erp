@@ -75,6 +75,14 @@ function Register([string]$phone, [string]$email, [string]$role) {
 
 if (-not (Test-Path $LogFile)) { throw ('Log file not found: ' + $LogFile) }
 $run = Get-Random -Minimum 100000 -Maximum 999999
+# Wait for the backend (it can take a minute after 'mvn spring-boot:run').
+$healthUrl = ($BaseUrl -replace '/api/v1$', '') + '/actuator/health'
+$up = $false
+for ($t = 0; $t -lt 45 -and -not $up; $t++) {
+    try { $h = $client.GetAsync($healthUrl).Result; if ($h -and [int]$h.StatusCode -eq 200) { $up = $true } } catch { }
+    if (-not $up) { if ($t -eq 0) { Write-Host 'Waiting for the backend at' $healthUrl '...' }; Start-Sleep -Seconds 2 }
+}
+if (-not $up) { throw ('The backend is not answering at ' + $healthUrl + ' after 90 seconds. Start it in its own window (cd backend; mvn spring-boot:run) and keep that window open.') }
 Write-Host ('Run ' + $run + ' against ' + $BaseUrl)
 
 # --- Setup ------------------------------------------------------------------------
