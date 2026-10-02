@@ -21,3 +21,4 @@ Unit: `JoinCodeGeneratorTest`.
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
 | 2026-10-02 | 22 | 0 | |
+| 2026-10-02 | 22 | 0 | Re-run after notifications (V23). |

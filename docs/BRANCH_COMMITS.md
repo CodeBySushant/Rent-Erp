@@ -6,3 +6,23 @@ Why each change was made: `docs/devlog/DEVLOG_APP_INTEGRATION.md`.
 | # | Hash | Date | Author | Subject |
 |---|---|---|---|---|
 | 1 | `04294f1` | 2026-10-02 | Sushant Sharma | docs: start app-integration branch log |
+| 2 | `969101e` | 2026-10-02 | Sushant Sharma | docs: update branch commit log |
+| 3 | `495d23f` | 2026-10-02 | Sushant Sharma | feat(auth): login, sessions, access control, error codes and Hindi |
+| 4 | `2694bd8` | 2026-10-02 | Sushant Sharma | feat(security): authorize every domain from the token |
+| 5 | `1562653` | 2026-10-02 | Sushant Sharma | feat(files): uploads with type sniffing, size cap and access rules |
+| 6 | `ee76431` | 2026-10-02 | Sushant Sharma | feat(dashboard): property summary, owner dashboard and tenant list from live data |
+| 7 | `7caee11` | 2026-10-02 | Sushant Sharma | feat(tenancy): Add Tenant in one transaction |
+| 8 | `c4e09a0` | 2026-10-02 | Sushant Sharma | test: live scripts explain why the backend is unreachable |
+| 9 | `66f4970` | 2026-10-02 | Sushant Sharma | feat(join): property join codes and join-by-code |
+| 10 | `b61afa6` | 2026-10-02 | Sushant Sharma | test: live scripts wait for the backend to be up |
+| 11 | `f4debbf` | 2026-10-02 | Sushant Sharma | feat(tenant): My Stay - tenant home in one call |
+| 12 | `54fcce4` | 2026-10-02 | Sushant Sharma | test(billing): billing flow as the app uses it |
+| 13 | `ffd78d8` | 2026-10-02 | Sushant Sharma | feat(payments): owner records, tenant proofs, approve/reject - applied exactly once |
+| 14 | `453ab71` | 2026-10-02 | Sushant Sharma | docs(payments): record live runs and port-8080 note |
+| 15 | `e17c0fe` | 2026-10-02 | Sushant Sharma | feat(readings): readings due, tenant meters and tenant submissions |
+| 16 | `82ef04f` | 2026-10-02 | Sushant Sharma | feat(move-out): notice, withdraw and settlement |
+| 17 | `2d8db76` | 2026-10-02 | Sushant Sharma | feat(tenancy): room transfer in one transaction |
+| 18 | `a3428d4` | 2026-10-02 | Sushant Sharma | feat(requests): tenant requests with approve, reject, complete, withdraw |
+| 19 | `6d2162f` | 2026-10-02 | Sushant Sharma | feat(property): owner payment details (QR, wallet, bank) |
+| 20 | `89e008d` | 2026-10-02 | Sushant Sharma | feat(account): password, phone, email, devices and delete account |
+| 21 | `cf7127a` | 2026-10-02 | Sushant Sharma | feat(notifications): in-app notifications for bills, payments, readings, requests, joins and move-out |

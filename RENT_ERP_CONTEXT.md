@@ -14,7 +14,7 @@ A rental management SaaS for Nepal. Landlord-primary design — the app works fu
 ---
 
 ## Current Phase
-**Beta spec 100% complete. Code implementation starting now.**
+**Beta spec 100% complete.** Phases 1–5 built and tested on `main`. Phase 6 (app integration, branch `feature/app-integration`, 2026-10-02) adds auth, payments (manual + proofs), move-out, room transfer, tenant requests, owner payment details, account self-service and in-app notifications — feature work complete, clean-up and production readiness remaining. Status per controller: `DEVLOG.md` → Controller Log.
 
 ### Beta scope (build this, nothing else):
 - Full billing engine (all metering modes, NEA blended rate, segment billing)
@@ -27,7 +27,7 @@ A rental management SaaS for Nepal. Landlord-primary design — the app works fu
 - WhatsApp bill delivery (free share method, not API)
 - In-app notification inbox + notice board
 - Multi-property, property access roles (owner/manager/view only)
-- English + Nepali language support (runtime translation — no Nepali columns in DB)
+- English, Hindi and Nepali language support (runtime translation — no Nepali / Hindi columns in DB)
 - PDF bill generation + reports
 - Audit log
 
@@ -43,7 +43,7 @@ Loan/credit facility, services marketplace (plumber/electrician), rental listing
 - **Job queue:** db-scheduler (inside Postgres — no Kafka, no microservices at beta)
 - **Virtual threads:** spring.threads.virtual.enabled=true (one line, Java 25 pinning fix included)
 - **Architecture:** Monolith — NOT microservices. Extract later only when a measured scaling problem exists.
-- **Mobile:** React Native, Android priority
+- **Mobile:** Flutter + Dart (repo `Renterp-frontend`), Android priority
 - **Auth:** Phone OTP via Sparrow SMS (Nepal)
 - **Payments:** Khalti (primary), eSewa (secondary)
 - **File storage:** AWS S3 (meter photos, KYC images — KYC photos purged 30 days after verification)
@@ -59,7 +59,7 @@ Loan/credit facility, services marketplace (plumber/electrician), rental listing
 ```
 rent-erp/              ← single git repo (monorepo)
   backend/             ← Spring Boot 4.1 + Java 25
-  frontend/            ← React Native (Android priority)
+  (app: separate repo Renterp-frontend — Flutter + Dart, Android priority)
 ```
 
 ---
@@ -215,14 +215,14 @@ Phase 5 — Billing engine (switch to Claude Opus here)
   charge_templates, tariff_versions, billing_runs
   billing_run_segments, tenant_bills, bill_corrections
 
-Phase 6 — Payments
+Phase 6 — Payments                                   [manual payments + proofs done; gateway pending]
   payment_intents, payments, Khalti/eSewa integration
   db-scheduler failure handling + reconciliation
 
-Phase 7 — Vacancy
+Phase 7 — Vacancy                                    [move-out notice + settlement done (move_outs)]
   All three vacancy types + settlement
 
-Phase 8 — Notifications + PDF + WhatsApp delivery
+Phase 8 — Notifications + PDF + WhatsApp delivery    [in-app notifications done; PDF, WhatsApp, push pending]
 ```
 
 ---

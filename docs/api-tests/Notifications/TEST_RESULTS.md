@@ -22,4 +22,4 @@ Reading-submitted notifications are created by the same mechanism (tenant submis
 
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
-| — | — | — | First run pending |
+| 2026-10-02 | 23 | 0 | Regression after notifications: BillingFlow 21/21, Payments 39/39, Requests 26/26, JoinByCode 22/22, MoveOut 29/29, Readings 21/21. |

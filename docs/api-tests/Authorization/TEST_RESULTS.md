@@ -25,3 +25,4 @@ Three accounts per run: owners A and B (LANDLORD) and tenant C (TENANT).
 |---|---|---|---|
 | 2026-10-02 | 58 | 1 | The failure was the script: accepting a join request answers 201 Created (it creates a membership), the script expected 200. Expectation corrected. |
 | 2026-10-02 | 59 | 0 | Re-run after join codes. |
+| 2026-10-02 | 59 | 0 | Re-run after owner payment details (V21). |

@@ -520,6 +520,15 @@ list: [docs/devlog/DEVLOG_APP_INTEGRATION.md](docs/devlog/DEVLOG_APP_INTEGRATION
 Commits: [docs/BRANCH_COMMITS.md](docs/BRANCH_COMMITS.md). PR draft:
 [docs/PR_APP_INTEGRATION.md](docs/PR_APP_INTEGRATION.md).
 
+**Status (2026-10-02):** feature work complete — 15 controllers / areas built,
+migrations V13–V23, every live script passing (see the Controller Log below).
+Left before merging: clean-up and production readiness (SMS / email senders,
+file storage, push), listed in `docs/PR_APP_INTEGRATION.md`.
+
+> Numbering note: "Phase 6" here is the app-integration branch. It covers the
+> context file's Phase 6 (payments), Phase 7 (vacancy → move-out) and part of
+> Phase 8 (in-app notifications), built to the app's needs.
+
 ---
 
 ### [2026-10-02] Branch created, integration log started
@@ -530,7 +539,7 @@ malformed input, screen-shaped reads, unbuilt domains, docs drift), the PR
 draft and a script that lists the branch's commits. No code or schema change.
 
 ---
-### [2026-10-02] Authentication, authorization foundation, error codes, Hindi
+### [2026-10-02] Authentication, error codes, Hindi
 
 **Built:** `AuthController` — `/auth/otp/request`, `/otp/verify`, `/register`, `/login` (OTP), `/login/password`, `/refresh`, `/logout`, `/me`. HS256 access tokens (15 min, JDK crypto, no new dependency) naming a `user_sessions` row; refresh tokens (30 days) stored hashed and rotated on every refresh; the filter checks the session on every request, so logout is immediate. OTP: hashed, 5 min, resend 45 s, 5/hour, 5 wrong tries burn it; codes go to the log only when `APP_ENV=local`, elsewhere `/otp/request` returns 503 until an SMS provider exists. BCrypt passwords, case-insensitive email, 15-minute lockout after 5 wrong passwords. `SecurityConfig` now requires a token for everything except auth and health. `AccessGuard` (property rights from `property_access`) applied to users, properties and property access: `GET /properties` is scoped to the caller and `POST /properties` makes the caller the owner. Every error now carries a `code`; malformed JSON / bad UUIDs / missing params are 400 (were 500), constraint violations 409. **V13** adds the auth columns and allows Hindi (`hi`) for users and tenant profiles.
 
@@ -539,9 +548,9 @@ draft and a script that lists the branch's commits. No code or schema change.
 **Testing:** unit tests `JwtServiceTest`, `TokenHasherTest`, `PasswordPolicyTest`, `AccessGuardTest`; live script `docs/api-tests/AuthController/auth_test.ps1`. Detail: [docs/devlog/DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md).
 
 ---
-### [2026-10-02] Authentication and authorization
+### [2026-10-02] Authorization on every controller
 
-`AuthController` (OTP + password login, register, refresh, logout, me) with JWT access tokens and rotating refresh tokens in `user_sessions` (V13); every controller now authorizes from the token via `AccessGuard` / `ResourceAccess` (owner / manager / view-only per property, tenants limited to their own membership); `tenant_profiles.created_by` (V14); standard error `code` on every error; Hindi accepted. Detail: [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md). Tests: `mvn test` 34/34, [AuthController](docs/api-tests/AuthController/TEST_RESULTS.md) 46/46, [Authorization](docs/api-tests/Authorization/TEST_RESULTS.md).
+Builds on the entry above: every controller now authorizes from the token via `AccessGuard` / `ResourceAccess` (owner / manager / view-only per property, tenants limited to their own membership); `tenant_profiles.created_by` (V14). Detail: [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md). Tests: `mvn test` 34/34, [AuthController](docs/api-tests/AuthController/TEST_RESULTS.md) 46/46, [Authorization](docs/api-tests/Authorization/TEST_RESULTS.md).
 
 ---
 
@@ -581,7 +590,7 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 ---
 
-### [2026-10-02] Payments (Phase 6)
+### [2026-10-02] Payments
 
 `PaymentController`: owner records, tenant proofs, approve / reject / withdraw, histories; `payments` (V18); billing runs with payments cannot be cancelled. Detail: [DEVLOG_PAYMENT.md](docs/devlog/DEVLOG_PAYMENT.md). Tests: [PaymentController](docs/api-tests/PaymentController/TEST_RESULTS.md).
 
@@ -593,7 +602,7 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 ---
 
-### [2026-10-02] Move-out (Phase 7)
+### [2026-10-02] Move-out
 
 `MoveOutController`: notice, cancel, settle, list; `move_outs` (V19). Detail: [DEVLOG_MOVEOUT.md](docs/devlog/DEVLOG_MOVEOUT.md). Tests: [MoveOut](docs/api-tests/MoveOut/TEST_RESULTS.md).
 
@@ -632,9 +641,9 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 ## Controller Log
 
 | Controller | Status | Detail | Tests |
-|-----------|--------|--------|-------|
-| UserController | ✅ Complete, tested & audit-fix applied; scoped to self/admin on `feature/app-integration` | [DEVLOG_USER.md](docs/devlog/DEVLOG_USER.md) | [10/10 passed](docs/api-tests/UserController/TEST_RESULTS.md) |
-| AuthController (+ security, AccessGuard) | 🚧 `feature/app-integration` — implemented, live run pending | [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md) | [auth_test.ps1](docs/api-tests/AuthController/TEST_RESULTS.md) |
+|---|---|---|---|
+| **On `main` (Phases 1–5)** | | | |
+| UserController | ✅ Complete, tested & audit-fix applied; scoped to self/admin on the branch | [DEVLOG_USER.md](docs/devlog/DEVLOG_USER.md) | [10/10 passed](docs/api-tests/UserController/TEST_RESULTS.md) |
 | PropertyController | ✅ Complete, tested & FK-check fix applied; §6.5 gate closed 2026-07-31 | [DEVLOG_PROPERTY.md](docs/devlog/DEVLOG_PROPERTY.md) | [12/12 passed](docs/api-tests/PropertyController/TEST_RESULTS.md) |
 | PropertyAccessController | ✅ Complete, tested, auto OWNER-grant wired into PropertyController | [DEVLOG_PROPERTYACCESS.md](docs/devlog/DEVLOG_PROPERTYACCESS.md) | [18/18 passed](docs/api-tests/PropertyAccessController/TEST_RESULTS.md) |
 | StructureController (Floor + Room) | ✅ Complete, tested | [DEVLOG_STRUCTURE.md](docs/devlog/DEVLOG_STRUCTURE.md) | [30/30 passed](docs/api-tests/StructureController/TEST_RESULTS.md) |
@@ -643,21 +652,24 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 | MeterReadingController + CoverageEventController | ✅ Complete, tested; §14.1 M1/M2/M3/M4/M5/M6/M9/M10/M13/M16 handled; M14/M15/M17 deferred | [DEVLOG_METERREADING.md](docs/devlog/DEVLOG_METERREADING.md) | [35/35 passed](docs/api-tests/MeterReadingController/TEST_RESULTS.md) |
 | TenancyController (profiles + KYC + join + memberships + room-assignments + blocks) | ✅ Complete, tested; §14.3 T1/T2/T3/T4/T5/T6/T7/T10 handled; T8/T9/T11/T12/T13/T14/T15 deferred | [DEVLOG_TENANCY.md](docs/devlog/DEVLOG_TENANCY.md) | [45/45 passed](docs/api-tests/TenancyController/TEST_RESULTS.md) |
 | TenantFinanceController (deposits + advance rent + opening balances + rent increments) | ✅ Complete, tested; §14.3 T7 completion + T14 (atomic rent-increment apply). Piggybacks `room_assignments.monthly_rent`. Deposit status transitions deferred to Vacancy, consumption to Billing. | [DEVLOG_TENANTFINANCE.md](docs/devlog/DEVLOG_TENANTFINANCE.md) | [33/33 passed](docs/api-tests/TenantFinanceController/TEST_RESULTS.md) |
-| AuthController (+ authorization on every controller) | ✅ Complete, tested (branch `feature/app-integration`) | [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md) | [46/46](docs/api-tests/AuthController/TEST_RESULTS.md), [authz](docs/api-tests/Authorization/TEST_RESULTS.md) |
-| FileController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_FILE.md](docs/devlog/DEVLOG_FILE.md) | [files](docs/api-tests/FileController/TEST_RESULTS.md) |
-| TenantOnboardingController (Add Tenant) | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_ONBOARDING.md](docs/devlog/DEVLOG_ONBOARDING.md) | [add tenant](docs/api-tests/TenantOnboarding/TEST_RESULTS.md) |
-| NotificationController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_NOTIFICATIONS.md](docs/devlog/DEVLOG_NOTIFICATIONS.md) | [notifications](docs/api-tests/Notifications/TEST_RESULTS.md) |
-| AccountController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_ACCOUNT.md](docs/devlog/DEVLOG_ACCOUNT.md) | [account](docs/api-tests/Account/TEST_RESULTS.md) |
-| PaymentDetailsController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_PAYMENT_DETAILS.md](docs/devlog/DEVLOG_PAYMENT_DETAILS.md) | [payment details](docs/api-tests/PaymentDetails/TEST_RESULTS.md) |
-| TenantRequestController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_REQUESTS.md](docs/devlog/DEVLOG_REQUESTS.md) | [requests](docs/api-tests/Requests/TEST_RESULTS.md) |
-| RoomTransferController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_ROOM_TRANSFER.md](docs/devlog/DEVLOG_ROOM_TRANSFER.md) | [transfer](docs/api-tests/RoomTransfer/TEST_RESULTS.md) |
-| MoveOutController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_MOVEOUT.md](docs/devlog/DEVLOG_MOVEOUT.md) | [move-out](docs/api-tests/MoveOut/TEST_RESULTS.md) |
-| ReadingDueController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_READINGS_DUE.md](docs/devlog/DEVLOG_READINGS_DUE.md) | [readings](docs/api-tests/Readings/TEST_RESULTS.md) |
-| PaymentController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_PAYMENT.md](docs/devlog/DEVLOG_PAYMENT.md) | [payments](docs/api-tests/PaymentController/TEST_RESULTS.md) |
-| MyStayController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_MYSTAY.md](docs/devlog/DEVLOG_MYSTAY.md) | [my stay](docs/api-tests/MyStay/TEST_RESULTS.md) |
-| JoinByCodeController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_JOIN.md](docs/devlog/DEVLOG_JOIN.md) | [join](docs/api-tests/JoinByCode/TEST_RESULTS.md) |
-| DashboardController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_DASHBOARD.md](docs/devlog/DEVLOG_DASHBOARD.md) | [dashboard](docs/api-tests/DashboardController/TEST_RESULTS.md) |
 | BillingController (tariffs + billing runs + tenant bills + adjustments + corrections + async) + BsCalendar | ✅ **Pass 1 + 2 complete**, tested; §14.2 B3/B4/B5/B8/B9/B10/B11/B13/B14/B15 + M9/M14/M17 + T7/T8/T9/P9 + CUSTOM. Full metered engine (SUB_METERED, NEA blended, segment engine, KUKL/boring, overage, corrections, async workers). Resolves Open Verification Item #1 (BS calendar). Penalty deferred to Payment phase. | [DEVLOG_BILLING.md](docs/devlog/DEVLOG_BILLING.md) | [35/35 + 31/31 + 14/14 unit passed](docs/api-tests/BillingController/TEST_RESULTS.md) |
+| **On `feature/app-integration` (Phase 6, in build order)** | | | |
+| AuthController (+ authorization on every controller) | ✅ Complete, tested | [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md) | [46/46](docs/api-tests/AuthController/TEST_RESULTS.md), [authz 59/59](docs/api-tests/Authorization/TEST_RESULTS.md) |
+| FileController | ✅ Complete, tested | [DEVLOG_FILE.md](docs/devlog/DEVLOG_FILE.md) | [28/28](docs/api-tests/FileController/TEST_RESULTS.md) |
+| DashboardController | ✅ Complete, tested | [DEVLOG_DASHBOARD.md](docs/devlog/DEVLOG_DASHBOARD.md) | [27/27](docs/api-tests/DashboardController/TEST_RESULTS.md) |
+| TenantOnboardingController (Add Tenant) | ✅ Complete, tested | [DEVLOG_ONBOARDING.md](docs/devlog/DEVLOG_ONBOARDING.md) | [22/22](docs/api-tests/TenantOnboarding/TEST_RESULTS.md) |
+| JoinByCodeController | ✅ Complete, tested | [DEVLOG_JOIN.md](docs/devlog/DEVLOG_JOIN.md) | [22/22](docs/api-tests/JoinByCode/TEST_RESULTS.md) |
+| MyStayController | ✅ Complete, tested | [DEVLOG_MYSTAY.md](docs/devlog/DEVLOG_MYSTAY.md) | [20/20](docs/api-tests/MyStay/TEST_RESULTS.md) |
+| Billing flow as used by the app (no new controller) | ✅ Tested | [DEVLOG_APP_INTEGRATION.md](docs/devlog/DEVLOG_APP_INTEGRATION.md) | [21/21](docs/api-tests/BillingFlow/TEST_RESULTS.md) |
+| PaymentController | ✅ Complete, tested | [DEVLOG_PAYMENT.md](docs/devlog/DEVLOG_PAYMENT.md) | [39/39](docs/api-tests/PaymentController/TEST_RESULTS.md) |
+| ReadingDueController | ✅ Complete, tested | [DEVLOG_READINGS_DUE.md](docs/devlog/DEVLOG_READINGS_DUE.md) | [21/21](docs/api-tests/Readings/TEST_RESULTS.md) |
+| MoveOutController | ✅ Complete, tested | [DEVLOG_MOVEOUT.md](docs/devlog/DEVLOG_MOVEOUT.md) | [29/29](docs/api-tests/MoveOut/TEST_RESULTS.md) |
+| RoomTransferController | ✅ Complete, tested | [DEVLOG_ROOM_TRANSFER.md](docs/devlog/DEVLOG_ROOM_TRANSFER.md) | [16/16](docs/api-tests/RoomTransfer/TEST_RESULTS.md) |
+| TenantRequestController | ✅ Complete, tested | [DEVLOG_REQUESTS.md](docs/devlog/DEVLOG_REQUESTS.md) | [26/26](docs/api-tests/Requests/TEST_RESULTS.md) |
+| PaymentDetailsController | ✅ Complete, tested | [DEVLOG_PAYMENT_DETAILS.md](docs/devlog/DEVLOG_PAYMENT_DETAILS.md) | [14/14](docs/api-tests/PaymentDetails/TEST_RESULTS.md) |
+| AccountController | ✅ Complete, tested | [DEVLOG_ACCOUNT.md](docs/devlog/DEVLOG_ACCOUNT.md) | [38/38](docs/api-tests/Account/TEST_RESULTS.md) |
+| NotificationController | ✅ Complete, tested | [DEVLOG_NOTIFICATIONS.md](docs/devlog/DEVLOG_NOTIFICATIONS.md) | [23/23](docs/api-tests/Notifications/TEST_RESULTS.md) |
+
 
 **Global convention adopted (2026-07-30):** JPA Auditing via `BaseAuditEntity` (`@CreatedDate`/`@LastModifiedDate`). Mutable entities extend it; append-only entities use `@CreatedDate` + `AuditingEntityListener`. Services use `saveAndFlush()` on update/delete so responses carry a fresh `updatedAt`. Applies to all future controllers.
 

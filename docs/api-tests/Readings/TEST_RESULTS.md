@@ -18,3 +18,4 @@ powershell -ExecutionPolicy Bypass -File D:\PROJECTS\Rent-Erp\docs\api-tests\Rea
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
 | 2026-10-02 | 21 | 0 | |
+| 2026-10-02 | 21 | 0 | Re-run after notifications (V23). |

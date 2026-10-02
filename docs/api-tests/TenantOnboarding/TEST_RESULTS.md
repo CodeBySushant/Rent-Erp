@@ -18,3 +18,4 @@ powershell -ExecutionPolicy Bypass -File docs\api-tests\TenantOnboarding\add_ten
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
 | 2026-10-02 | 22 | 0 | |
+| 2026-10-02 | 22 | 0 | Re-run after room transfer. |

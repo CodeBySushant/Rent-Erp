@@ -2,7 +2,7 @@
 
 **Branch:** `feature/app-integration` (created 2026-10-02 from `main`)
 **Goal:** make this backend serve the Rentlo Flutter app (`CodeBySushant/Renterp-frontend`) end to end — authentication, the data the app screens need, and the gaps found while building the app.
-**Status:** In progress. All work stays on this branch and goes to `main` as one pull request when complete.
+**Status (2026-10-02):** Feature work complete; every live script passes. Left before the pull request: clean-up and production readiness (see *Branch summary* at the bottom). All work stays on this branch and goes to `main` as one pull request.
 
 ---
 
@@ -46,6 +46,18 @@ Gaps that block or limit the app:
 | G7 | **Docs drift.** `RENT_ERP_CONTEXT.md` still names React Native and two languages; `.gitignore` carries React Native `frontend/` entries; `.env.example` lists services no code reads. | Fix alongside the related work. |
 
 Order and scope of the work are agreed task by task; each task gets an entry below.
+
+### Where each gap ended up
+
+| # | Resolution |
+|---|---|
+| G1 | ✅ OTP + password auth, rotating sessions (V13); authorization on every controller (V14); account self-service (V22) |
+| G2 | ✅ `hi` accepted for users and tenant profiles (V13) |
+| G3 | ✅ `code` on every error; 400 / 401 / 403 / 404 / 409 / 410 / 413 / 429 / 503 mapped |
+| G4 | ✅ Dashboard, property summary, tenant rows (with room names, owed, latest bill), My Stay, readings due |
+| G5 | ✅ Files (V15), payments (V18, manual + proofs; Khalti / eSewa gateway not built), move-out (V19), room transfer, notifications (V23). Reports not built. |
+| G6 | ✅ Built as tenant requests (V20): room change, vacate, maintenance, other |
+| G7 | Partly: `RENT_ERP_CONTEXT.md` corrected to Flutter and three languages (this pass). Still open: `.gitignore` keeps the React Native `frontend/` entries; `.env.example` lists SMS, S3, Khalti / eSewa and FCM keys that no code reads yet (placeholders for production). |
 
 ---
 
@@ -152,6 +164,8 @@ No API change. Tenant: My Bills (`/memberships/{id}/bills`), bill detail with pa
 
 ### [2026-10-02] Join requests screen (app only, existing API)
 
+Owner Property Access → Join Requests: accept with a start date, then give the tenant a room; reject with a reason. Uses the existing `/join-requests` endpoints; no backend change.
+
 ### [2026-10-02] Account self-service
 
 `/me/password`, `/me/phone…`, `/me/email…`, `/me/sessions…`, `DELETE /me` (V22). App: Profile → Security on live data. Detail: [DEVLOG_ACCOUNT.md](DEVLOG_ACCOUNT.md).
@@ -161,4 +175,17 @@ No API change. Tenant: My Bills (`/memberships/{id}/bills`), bill detail with pa
 ### [2026-10-02] Notifications
 
 `notifications`, `device_tokens` (V23); created inside the transactions of billing, payments, readings, requests, joins and move-out; inbox endpoints under `/me/notifications`. App: bell badge and live inbox. Detail: [DEVLOG_NOTIFICATIONS.md](DEVLOG_NOTIFICATIONS.md).
+
+### [2026-10-02] Live run: notifications 23/23 (regression: billing flow 21, payments 39, requests 26, join 22, move-out 29, readings 21 — all 0 failed)
+
+### [2026-10-02] Branch summary and docs pass
+
+**Built on this branch:** authentication and sessions, authorization everywhere, files, dashboard / summary / tenant list, Add Tenant, join by code, My Stay, payments (owner record, tenant proof, approve / reject), readings due and tenant submissions, move-out with deposit settlement, room transfer, tenant requests, owner payment details, account self-service, in-app notifications. Migrations V13–V23. Every area has a live PowerShell script under `docs/api-tests/` (all passing) and a `DEVLOG_*.md`.
+
+**Docs pass:** `BRANCH_COMMITS.md` regenerated; `DEVLOG.md` controller log rebuilt in build order (duplicate auth row removed); `CONTROLLER_TABLE_MAP.md`, README (structure, migrations, live scripts, current state), `RENT_ERP_CONTEXT.md` (status, Flutter, three languages) and the PR draft brought up to date; every test record carries its latest run. Not changed: `.gitignore` React Native entries and the unused `.env.example` keys (G7).
+
+**Left before merging to `main`:**
+1. Clean-up in the app (remaining sample-only screens) and an end-to-end check on a phone.
+2. Production: SMS sender for OTP; email sender for email-change codes; file storage location and backups (today local disk); environment and secrets; Firebase push from `device_tokens`.
+3. Decisions: final bill for a partial last month at move-out (owner enters "final charges" today); billing only some tenants; one-off extra charges in Create Bill.
 

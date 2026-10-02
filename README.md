@@ -260,7 +260,35 @@ cd backend
 mvn test
 ```
 
-Covers `BsCalendarTest` (9 tests — BS month lengths, parsing, day arithmetic) and `BillingPass2MathTest`.
+44 tests on `feature/app-integration`: `BsCalendarTest` (BS month lengths, parsing, day arithmetic, today in Nepal time), `BillingPass2MathTest`, `JwtServiceTest`, `TokenHasherTest`, `PasswordPolicyTest`, `AccessGuardTest`, `FileTypeSnifferTest`, `LocalFileStorageTest`, `JoinCodeGeneratorTest` and the application context test (needs PostgreSQL).
+
+### Live API scripts (branch `feature/app-integration`)
+
+PowerShell scripts that register their own users and data on a running backend (`APP_ENV=local`, so OTP codes are read from `backend/logs/rent-erp.log`). Each waits up to 90 s for `/actuator/health`. Stop any older backend on port 8080 first, or it answers instead of the new build:
+
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+powershell -ExecutionPolicy Bypass -File docs\api-tests\<Area>\<script>.ps1
+```
+
+| Area | Script | Last run |
+|---|---|---|
+| Auth | `AuthController/auth_test.ps1` | 46/46 |
+| Authorization | `Authorization/authz_test.ps1` | 59/59 |
+| Files | `FileController/files_test.ps1` | 28/28 |
+| Dashboard | `DashboardController/dashboard_test.ps1` | 27/27 |
+| Add Tenant | `TenantOnboarding/add_tenant_test.ps1` | 22/22 |
+| Join by code | `JoinByCode/join_test.ps1` | 22/22 |
+| My Stay | `MyStay/mystay_test.ps1` | 20/20 |
+| Billing flow | `BillingFlow/billing_flow_test.ps1` | 21/21 |
+| Payments | `PaymentController/payments_test.ps1` | 39/39 |
+| Readings due | `Readings/readings_test.ps1` | 21/21 |
+| Move-out | `MoveOut/moveout_test.ps1` | 29/29 |
+| Room transfer | `RoomTransfer/transfer_test.ps1` | 16/16 |
+| Requests | `Requests/requests_test.ps1` | 26/26 |
+| Payment details | `PaymentDetails/payment_details_test.ps1` | 14/14 |
+| Account | `Account/account_test.ps1` | 38/38 |
+| Notifications | `Notifications/notifications_test.ps1` | 23/23 |
 
 ---
 
@@ -314,14 +342,24 @@ Rent-Erp/
 │       │       ├── meterreading/ readings, corrections, replacements
 │       │       ├── tenancy/      profiles, KYC, join requests, memberships
 │       │       ├── tenantfinance/ deposits, advance rent, rent increments
-│       │       └── billing/      tariffs, billing runs, bills, corrections
+│       │       ├── billing/      tariffs, billing runs, bills, corrections
+│       │       ├── file/         uploads (type from bytes, size cap, access rules)
+│       │       ├── dashboard/    dashboard, property summary, tenant rows
+│       │       ├── payment/      payments, proofs, approval
+│       │       ├── moveout/      move-out notice and settlement
+│       │       ├── request/      tenant requests
+│       │       └── notification/ in-app notifications, device tokens
 │       └── resources/
 │           ├── application.yml
 │           ├── log4j2.xml
-│           └── db/migration/     V1 → V12
+│           └── db/migration/     V1 → V23
+├── scripts/
+│   └── update_branch_log.ps1     regenerates docs/BRANCH_COMMITS.md
 └── docs/
-    ├── api-tests/<Controller>/   Postman collections + recorded responses
+    ├── api-tests/<Area>/         Postman collections or live PowerShell scripts + TEST_RESULTS.md
     ├── devlog/                   per-domain development notes
+    ├── BRANCH_COMMITS.md         commits on the current branch (generated)
+    ├── PR_APP_INTEGRATION.md     pull-request draft for feature/app-integration
     └── CONTROLLER_TABLE_MAP.md
 ```
 
@@ -432,8 +470,8 @@ SQL statements and bind parameters go to `backend/logs/rent-erp-sql.log` — use
 
 ## Current state
 
-Phase 5 complete: billing engine, meters and readings, tenancy, tenant finance, and property structure are all implemented and tested.
+**`main`:** Phase 5 complete: billing engine, meters and readings, tenancy, tenant finance, and property structure are all implemented and tested.
 
-**Branch `feature/app-integration`:** Phase 6 — making the backend serve the Rentlo Flutter app (authentication, Hindi, error codes the app relies on, screen-shaped reads). Progress and reasons: [docs/devlog/DEVLOG_APP_INTEGRATION.md](docs/devlog/DEVLOG_APP_INTEGRATION.md); commits: [docs/BRANCH_COMMITS.md](docs/BRANCH_COMMITS.md).
+**Branch `feature/app-integration` (2026-10-02):** the backend now serves the Rentlo Flutter app end to end — authentication and sessions, authorization on every endpoint, files, dashboard, Add Tenant, join by code, My Stay, payments, readings due, move-out, room transfer, requests, owner payment details, account self-service and in-app notifications (migrations V13–V23). Every area has a passing live script. Left before merging: app clean-up and production readiness (SMS / email senders, file storage, push) — see [docs/PR_APP_INTEGRATION.md](docs/PR_APP_INTEGRATION.md). Progress and reasons: [docs/devlog/DEVLOG_APP_INTEGRATION.md](docs/devlog/DEVLOG_APP_INTEGRATION.md); commits: [docs/BRANCH_COMMITS.md](docs/BRANCH_COMMITS.md).
 
 **Not yet built:** the auth flow (OTP via Sparrow SMS, JWT filter, session management). The entities and tables exist from V1, but there is no `AuthController` — hence `permitAll()` security and explicit `ownerUserId` parameters in request bodies where an authenticated principal would normally supply it.

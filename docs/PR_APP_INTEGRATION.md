@@ -2,6 +2,9 @@
 
 > Draft, kept current while the branch is open. Paste into the pull request
 > when the work is complete.
+>
+> **Status (2026-10-02):** feature work complete; all live scripts pass.
+> Remaining before opening the PR: see *Before merging* below.
 
 ## Summary
 
@@ -13,7 +16,7 @@ app's screens need, and fixes found while integrating. Existing behaviour on
 
 | Area | Change | Migration | Tests |
 |---|---|---|---|
-| Docs | Branch log, PR draft, branch commit log generator | — | — |
+| Docs | Branch log, PR draft, branch commit log generator; docs pass (controller log, table map, README, context file) | — | — |
 | Auth | `/api/v1/auth/*`: OTP sign-up and login, email + password login, refresh (rotating), logout, me. Tokens required for every other endpoint. | V13 | unit + `auth_test.ps1` |
 | Authorization | `AccessGuard`; users (self/admin), properties and property access (by grant). `GET /properties` scoped to the caller. | — | `AccessGuardTest`, `auth_test.ps1` |
 | Errors | `code` on every error; 400 for malformed input / bad ids; 409 for constraint violations; 401/403/410/429/503 | — | `auth_test.ps1` |
@@ -42,10 +45,30 @@ app's screens need, and fixes found while integrating. Existing behaviour on
 
 ## How to test
 
-1. Reset the database (README → "Resetting the database") and start the app.
-2. Run the Postman collections in `docs/api-tests/` in README order, plus any
-   collections added on this branch.
-3. Run `mvn test`.
+1. Reset the database (README → "Resetting the database"), set `APP_ENV=local`
+   in `backend/.env`, and start the app (stop any older backend on port 8080 first).
+2. `mvn clean install` — 44 unit tests.
+3. Run the live PowerShell scripts listed in README → "Live API scripts"
+   (16 scripts, all passing on 2026-10-02).
+4. The pre-auth Postman collections in `docs/api-tests/` run with
+   `AUTH_ENFORCED=false`.
+
+## Known limitations
+
+* No final bill is generated for a partial last month at move-out; the owner
+  enters it as "final charges" (or runs that month's billing first).
+* Payments are recorded manually or from tenant proofs; no Khalti / eSewa gateway.
+* OTP codes are only delivered locally (log); email-change codes need an email sender.
+* Files are stored on the local disk (`FileStorage` interface, ready for S3).
+* Notifications are in-app only; device tokens are stored for Firebase push later.
+
+## Before merging
+
+1. App clean-up (remaining sample-only screens) and an end-to-end check on a phone.
+2. Production settings: SMS and email senders, file storage and backups,
+   secrets, CORS, Firebase.
+3. Decide: partial-month final bill, billing only some tenants, one-off
+   charges in Create Bill.
 
 ## Commits
 
