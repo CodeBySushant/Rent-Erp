@@ -26,3 +26,4 @@ Why each change was made: `docs/devlog/DEVLOG_APP_INTEGRATION.md`.
 | 19 | `6d2162f` | 2026-10-02 | Sushant Sharma | feat(property): owner payment details (QR, wallet, bank) |
 | 20 | `89e008d` | 2026-10-02 | Sushant Sharma | feat(account): password, phone, email, devices and delete account |
 | 21 | `cf7127a` | 2026-10-02 | Sushant Sharma | feat(notifications): in-app notifications for bills, payments, readings, requests, joins and move-out |
+| 22 | `638cbf2` | 2026-10-02 | Sushant Sharma | docs: bring branch docs up to date |
