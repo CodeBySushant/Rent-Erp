@@ -19,4 +19,5 @@ powershell -ExecutionPolicy Bypass -File D:\PROJECTS\Rent-Erp\docs\api-tests\Pay
 
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
-| — | — | — | First run pending |
+| 2026-10-02 | 4 | 35 | Tests ran against the previous backend still holding port 8080 (payment endpoints 404). Not a code failure. |
+| 2026-10-02 | 39 | 0 | After stopping the old process and starting the new build. |

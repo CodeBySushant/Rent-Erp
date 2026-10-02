@@ -112,3 +112,11 @@ No new endpoints: the app now drives the existing billing-run API. Create Bill (
 
 `payments` (V18): owner-recorded payments applied at once; tenant proofs pending until approved / rejected / withdrawn; applied exactly once under row locks with a DB check; never above what is owed; one pending proof per bill; Idempotency-Key replay; billing runs with payments cannot be cancelled; `pendingPayments` in summaries. App: owner bill detail records, approves and rejects payments. Detail: [DEVLOG_PAYMENT.md](DEVLOG_PAYMENT.md).
 
+### [2026-10-02] Live run: payments 39/39 (billing flow 21/21 and dashboard 27/27 re-run)
+
+Note for testing: a backend left running on port 8080 answers instead of the new build (the new one fails to bind). Stop it first: `Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }`.
+
+### [2026-10-02] Tenant bills and Pay Rent (app)
+
+No API change. Tenant: My Bills (`/memberships/{id}/bills`), bill detail with payment history and Withdraw, Pay Rent (amount, method, transaction ID, receipt photo from gallery or camera via `image_picker`) → upload (PAYMENT_PROOF) → `payment-proofs` (pending until the owner approves), Payments history (`/me/payments`).
+
