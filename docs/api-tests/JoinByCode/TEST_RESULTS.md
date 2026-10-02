@@ -20,4 +20,4 @@ Unit: `JoinCodeGeneratorTest`.
 
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
-| — | — | — | First run pending |
+| 2026-10-02 | 22 | 0 | |

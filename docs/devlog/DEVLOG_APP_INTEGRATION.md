@@ -94,3 +94,9 @@ Also: `files_test.ps1` first run 25/28 — the 3 failures were a PowerShell vari
 
 `properties.join_code` (V17, back-filled), generated as name/city initials + 4 digits; `GET /join/{code}` (property found) and `POST /join/{code}` (request, creating the tenant's linked profile if needed), with already-member / pending / own-property refusals and a look-up limit. App: Property Access shows the real code; `JoinRepository` for the tenant join screens. Detail: [DEVLOG_JOIN.md](DEVLOG_JOIN.md).
 
+### [2026-10-02] Live runs: join codes 22/22, authorization re-run 59/59
+
+### [2026-10-02] My Stay and the tenant join screens
+
+`GET /me/stay`: the tenant's tenancies (property, landlord, rooms, rent, deposit, notice, current bill, owed, overdue) and pending join requests in one call; landlord phone only while active. App: tenant home and My Rooms show the real stay (or pending / join prompt); join screens use the code look-up and send the real request. Detail: [DEVLOG_MYSTAY.md](DEVLOG_MYSTAY.md).
+

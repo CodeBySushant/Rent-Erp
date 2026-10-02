@@ -569,6 +569,12 @@ draft and a script that lists the branch's commits. No code or schema change.
 
 ---
 
+### [2026-10-02] My Stay
+
+`GET /me/stay`: tenant home in one call. Detail: [DEVLOG_MYSTAY.md](docs/devlog/DEVLOG_MYSTAY.md). Tests: [MyStay](docs/api-tests/MyStay/TEST_RESULTS.md).
+
+---
+
 ## Controller Log
 
 | Controller | Status | Detail | Tests |
@@ -586,6 +592,7 @@ draft and a script that lists the branch's commits. No code or schema change.
 | AuthController (+ authorization on every controller) | ✅ Complete, tested (branch `feature/app-integration`) | [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md) | [46/46](docs/api-tests/AuthController/TEST_RESULTS.md), [authz](docs/api-tests/Authorization/TEST_RESULTS.md) |
 | FileController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_FILE.md](docs/devlog/DEVLOG_FILE.md) | [files](docs/api-tests/FileController/TEST_RESULTS.md) |
 | TenantOnboardingController (Add Tenant) | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_ONBOARDING.md](docs/devlog/DEVLOG_ONBOARDING.md) | [add tenant](docs/api-tests/TenantOnboarding/TEST_RESULTS.md) |
+| MyStayController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_MYSTAY.md](docs/devlog/DEVLOG_MYSTAY.md) | [my stay](docs/api-tests/MyStay/TEST_RESULTS.md) |
 | JoinByCodeController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_JOIN.md](docs/devlog/DEVLOG_JOIN.md) | [join](docs/api-tests/JoinByCode/TEST_RESULTS.md) |
 | DashboardController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_DASHBOARD.md](docs/devlog/DEVLOG_DASHBOARD.md) | [dashboard](docs/api-tests/DashboardController/TEST_RESULTS.md) |
 | BillingController (tariffs + billing runs + tenant bills + adjustments + corrections + async) + BsCalendar | ✅ **Pass 1 + 2 complete**, tested; §14.2 B3/B4/B5/B8/B9/B10/B11/B13/B14/B15 + M9/M14/M17 + T7/T8/T9/P9 + CUSTOM. Full metered engine (SUB_METERED, NEA blended, segment engine, KUKL/boring, overage, corrections, async workers). Resolves Open Verification Item #1 (BS calendar). Penalty deferred to Payment phase. | [DEVLOG_BILLING.md](docs/devlog/DEVLOG_BILLING.md) | [35/35 + 31/31 + 14/14 unit passed](docs/api-tests/BillingController/TEST_RESULTS.md) |
