@@ -360,6 +360,7 @@ All routes are under `/api/v1`. **On `feature/app-integration`, every route need
 | `/me/stay` | MyStayController (branch `feature/app-integration`) |
 | `/tenant-bills/{id}/payments`, `/payment-proofs`, `/payments/{id}/…`, `/me/payments` | PaymentController (branch `feature/app-integration`) |
 | `/properties/{id}/readings/due`, `/me/meters` | ReadingDueController (branch `feature/app-integration`) |
+| `/memberships/{id}/move-out`, `/move-outs/{id}/…` | MoveOutController (branch `feature/app-integration`) |
 
 ### Response envelope
 

@@ -106,6 +106,33 @@ public class PaymentService {
         return PaymentResponse.from(p, state(bill));
     }
 
+    /**
+     * Move-out: part of the held deposit pays an unpaid bill. Recorded as an
+     * approved owner payment (method OTHER) so the bill's history shows it,
+     * and applied exactly like any other approved payment.
+     */
+    @Transactional
+    public void applyFromDeposit(UUID billId, BigDecimal amount, String paidAtBs, UUID ownerUserId) {
+        TenantBill bill = lockPayableBill(billId);
+        requireWithinBalance(bill, amount);
+        Payment p = payments.save(Payment.builder()
+                .propertyId(bill.getPropertyId())
+                .membershipId(bill.getMembershipId())
+                .billId(bill.getId())
+                .amount(amount)
+                .method(Payment.Method.OTHER)
+                .source(Source.OWNER_RECORDED)
+                .status(Status.APPROVED)
+                .paidAtBs(paidAtBs)
+                .note("Deposit applied at move-out")
+                .submittedBy(ownerUserId)
+                .decidedBy(ownerUserId)
+                .decidedAt(Instant.now())
+                .appliedAt(Instant.now())
+                .build());
+        apply(bill, p.getAmount());
+    }
+
     /** Tenant: a receipt for money they paid → pending until the owner decides. */
     @Transactional
     public PaymentResponse submitProof(UUID billId, RecordPaymentRequest req, String idempotencyKey) {

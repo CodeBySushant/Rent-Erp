@@ -124,3 +124,9 @@ No API change. Tenant: My Bills (`/memberships/{id}/bills`), bill detail with pa
 
 `GET /properties/{id}/readings/due`, `GET /me/meters`, `POST /me/meters/{meterId}/readings`: this month's state per meter; tenants submit their own meters' readings (responsibility rules, first reading required, one per month, own photo), pending until the owner confirms. App: owner Readings and tenant Reading Centre on live data. Detail: [DEVLOG_READINGS_DUE.md](DEVLOG_READINGS_DUE.md).
 
+### [2026-10-02] Live run: readings 21/21
+
+### [2026-10-02] Move-out (Phase 7)
+
+`move_outs` (V19): notice (tenant or owner), withdraw, settle — deposit pays unpaid bills (as payments), then final charges and damages, rest refunded; tenancy ended and rooms freed; history kept. App: owner Vacate (notice / settle / record) and tenant Move out (notice / withdraw). Detail: [DEVLOG_MOVEOUT.md](DEVLOG_MOVEOUT.md).
+

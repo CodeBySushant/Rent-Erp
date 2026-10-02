@@ -42,4 +42,6 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     long countForRun(@Param("runId") UUID runId, @Param("statuses") Collection<Status> statuses);
 
     long countByPropertyIdAndStatus(UUID propertyId, Status status);
+
+    boolean existsByMembershipIdAndStatus(UUID membershipId, Status status);
 }

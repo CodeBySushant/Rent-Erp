@@ -27,6 +27,7 @@ app's screens need, and fixes found while integrating. Existing behaviour on
 | Billing flow (app) | No API change; billing-run endpoints exercised as the app's Create Bill / Bills screens use them | — | `billing_flow_test.ps1` |
 | Payments | owner record, tenant proof, approve / reject / withdraw, histories; applied once; never above owed; runs with payments not cancellable; `pendingPayments` in summary | V18 | `payments_test.ps1` |
 | Readings due | owner due list; tenant meters and own submission (responsibility rules, first reading required, one per month, own photo) | — | `readings_test.ps1` |
+| Move-out | notice / withdraw / settle; deposit pays bills then charges, rest refunded; tenancy ended, rooms freed | V19 | `moveout_test.ps1` |
 
 ## Breaking changes / migration notes
 

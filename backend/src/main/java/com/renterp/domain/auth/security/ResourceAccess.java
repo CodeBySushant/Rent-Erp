@@ -7,6 +7,7 @@ import com.renterp.domain.charge.repository.ChargeTemplateRepository;
 import com.renterp.domain.meter.repository.MeterRepository;
 import com.renterp.domain.meterreading.repository.MeterCoverageEventRepository;
 import com.renterp.domain.meterreading.repository.MeterReadingRepository;
+import com.renterp.domain.moveout.repository.MoveOutRepository;
 import com.renterp.domain.payment.repository.PaymentRepository;
 import com.renterp.domain.propertyaccess.entity.PropertyAccess.AccessRole;
 import com.renterp.domain.structure.repository.FloorRepository;
@@ -66,6 +67,7 @@ public class ResourceAccess {
     private final BillingRunRepository runs;
     private final TenantBillRepository bills;
     private final PaymentRepository payments;
+    private final MoveOutRepository moveOuts;
 
     public ResourceAccess(AccessGuard guard,
                           FloorRepository floors,
@@ -81,7 +83,8 @@ public class ResourceAccess {
                           RentIncrementRepository increments,
                           BillingRunRepository runs,
                           TenantBillRepository bills,
-                          PaymentRepository payments) {
+                          PaymentRepository payments,
+                          MoveOutRepository moveOuts) {
         this.guard = guard;
         this.floors = floors;
         this.rooms = rooms;
@@ -97,6 +100,7 @@ public class ResourceAccess {
         this.runs = runs;
         this.bills = bills;
         this.payments = payments;
+        this.moveOuts = moveOuts;
     }
 
     // ── Property and lists ──────────────────────────────────────────────────
@@ -354,6 +358,29 @@ public class ResourceAccess {
         payments.findById(paymentId).ifPresent(p -> {
             if (!user.isAdmin() && !user.userId().equals(p.getSubmittedBy())) {
                 throw ApiException.forbidden("Only the tenant who sent this payment can withdraw it.");
+            }
+        });
+    }
+
+    /** The tenant themself, or a manager of the membership's property. */
+    public void membershipSelfOrManager(UUID membershipId) {
+        memberships.findById(membershipId).ifPresent(m -> {
+            if (!isSelfProfile(m.getTenantProfileId())) {
+                property(m.getPropertyId(), Level.WRITE);
+            }
+        });
+    }
+
+    /**
+     * A move-out: managers of the property; with {@code allowTenant} also the
+     * tenant whose tenancy it is (withdrawing their own notice).
+     */
+    public void moveOut(UUID moveOutId, boolean allowTenant) {
+        moveOuts.findById(moveOutId).ifPresent(mo -> {
+            if (allowTenant) {
+                membershipSelfOrManager(mo.getMembershipId());
+            } else {
+                property(mo.getPropertyId(), Level.WRITE);
             }
         });
     }
