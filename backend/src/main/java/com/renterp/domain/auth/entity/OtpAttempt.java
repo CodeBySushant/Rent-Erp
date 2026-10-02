@@ -23,7 +23,8 @@ public class OtpAttempt {
     @Column(columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
-    @Column(nullable = false, length = 20)
+    /** Where the code went: a phone number, or the new email for CHANGE_EMAIL (V22). */
+    @Column(nullable = false, length = 254)
     private String phone;
 
     @Column(nullable = false)
@@ -65,6 +66,6 @@ public class OtpAttempt {
     private Instant createdAt;
 
     public enum Purpose {
-        SIGNUP, LOGIN, CHANGE_PHONE
+        SIGNUP, LOGIN, CHANGE_PHONE, CHANGE_EMAIL
     }
 }

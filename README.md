@@ -364,6 +364,7 @@ All routes are under `/api/v1`. **On `feature/app-integration`, every route need
 | `/memberships/{id}/room-transfer` | RoomTransferController (branch `feature/app-integration`) |
 | `/memberships/{id}/requests`, `/requests/{id}/…`, `/me/requests` | TenantRequestController (branch `feature/app-integration`) |
 | `/properties/{id}/payment-details` | PaymentDetailsController (branch `feature/app-integration`) |
+| `/me/password`, `/me/phone`, `/me/email`, `/me/sessions`, `DELETE /me` | AccountController (branch `feature/app-integration`) |
 
 ### Response envelope
 

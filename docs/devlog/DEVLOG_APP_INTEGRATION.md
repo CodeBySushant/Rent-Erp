@@ -148,3 +148,11 @@ No API change. Tenant: My Bills (`/memberships/{id}/bills`), bill detail with pa
 
 `property_payment_details` (V21): QR (PAYMENT_QR upload of the same property), wallet and bank details per property; owners edit, active tenants read. App: Profile → Payment Details; tenant Pay Rent shows them. Detail: [DEVLOG_PAYMENT_DETAILS.md](DEVLOG_PAYMENT_DETAILS.md).
 
+### [2026-10-02] Live run: payment details 14/14 (Authorization re-run 59/59)
+
+### [2026-10-02] Join requests screen (app only, existing API)
+
+### [2026-10-02] Account self-service
+
+`/me/password`, `/me/phone…`, `/me/email…`, `/me/sessions…`, `DELETE /me` (V22). App: Profile → Security on live data. Detail: [DEVLOG_ACCOUNT.md](DEVLOG_ACCOUNT.md).
+

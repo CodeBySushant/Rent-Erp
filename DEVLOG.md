@@ -617,6 +617,12 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 ---
 
+### [2026-10-02] Account self-service
+
+`AccountController` (password, phone, email, devices, delete; V22). Detail: [DEVLOG_ACCOUNT.md](docs/devlog/DEVLOG_ACCOUNT.md). Tests: [Account](docs/api-tests/Account/TEST_RESULTS.md).
+
+---
+
 ## Controller Log
 
 | Controller | Status | Detail | Tests |
@@ -634,6 +640,7 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 | AuthController (+ authorization on every controller) | ✅ Complete, tested (branch `feature/app-integration`) | [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md) | [46/46](docs/api-tests/AuthController/TEST_RESULTS.md), [authz](docs/api-tests/Authorization/TEST_RESULTS.md) |
 | FileController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_FILE.md](docs/devlog/DEVLOG_FILE.md) | [files](docs/api-tests/FileController/TEST_RESULTS.md) |
 | TenantOnboardingController (Add Tenant) | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_ONBOARDING.md](docs/devlog/DEVLOG_ONBOARDING.md) | [add tenant](docs/api-tests/TenantOnboarding/TEST_RESULTS.md) |
+| AccountController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_ACCOUNT.md](docs/devlog/DEVLOG_ACCOUNT.md) | [account](docs/api-tests/Account/TEST_RESULTS.md) |
 | PaymentDetailsController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_PAYMENT_DETAILS.md](docs/devlog/DEVLOG_PAYMENT_DETAILS.md) | [payment details](docs/api-tests/PaymentDetails/TEST_RESULTS.md) |
 | TenantRequestController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_REQUESTS.md](docs/devlog/DEVLOG_REQUESTS.md) | [requests](docs/api-tests/Requests/TEST_RESULTS.md) |
 | RoomTransferController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_ROOM_TRANSFER.md](docs/devlog/DEVLOG_ROOM_TRANSFER.md) | [transfer](docs/api-tests/RoomTransfer/TEST_RESULTS.md) |
