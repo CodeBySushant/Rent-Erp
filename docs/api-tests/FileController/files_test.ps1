@@ -29,8 +29,9 @@ function Call([string]$method, [string]$path, $body = $null, [string]$token = $n
         $req.Content = New-Object System.Net.Http.StringContent($json, [System.Text.Encoding]::UTF8, 'application/json')
     }
     $res = $null
-    try { $res = $client.SendAsync($req).Result } catch { }
-    if ($res -eq $null) { throw ('No response from ' + $BaseUrl + ' - is the backend running?') }
+    $why = ''
+    try { $res = $client.SendAsync($req).Result } catch { $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }; $why = $e.Message }
+    if ($res -eq $null) { throw ('No response from ' + $BaseUrl + ' (' + $why + '). Start the backend in its own window (cd backend; mvn spring-boot:run), wait for "Started RentErpApplication", then run this script in a second window.') }
     $text = $res.Content.ReadAsStringAsync().Result
     $parsed = $null
     if ($text) { try { $parsed = $text | ConvertFrom-Json } catch { } }
@@ -89,8 +90,9 @@ function Upload([byte[]]$bytes, [string]$name, [string]$purpose, [string]$proper
     $form.Add($content, $part, $name)
     $req.Content = $form
     $res = $null
-    try { $res = $client.SendAsync($req).Result } catch { }
-    if ($res -eq $null) { throw ('No response from ' + $BaseUrl + ' - is the backend running?') }
+    $why = ''
+    try { $res = $client.SendAsync($req).Result } catch { $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }; $why = $e.Message }
+    if ($res -eq $null) { throw ('No response from ' + $BaseUrl + ' (' + $why + '). Start the backend in its own window (cd backend; mvn spring-boot:run), wait for "Started RentErpApplication", then run this script in a second window.') }
     $text = $res.Content.ReadAsStringAsync().Result
     $parsed = $null
     if ($text) { try { $parsed = $text | ConvertFrom-Json } catch { } }
@@ -101,8 +103,9 @@ function Download([string]$id, [string]$token) {
     $req = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::Get), ($BaseUrl + '/files/' + $id + '/content')
     if ($token) { $req.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', $token) }
     $res = $null
-    try { $res = $client.SendAsync($req).Result } catch { }
-    if ($res -eq $null) { throw ('No response from ' + $BaseUrl + ' - is the backend running?') }
+    $why = ''
+    try { $res = $client.SendAsync($req).Result } catch { $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }; $why = $e.Message }
+    if ($res -eq $null) { throw ('No response from ' + $BaseUrl + ' (' + $why + '). Start the backend in its own window (cd backend; mvn spring-boot:run), wait for "Started RentErpApplication", then run this script in a second window.') }
     return [pscustomobject]@{ Status = [int]$res.StatusCode; Bytes = $res.Content.ReadAsByteArrayAsync().Result;
         Type = [string]$res.Content.Headers.ContentType }
 }
