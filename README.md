@@ -356,6 +356,7 @@ All routes are under `/api/v1`. **On `feature/app-integration`, every route need
 | `/files` | FileController (branch `feature/app-integration`) |
 | `/dashboard`, `/properties/{id}/summary`, `/properties/{id}/tenants` | DashboardController (branch `feature/app-integration`) |
 | `POST /properties/{id}/tenants` | TenantOnboardingController — Add Tenant (branch `feature/app-integration`) |
+| `/join/{code}` | JoinByCodeController (branch `feature/app-integration`) |
 
 ### Response envelope
 

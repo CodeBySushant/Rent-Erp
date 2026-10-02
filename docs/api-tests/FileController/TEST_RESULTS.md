@@ -23,3 +23,4 @@ Unit: `FileTypeSnifferTest` (accepted formats, refused formats, name cleaning), 
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
 | 2026-10-02 | 25 | 3 | The 3 failures were the script: `$qr` and `$QR` are the same variable in PowerShell, so the upload response was overwritten by its id before the checks on url, name and type. Renamed; backend behaviour was correct (download, access and validation checks all passed). |
+| 2026-10-02 | 28 | 0 | After the variable fix. |

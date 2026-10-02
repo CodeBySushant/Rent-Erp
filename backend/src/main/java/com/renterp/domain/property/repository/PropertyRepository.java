@@ -29,4 +29,8 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Property p where p.id = :id")
     Optional<Property> findByIdForUpdate(@Param("id") UUID id);
+
+    boolean existsByJoinCode(String joinCode);
+
+    Optional<Property> findByJoinCode(String joinCode);
 }

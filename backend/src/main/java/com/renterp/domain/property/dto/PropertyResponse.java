@@ -52,6 +52,7 @@ public class PropertyResponse {
     private final BigDecimal tdsRatePercent;
     private final short disputeWindowDays;
     private final boolean active;
+    private final String joinCode;
     private final Instant createdAt;
     private final Instant updatedAt;
 
@@ -86,6 +87,7 @@ public class PropertyResponse {
         this.tdsRatePercent = property.getTdsRatePercent();
         this.disputeWindowDays = property.getDisputeWindowDays();
         this.active = property.isActive();
+        this.joinCode = property.getJoinCode();
         this.createdAt = property.getCreatedAt();
         this.updatedAt = property.getUpdatedAt();
     }

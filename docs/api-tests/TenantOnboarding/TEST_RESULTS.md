@@ -17,4 +17,4 @@ powershell -ExecutionPolicy Bypass -File docs\api-tests\TenantOnboarding\add_ten
 
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
-| — | — | — | First run pending |
+| 2026-10-02 | 22 | 0 | |

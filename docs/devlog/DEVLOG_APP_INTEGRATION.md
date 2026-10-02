@@ -88,3 +88,9 @@ Also: `files_test.ps1` first run 25/28 — the 3 failures were a PowerShell vari
 
 `POST /properties/{id}/tenants` creates profile, membership, room assignment and optional deposit together after checking room ownership, vacancy, dates and duplicates; room row locked for the transaction; V16 makes one open assignment per room a database rule. App's Add Tenant screen now saves (vacant rooms only). Detail: [DEVLOG_ONBOARDING.md](DEVLOG_ONBOARDING.md).
 
+### [2026-10-02] Live runs: files 28/28, dashboard 27/27, Add Tenant 22/22
+
+### [2026-10-02] Join by property code
+
+`properties.join_code` (V17, back-filled), generated as name/city initials + 4 digits; `GET /join/{code}` (property found) and `POST /join/{code}` (request, creating the tenant's linked profile if needed), with already-member / pending / own-property refusals and a look-up limit. App: Property Access shows the real code; `JoinRepository` for the tenant join screens. Detail: [DEVLOG_JOIN.md](DEVLOG_JOIN.md).
+

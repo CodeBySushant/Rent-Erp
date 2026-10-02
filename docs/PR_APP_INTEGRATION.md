@@ -22,6 +22,7 @@ app's screens need, and fixes found while integrating. Existing behaviour on
 | Files | `POST/GET/DELETE /files`, protected `/files/{id}/content`; type from bytes, 5 MB, private by default; local storage behind `FileStorage` | V15 | unit + `files_test.ps1` |
 | Dashboard | `GET /dashboard`, `/properties/{id}/summary`, `/properties/{id}/tenants`; `BsCalendar.today()` | — | `BsCalendarTest`, `dashboard_test.ps1` |
 | Add Tenant | `POST /properties/{id}/tenants`: profile + membership + room + deposit in one transaction, room locked, vacancy / ownership / duplicate checks | V16 | `add_tenant_test.ps1` |
+| Join by code | `properties.join_code`; `GET/POST /join/{code}` with member / pending / own-property checks and a look-up limit | V17 | `JoinCodeGeneratorTest`, `join_test.ps1` |
 
 ## Breaking changes / migration notes
 

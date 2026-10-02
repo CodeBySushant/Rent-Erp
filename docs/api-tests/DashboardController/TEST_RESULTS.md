@@ -20,4 +20,4 @@ Unit: `BsCalendarTest` — AD → BS on known New Year dates, month start, today
 
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
-| — | — | — | First run pending |
+| 2026-10-02 | 27 | 0 | |

@@ -36,10 +36,13 @@ public class PropertyService {
     private final PropertyAccessService propertyAccessService;
     private final MeterRepository meterRepository;
     private final AccessGuard accessGuard;
+    private final JoinCodeGenerator joinCodeGenerator;
 
     public PropertyService(PropertyRepository propertyRepository, UserRepository userRepository,
                             PropertyAccessService propertyAccessService,
-                            MeterRepository meterRepository, AccessGuard accessGuard) {
+                            MeterRepository meterRepository, AccessGuard accessGuard,
+                            JoinCodeGenerator joinCodeGenerator) {
+        this.joinCodeGenerator = joinCodeGenerator;
         this.propertyRepository = propertyRepository;
         this.userRepository = userRepository;
         this.propertyAccessService = propertyAccessService;
@@ -77,6 +80,7 @@ public class PropertyService {
         }
 
         Property property = Property.builder()
+                .joinCode(joinCodeGenerator.newCode(request.getName(), request.getCity()))
                 .ownerUserId(ownerUserId)
                 .name(request.getName())
                 .address(request.getAddress())

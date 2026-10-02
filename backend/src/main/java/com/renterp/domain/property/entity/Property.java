@@ -144,6 +144,11 @@ public class Property extends BaseAuditEntity {
     @Builder.Default
     private short disputeWindowDays = 7;
 
+    // Short code tenants use to find the property (V17), e.g. SR-KTM-7842.
+    // Generated once by PropertyService; never changes.
+    @Column(name = "join_code", nullable = false, length = 16, unique = true, updatable = false)
+    private String joinCode;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;
