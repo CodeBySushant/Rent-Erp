@@ -575,6 +575,12 @@ draft and a script that lists the branch's commits. No code or schema change.
 
 ---
 
+### [2026-10-02] Billing flow verified as the app uses it
+
+Draft → replay → duplicate refusal → send → owed / summary → discard and redo, against the existing billing endpoints. Tests: [BillingFlow](docs/api-tests/BillingFlow/TEST_RESULTS.md).
+
+---
+
 ## Controller Log
 
 | Controller | Status | Detail | Tests |

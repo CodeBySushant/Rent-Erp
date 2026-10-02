@@ -24,6 +24,7 @@ app's screens need, and fixes found while integrating. Existing behaviour on
 | Add Tenant | `POST /properties/{id}/tenants`: profile + membership + room + deposit in one transaction, room locked, vacancy / ownership / duplicate checks | V16 | `add_tenant_test.ps1` |
 | Join by code | `properties.join_code`; `GET/POST /join/{code}` with member / pending / own-property checks and a look-up limit | V17 | `JoinCodeGeneratorTest`, `join_test.ps1` |
 | My Stay | `GET /me/stay`: tenancies, landlord, rooms, rent, deposit, notice, current bill, owed; pending requests | — | `mystay_test.ps1` |
+| Billing flow (app) | No API change; billing-run endpoints exercised as the app's Create Bill / Bills screens use them | — | `billing_flow_test.ps1` |
 
 ## Breaking changes / migration notes
 

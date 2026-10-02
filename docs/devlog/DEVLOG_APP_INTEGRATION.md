@@ -100,3 +100,9 @@ Also: `files_test.ps1` first run 25/28 — the 3 failures were a PowerShell vari
 
 `GET /me/stay`: the tenant's tenancies (property, landlord, rooms, rent, deposit, notice, current bill, owed, overdue) and pending join requests in one call; landlord phone only while active. App: tenant home and My Rooms show the real stay (or pending / join prompt); join screens use the code look-up and send the real request. Detail: [DEVLOG_MYSTAY.md](DEVLOG_MYSTAY.md).
 
+### [2026-10-02] Live run: My Stay 20/20
+
+### [2026-10-02] Billing screens on the existing billing runs
+
+No new endpoints: the app now drives the existing billing-run API. Create Bill (live) picks the period from the property's billing day (current or previous window), asks only for the figures the property's electricity / water modes need (NEA total, per-tenant fixed amount, rate per unit, KUKL / boring totals), creates a DRAFT with an Idempotency-Key (a retry replays the same run; a second run for the month is refused), reopens an existing draft or shows a sent month instead of making another, reviews per-tenant bills, then sends (confirm) or discards (cancel). Bills list shows the current month's bills with collected / remaining and Paid / Partly paid / Unpaid / Overdue; bill detail shows line items, paid, remaining and due date. Live test: `docs/api-tests/BillingFlow/billing_flow_test.ps1`.
+
