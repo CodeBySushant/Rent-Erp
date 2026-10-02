@@ -29,6 +29,7 @@ app's screens need, and fixes found while integrating. Existing behaviour on
 | Readings due | owner due list; tenant meters and own submission (responsibility rules, first reading required, one per month, own photo) | — | `readings_test.ps1` |
 | Move-out | notice / withdraw / settle; deposit pays bills then charges, rest refunded; tenancy ended, rooms freed | V19 | `moveout_test.ps1` |
 | Room transfer | old room closed, new room opened in one transaction; both rooms locked | — | `transfer_test.ps1` |
+| Requests | room change / vacate / maintenance / other; approve, reject, complete, withdraw; vacate → move-out notice, room change → transfer | V20 | `requests_test.ps1` |
 
 ## Breaking changes / migration notes
 

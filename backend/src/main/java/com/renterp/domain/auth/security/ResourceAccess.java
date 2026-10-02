@@ -8,6 +8,7 @@ import com.renterp.domain.meter.repository.MeterRepository;
 import com.renterp.domain.meterreading.repository.MeterCoverageEventRepository;
 import com.renterp.domain.meterreading.repository.MeterReadingRepository;
 import com.renterp.domain.moveout.repository.MoveOutRepository;
+import com.renterp.domain.request.repository.TenantRequestRepository;
 import com.renterp.domain.payment.repository.PaymentRepository;
 import com.renterp.domain.propertyaccess.entity.PropertyAccess.AccessRole;
 import com.renterp.domain.structure.repository.FloorRepository;
@@ -68,6 +69,7 @@ public class ResourceAccess {
     private final TenantBillRepository bills;
     private final PaymentRepository payments;
     private final MoveOutRepository moveOuts;
+    private final TenantRequestRepository tenantRequests;
 
     public ResourceAccess(AccessGuard guard,
                           FloorRepository floors,
@@ -84,7 +86,8 @@ public class ResourceAccess {
                           BillingRunRepository runs,
                           TenantBillRepository bills,
                           PaymentRepository payments,
-                          MoveOutRepository moveOuts) {
+                          MoveOutRepository moveOuts,
+                          TenantRequestRepository tenantRequests) {
         this.guard = guard;
         this.floors = floors;
         this.rooms = rooms;
@@ -101,6 +104,7 @@ public class ResourceAccess {
         this.bills = bills;
         this.payments = payments;
         this.moveOuts = moveOuts;
+        this.tenantRequests = tenantRequests;
     }
 
     // ── Property and lists ──────────────────────────────────────────────────
@@ -381,6 +385,20 @@ public class ResourceAccess {
                 membershipSelfOrManager(mo.getMembershipId());
             } else {
                 property(mo.getPropertyId(), Level.WRITE);
+            }
+        });
+    }
+
+    /**
+     * A tenant request: managers of the property; with {@code allowTenant}
+     * also the tenant of the tenancy (withdrawing their own request).
+     */
+    public void tenantRequest(UUID requestId, boolean allowTenant) {
+        tenantRequests.findById(requestId).ifPresent(r -> {
+            if (allowTenant) {
+                membershipSelfOrManager(r.getMembershipId());
+            } else {
+                property(r.getPropertyId(), Level.WRITE);
             }
         });
     }

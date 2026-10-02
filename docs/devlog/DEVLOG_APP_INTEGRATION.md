@@ -136,3 +136,9 @@ No API change. Tenant: My Bills (`/memberships/{id}/bills`), bill detail with pa
 
 `POST /memberships/{id}/room-transfer`: old room closed and new room opened in one transaction with both rooms locked; refusals leave the tenant in place; history kept. App: tenant page → Add Rooms → move to another room / add a room. Detail: [DEVLOG_ROOM_TRANSFER.md](DEVLOG_ROOM_TRANSFER.md).
 
+### [2026-10-02] Live run: room transfer 16/16 (Add Tenant re-run 22/22)
+
+### [2026-10-02] Tenant requests
+
+`tenant_requests` (V20): room change, vacate, maintenance, other; approve / reject (note) / complete / withdraw; approving a vacate opens the move-out notice, approving a room change with a room transfers the tenant. App: owner Requests and tenant Requests / New Request on live data. Detail: [DEVLOG_REQUESTS.md](DEVLOG_REQUESTS.md).
+

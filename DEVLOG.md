@@ -605,6 +605,12 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 ---
 
+### [2026-10-02] Tenant requests
+
+`TenantRequestController`; `tenant_requests` (V20). Detail: [DEVLOG_REQUESTS.md](docs/devlog/DEVLOG_REQUESTS.md). Tests: [Requests](docs/api-tests/Requests/TEST_RESULTS.md).
+
+---
+
 ## Controller Log
 
 | Controller | Status | Detail | Tests |
@@ -622,6 +628,7 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 | AuthController (+ authorization on every controller) | ✅ Complete, tested (branch `feature/app-integration`) | [DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md) | [46/46](docs/api-tests/AuthController/TEST_RESULTS.md), [authz](docs/api-tests/Authorization/TEST_RESULTS.md) |
 | FileController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_FILE.md](docs/devlog/DEVLOG_FILE.md) | [files](docs/api-tests/FileController/TEST_RESULTS.md) |
 | TenantOnboardingController (Add Tenant) | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_ONBOARDING.md](docs/devlog/DEVLOG_ONBOARDING.md) | [add tenant](docs/api-tests/TenantOnboarding/TEST_RESULTS.md) |
+| TenantRequestController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_REQUESTS.md](docs/devlog/DEVLOG_REQUESTS.md) | [requests](docs/api-tests/Requests/TEST_RESULTS.md) |
 | RoomTransferController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_ROOM_TRANSFER.md](docs/devlog/DEVLOG_ROOM_TRANSFER.md) | [transfer](docs/api-tests/RoomTransfer/TEST_RESULTS.md) |
 | MoveOutController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_MOVEOUT.md](docs/devlog/DEVLOG_MOVEOUT.md) | [move-out](docs/api-tests/MoveOut/TEST_RESULTS.md) |
 | ReadingDueController | ✅ Implemented (branch `feature/app-integration`) | [DEVLOG_READINGS_DUE.md](docs/devlog/DEVLOG_READINGS_DUE.md) | [readings](docs/api-tests/Readings/TEST_RESULTS.md) |
