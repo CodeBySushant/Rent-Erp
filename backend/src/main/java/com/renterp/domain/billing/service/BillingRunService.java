@@ -1,5 +1,7 @@
 package com.renterp.domain.billing.service;
 
+import com.renterp.domain.notification.entity.Notification;
+import com.renterp.domain.notification.service.NotificationService;
 import com.renterp.common.exception.DuplicateResourceException;
 import com.renterp.common.exception.InvalidOperationException;
 import com.renterp.common.exception.ResourceNotFoundException;
@@ -62,6 +64,7 @@ public class BillingRunService {
     // B15 — runs with more than this many billable tenants go async unless the caller overrides.
     static final int ASYNC_TENANT_THRESHOLD = 25;
 
+    private final NotificationService notifier;
     private final PropertyRepository propertyRepository;
     private final BillingRunRepository billingRunRepository;
     private final TenantBillRepository tenantBillRepository;
@@ -88,7 +91,8 @@ public class BillingRunService {
                              TenantAdvanceRentRepository advanceRepository,
                              BillingRunProgressRepository progressRepository,
                              ElectricityEngine electricityEngine,
-                             BillingAsyncService asyncService) {
+                             BillingAsyncService asyncService,
+                             NotificationService notifier) {
         this.propertyRepository = propertyRepository;
         this.billingRunRepository = billingRunRepository;
         this.tenantBillRepository = tenantBillRepository;
@@ -102,6 +106,7 @@ public class BillingRunService {
         this.progressRepository = progressRepository;
         this.electricityEngine = electricityEngine;
         this.asyncService = asyncService;
+        this.notifier = notifier;
     }
 
     // Internal per-membership working record while building the run.
@@ -600,6 +605,12 @@ public class BillingRunService {
         run.setConfirmedBy(req != null ? req.getConfirmedBy() : null);
         run = billingRunRepository.saveAndFlush(run);
         log.info("Billing run confirmed — id: {}, bills issued: {}", runId, bills.size());
+        for (TenantBill b : bills) {
+            notifier.toTenant(b.getMembershipId(), Notification.Type.BILL_ISSUED,
+                    b.getBillingMonthBs() + " · " + NotificationService.rs(b.getTotalDue())
+                            + (b.getDueDateBs() == null ? "" : " · due " + b.getDueDateBs()),
+                    "BILL", b.getId());
+        }
         return BillingRunResponse.from(run);
     }
 

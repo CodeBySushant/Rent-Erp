@@ -1,5 +1,7 @@
 package com.renterp.domain.meterreading.service;
 
+import com.renterp.domain.notification.entity.Notification;
+import com.renterp.domain.notification.service.NotificationService;
 import com.renterp.common.exception.ApiException;
 import com.renterp.common.util.BsCalendar;
 import com.renterp.domain.auth.security.AccessGuard;
@@ -53,6 +55,7 @@ import java.util.stream.Collectors;
 @Service
 public class ReadingDueService {
 
+    private final NotificationService notifier;
     private final AccessGuard guard;
     private final MeterRepository meters;
     private final MeterRoomCoverageRepository coverage;
@@ -69,7 +72,7 @@ public class ReadingDueService {
                              MeterReadingRepository readings, MeterReadingService readingService,
                              RoomRepository rooms, TenantProfileRepository profiles,
                              TenantPropertyMembershipRepository memberships, RoomAssignmentRepository assignments,
-                             StoredFileRepository files, EntityManager em) {
+                             StoredFileRepository files, EntityManager em, NotificationService notifier) {
         this.guard = guard;
         this.meters = meters;
         this.coverage = coverage;
@@ -81,6 +84,7 @@ public class ReadingDueService {
         this.assignments = assignments;
         this.files = files;
         this.em = em;
+        this.notifier = notifier;
     }
 
     /** Owner: every active meter of the property and its state this month. */
@@ -169,6 +173,9 @@ public class ReadingDueService {
             r.setSubmittedBy(user.userId());
             readings.save(r);
         });
+        notifier.toPropertyStaff(meter.getPropertyId(), Notification.Type.READING_SUBMITTED,
+                meter.getLabel() + " · " + req.getReadingValue().toPlainString() + " · " + profile.getFullName(),
+                "METER", meterId);
         return saved;
     }
 

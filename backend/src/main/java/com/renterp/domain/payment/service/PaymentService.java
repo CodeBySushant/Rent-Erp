@@ -1,5 +1,7 @@
 package com.renterp.domain.payment.service;
 
+import com.renterp.domain.notification.entity.Notification;
+import com.renterp.domain.notification.service.NotificationService;
 import com.renterp.common.exception.ApiException;
 import com.renterp.common.util.BsCalendar;
 import com.renterp.domain.auth.security.AccessGuard;
@@ -54,6 +56,7 @@ public class PaymentService {
 
     private static final Logger log = LogManager.getLogger(PaymentService.class);
 
+    private final NotificationService notifier;
     private final PaymentRepository payments;
     private final TenantBillRepository bills;
     private final StoredFileRepository files;
@@ -63,13 +66,14 @@ public class PaymentService {
 
     public PaymentService(PaymentRepository payments, TenantBillRepository bills, StoredFileRepository files,
                           TenantProfileRepository profiles, TenantPropertyMembershipRepository memberships,
-                          AccessGuard guard) {
+                          AccessGuard guard, NotificationService notifier) {
         this.payments = payments;
         this.bills = bills;
         this.files = files;
         this.profiles = profiles;
         this.memberships = memberships;
         this.guard = guard;
+        this.notifier = notifier;
     }
 
     /** Owner: money received in cash, bank, wallet… → approved and applied now. */
@@ -103,6 +107,8 @@ public class PaymentService {
                 .build());
         apply(bill, p.getAmount());
         log.info("Payment recorded — bill: {}, amount: {}, method: {}", billId, p.getAmount(), p.getMethod());
+        notifier.toTenant(bill.getMembershipId(), Notification.Type.PAYMENT_RECORDED,
+                NotificationService.rs(p.getAmount()) + " · " + bill.getBillingMonthBs(), "BILL", bill.getId());
         return PaymentResponse.from(p, state(bill));
     }
 
@@ -174,6 +180,9 @@ public class PaymentService {
                 .idempotencyKey(blankToNull(idempotencyKey))
                 .build());
         log.info("Payment proof submitted — bill: {}, amount: {}", billId, p.getAmount());
+        notifier.toPropertyStaff(bill.getPropertyId(), Notification.Type.PAYMENT_PROOF_WAITING,
+                NotificationService.rs(p.getAmount()) + " · " + bill.getBillingMonthBs() + tenantName(bill.getMembershipId()),
+                "BILL", bill.getId());
         return PaymentResponse.from(p, state(bill));
     }
 
@@ -194,6 +203,8 @@ public class PaymentService {
         payments.save(p);
         apply(bill, p.getAmount());
         log.info("Payment approved — payment: {}, bill: {}", paymentId, bill.getId());
+        notifier.toTenant(bill.getMembershipId(), Notification.Type.PAYMENT_APPROVED,
+                NotificationService.rs(p.getAmount()) + " · " + bill.getBillingMonthBs(), "BILL", bill.getId());
         return PaymentResponse.from(p, state(bill));
     }
 
@@ -207,6 +218,8 @@ public class PaymentService {
         p.setRejectionReason(reason.trim());
         payments.save(p);
         log.info("Payment rejected — payment: {}", paymentId);
+        notifier.toTenant(p.getMembershipId(), Notification.Type.PAYMENT_REJECTED,
+                NotificationService.rs(p.getAmount()) + " · " + p.getRejectionReason(), "BILL", p.getBillId());
         return response(p);
     }
 
@@ -310,5 +323,12 @@ public class PaymentService {
 
     private static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    /** " · Name" of the tenant of a tenancy, or "" when unknown. */
+    private String tenantName(UUID membershipId) {
+        return memberships.findById(membershipId)
+                .flatMap(m -> profiles.findById(m.getTenantProfileId()))
+                .map(tp -> " · " + tp.getFullName()).orElse("");
     }
 }

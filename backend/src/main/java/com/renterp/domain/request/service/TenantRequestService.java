@@ -1,5 +1,7 @@
 package com.renterp.domain.request.service;
 
+import com.renterp.domain.notification.entity.Notification;
+import com.renterp.domain.notification.service.NotificationService;
 import com.renterp.common.exception.ApiException;
 import com.renterp.common.util.BsCalendar;
 import com.renterp.domain.auth.security.AccessGuard;
@@ -50,6 +52,7 @@ public class TenantRequestService {
 
     private static final List<Status> OPEN = List.of(Status.PENDING, Status.APPROVED);
 
+    private final NotificationService notifier;
     private final TenantRequestRepository requests;
     private final TenantPropertyMembershipRepository memberships;
     private final TenantProfileRepository profiles;
@@ -65,7 +68,7 @@ public class TenantRequestService {
                                 TenantProfileRepository profiles, StoredFileRepository files,
                                 MoveOutService moveOutService, MoveOutRepository moveOuts,
                                 RoomTransferService transfers, RoomAssignmentRepository assignments,
-                                RoomRepository rooms, AccessGuard guard) {
+                                RoomRepository rooms, AccessGuard guard, NotificationService notifier) {
         this.requests = requests;
         this.memberships = memberships;
         this.profiles = profiles;
@@ -76,6 +79,7 @@ public class TenantRequestService {
         this.assignments = assignments;
         this.rooms = rooms;
         this.guard = guard;
+        this.notifier = notifier;
     }
 
     @Transactional
@@ -120,6 +124,13 @@ public class TenantRequestService {
                 .createdBy(user.userId())
                 .byTenant(byTenant)
                 .build());
+        if (byTenant) {
+            notifier.toPropertyStaff(m.getPropertyId(), Notification.Type.REQUEST_CREATED,
+                    label(saved) + " · " + saved.getTitle(), "REQUEST", saved.getId());
+        } else {
+            notifier.toTenant(membershipId, Notification.Type.REQUEST_CREATED,
+                    label(saved) + " · " + saved.getTitle(), "REQUEST", saved.getId());
+        }
         return response(saved);
     }
 
@@ -152,6 +163,7 @@ public class TenantRequestService {
             r.setStatus(Status.COMPLETED);
             r.setCompletedAt(Instant.now());
         }
+        notifyDecision(r);
         return response(requests.save(r));
     }
 
@@ -166,6 +178,7 @@ public class TenantRequestService {
         r.setOwnerNote(req.getNote().trim());
         r.setDecidedBy(user.userId());
         r.setDecidedAt(Instant.now());
+        notifyDecision(r);
         return response(requests.save(r));
     }
 
@@ -177,6 +190,7 @@ public class TenantRequestService {
             r.setOwnerNote(req.getNote().trim());
         }
         r.setCompletedAt(Instant.now());
+        notifyDecision(r);
         return response(requests.save(r));
     }
 
@@ -221,6 +235,22 @@ public class TenantRequestService {
                     "This request is already " + r.getStatus().name().toLowerCase() + ".");
         }
         return r;
+    }
+
+    private void notifyDecision(TenantRequest r) {
+        notifier.toTenant(r.getMembershipId(), Notification.Type.REQUEST_DECIDED,
+                label(r) + " · " + r.getTitle() + " · " + r.getStatus().name().toLowerCase()
+                        + (r.getOwnerNote() == null ? "" : " · " + r.getOwnerNote()),
+                "REQUEST", r.getId());
+    }
+
+    private static String label(TenantRequest r) {
+        return switch (r.getType()) {
+            case ROOM_CHANGE -> "Room change";
+            case VACATE -> "Vacate";
+            case MAINTENANCE -> "Maintenance";
+            case OTHER -> "Other";
+        };
     }
 
     private UUID onlyRoom(UUID membershipId) {

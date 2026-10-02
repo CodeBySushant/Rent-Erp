@@ -32,6 +32,7 @@ app's screens need, and fixes found while integrating. Existing behaviour on
 | Requests | room change / vacate / maintenance / other; approve, reject, complete, withdraw; vacate → move-out notice, room change → transfer | V20 | `requests_test.ps1` |
 | Payment details | QR / wallet / bank per property; owners edit, active tenants read | V21 | `payment_details_test.ps1` |
 | Account | change password (other devices signed out), phone / email with a code to the new one, devices, delete account | V22 | `account_test.ps1` |
+| Notifications | in-app inbox; created with bills, payments, readings, requests, joins, move-out; device tokens for push later | V23 | `notifications_test.ps1` |
 
 ## Breaking changes / migration notes
 

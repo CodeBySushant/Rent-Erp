@@ -1,5 +1,7 @@
 package com.renterp.domain.tenancy.service;
 
+import com.renterp.domain.notification.entity.Notification;
+import com.renterp.domain.notification.service.NotificationService;
 import com.renterp.common.exception.DuplicateResourceException;
 import com.renterp.common.exception.InvalidOperationException;
 import com.renterp.common.exception.ResourceNotFoundException;
@@ -33,6 +35,7 @@ public class JoinRequestService {
     // Spec §14.3 T1 — 5-minute expiry from request time.
     private static final Duration REQUEST_TTL = Duration.ofMinutes(5);
 
+    private final NotificationService notifier;
     private final JoinRequestRepository joinRepository;
     private final TenantProfileRepository profileRepository;
     private final PropertyRepository propertyRepository;
@@ -43,12 +46,13 @@ public class JoinRequestService {
                                TenantProfileRepository profileRepository,
                                PropertyRepository propertyRepository,
                                BlockedTenantService blockedService,
-                               MembershipService membershipService) {
+                               MembershipService membershipService, NotificationService notifier) {
         this.joinRepository = joinRepository;
         this.profileRepository = profileRepository;
         this.propertyRepository = propertyRepository;
         this.blockedService = blockedService;
         this.membershipService = membershipService;
+        this.notifier = notifier;
     }
 
     @Transactional
@@ -91,7 +95,10 @@ public class JoinRequestService {
                 .expiresAt(now.plus(REQUEST_TTL))
                 .build();
         log.info("Join request created — tenant: {}, property: {}", req.getTenantProfileId(), req.getPropertyId());
-        return JoinRequestResponse.from(joinRepository.saveAndFlush(jr));
+        JoinRequest saved = joinRepository.saveAndFlush(jr);
+        notifier.toPropertyStaff(saved.getPropertyId(), Notification.Type.JOIN_REQUESTED,
+                tenant.getFullName() + " · " + tenant.getPhone(), "JOIN_REQUEST", saved.getId());
+        return JoinRequestResponse.from(saved);
     }
 
     @Transactional
@@ -137,6 +144,8 @@ public class JoinRequestService {
         jr.setResponseMessage(req.getResponseMessage());
         joinRepository.saveAndFlush(jr);
         log.info("Join request accepted — id: {}, membership: {}", id, m.getId());
+        notifier.toProfile(jr.getTenantProfileId(), jr.getPropertyId(), Notification.Type.JOIN_ACCEPTED,
+                propertyName(jr.getPropertyId()) + " · from " + req.getStartedAtBs(), "MEMBERSHIP", m.getId());
         return MembershipResponse.from(m);
     }
 
@@ -149,7 +158,15 @@ public class JoinRequestService {
         jr.setStatus(JoinRequestStatus.REJECTED);
         jr.setRespondedAt(Instant.now());
         jr.setResponseMessage(req.getResponseMessage());
+        notifier.toProfile(jr.getTenantProfileId(), jr.getPropertyId(), Notification.Type.JOIN_REJECTED,
+                propertyName(jr.getPropertyId())
+                        + (req.getResponseMessage() == null ? "" : " · " + req.getResponseMessage()),
+                "JOIN_REQUEST", jr.getId());
         return JoinRequestResponse.from(joinRepository.saveAndFlush(jr));
+    }
+
+    private String propertyName(UUID propertyId) {
+        return propertyRepository.findById(propertyId).map(p -> p.getName()).orElse("");
     }
 
     @Transactional

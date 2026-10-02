@@ -156,3 +156,9 @@ No API change. Tenant: My Bills (`/memberships/{id}/bills`), bill detail with pa
 
 `/me/password`, `/me/phone…`, `/me/email…`, `/me/sessions…`, `DELETE /me` (V22). App: Profile → Security on live data. Detail: [DEVLOG_ACCOUNT.md](DEVLOG_ACCOUNT.md).
 
+### [2026-10-02] Live run: account 38/38 (auth re-run 46/46)
+
+### [2026-10-02] Notifications
+
+`notifications`, `device_tokens` (V23); created inside the transactions of billing, payments, readings, requests, joins and move-out; inbox endpoints under `/me/notifications`. App: bell badge and live inbox. Detail: [DEVLOG_NOTIFICATIONS.md](DEVLOG_NOTIFICATIONS.md).
+

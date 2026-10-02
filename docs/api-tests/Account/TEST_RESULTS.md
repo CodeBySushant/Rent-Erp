@@ -18,4 +18,4 @@ powershell -ExecutionPolicy Bypass -File D:\PROJECTS\Rent-Erp\docs\api-tests\Acc
 
 | Date | Passed | Failed | Notes |
 |---|---|---|---|
-| — | — | — | First run pending |
+| 2026-10-02 | 38 | 0 | Auth re-run 46/46. |

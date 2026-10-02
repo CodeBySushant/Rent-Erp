@@ -1,5 +1,7 @@
 package com.renterp.domain.moveout.service;
 
+import com.renterp.domain.notification.entity.Notification;
+import com.renterp.domain.notification.service.NotificationService;
 import com.renterp.common.exception.ApiException;
 import com.renterp.common.util.BsCalendar;
 import com.renterp.domain.auth.security.AccessGuard;
@@ -60,6 +62,7 @@ public class MoveOutService {
 
     private static final Logger log = LogManager.getLogger(MoveOutService.class);
 
+    private final NotificationService notifier;
     private final MoveOutRepository moveOuts;
     private final TenantPropertyMembershipRepository memberships;
     private final TenantProfileRepository profiles;
@@ -77,7 +80,7 @@ public class MoveOutService {
                           TenantProfileRepository profiles, PropertyRepository properties, TenantBillRepository bills,
                           TenantDepositRepository deposits, PaymentRepository payments, PaymentService paymentService,
                           MembershipService membershipService, RoomAssignmentRepository assignments,
-                          RoomRepository rooms, AccessGuard guard) {
+                          RoomRepository rooms, AccessGuard guard, NotificationService notifier) {
         this.moveOuts = moveOuts;
         this.memberships = memberships;
         this.profiles = profiles;
@@ -90,6 +93,7 @@ public class MoveOutService {
         this.assignments = assignments;
         this.rooms = rooms;
         this.guard = guard;
+        this.notifier = notifier;
     }
 
     @Transactional
@@ -120,6 +124,14 @@ public class MoveOutService {
                 .reason(req.getReason())
                 .build());
         log.info("Move-out notice — membership: {}, date: {}, short: {}", membershipId, req.getPlannedMoveOutBs(), shortNotice);
+        String who = profiles.findById(m.getTenantProfileId()).map(tp -> tp.getFullName()).orElse("");
+        if (byTenant) {
+            notifier.toPropertyStaff(m.getPropertyId(), Notification.Type.MOVE_OUT_NOTICE,
+                    who + " · " + req.getPlannedMoveOutBs(), "MOVE_OUT", saved.getId());
+        } else {
+            notifier.toTenant(membershipId, Notification.Type.MOVE_OUT_NOTICE,
+                    req.getPlannedMoveOutBs(), "MOVE_OUT", saved.getId());
+        }
         return response(saved);
     }
 
@@ -205,6 +217,10 @@ public class MoveOutService {
         mo.setSettledAt(Instant.now());
         MoveOut saved = moveOuts.save(mo);
         log.info("Move-out settled — membership: {}, refund: {}, still owes: {}", m.getId(), refund, stillOwes);
+        notifier.toTenant(m.getId(), Notification.Type.MOVE_OUT_SETTLED,
+                "Refund " + NotificationService.rs(refund)
+                        + (stillOwes.signum() > 0 ? " · still owed " + NotificationService.rs(stillOwes) : ""),
+                "MOVE_OUT", saved.getId());
         return response(saved);
     }
 
