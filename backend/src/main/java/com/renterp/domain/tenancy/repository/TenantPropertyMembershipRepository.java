@@ -33,4 +33,11 @@ public interface TenantPropertyMembershipRepository extends JpaRepository<Tenant
             "select distinct m.propertyId from TenantPropertyMembership m where m.tenantProfileId = :profileId")
     List<UUID> findPropertyIdsByTenantProfileId(
             @Param("profileId") UUID profileId);
+
+    /** Active memberships at this property whose tenant has this phone number. */
+    @Query("select count(m) from TenantPropertyMembership m, TenantProfile p "
+            + "where m.tenantProfileId = p.id and p.phone = :phone and m.propertyId = :propertyId "
+            + "and m.status = :status")
+    long countByPhoneAtProperty(@Param("phone") String phone, @Param("propertyId") UUID propertyId,
+                                @Param("status") MembershipStatus status);
 }

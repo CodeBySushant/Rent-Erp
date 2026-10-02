@@ -84,3 +84,7 @@ Order and scope of the work are agreed task by task; each task gets an entry bel
 
 Also: `files_test.ps1` first run 25/28 — the 3 failures were a PowerShell variable-name clash in the script (`$qr` / `$QR`), fixed.
 
+### [2026-10-02] Add Tenant in one transaction
+
+`POST /properties/{id}/tenants` creates profile, membership, room assignment and optional deposit together after checking room ownership, vacancy, dates and duplicates; room row locked for the transaction; V16 makes one open assignment per room a database rule. App's Add Tenant screen now saves (vacant rooms only). Detail: [DEVLOG_ONBOARDING.md](DEVLOG_ONBOARDING.md).
+

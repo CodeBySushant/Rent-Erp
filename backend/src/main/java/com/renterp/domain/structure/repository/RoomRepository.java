@@ -21,4 +21,12 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
 
     // Used by FloorService.deleteFloor() to block deletion while active rooms remain.
     boolean existsByFloorIdAndActive(UUID floorId, boolean active);
+
+    /**
+     * The room, locked for the rest of the transaction. Used when assigning a
+     * tenant so two requests for the same room are handled one after the other.
+     */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select r from Room r where r.id = :id")
+    java.util.Optional<Room> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") UUID id);
 }
