@@ -33,4 +33,7 @@ public interface MeterRoomCoverageRepository extends JpaRepository<MeterRoomCove
     Optional<MeterRoomCoverage> findFirstByMeterIdAndRoomIdAndEffectiveToBsIsNull(UUID meterId, UUID roomId);
 
     boolean existsByMeterIdAndEffectiveToBsIsNull(UUID meterId);
+
+    // Room delete gate: a room a meter still covers (open-ended row) cannot be deactivated.
+    boolean existsByRoomIdAndEffectiveToBsIsNull(UUID roomId);
 }

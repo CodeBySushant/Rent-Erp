@@ -95,9 +95,8 @@ public class RoomController {
     }
 
     // ── DELETE /api/v1/rooms/{id} ────────────────────────────────────────────────
-    // Soft delete only — sets is_active = false. No active-reference check yet (see
-    // RoomService.deleteRoom TODO) — meter/tenant coupling tables don't exist until
-    // later phases.
+    // Soft delete only — sets is_active = false. Refused (400) while the room has an
+    // active tenant assignment or active meter coverage (see RoomService.deleteRoom).
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteRoom(@PathVariable UUID id) {
         access.room(id, ResourceAccess.Level.WRITE);

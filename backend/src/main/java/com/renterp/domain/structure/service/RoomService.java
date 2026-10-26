@@ -1,7 +1,9 @@
 package com.renterp.domain.structure.service;
 
 import com.renterp.common.exception.DuplicateResourceException;
+import com.renterp.common.exception.InvalidOperationException;
 import com.renterp.common.exception.ResourceNotFoundException;
+import com.renterp.domain.meter.repository.MeterRoomCoverageRepository;
 import com.renterp.domain.structure.dto.CreateRoomRequest;
 import com.renterp.domain.structure.dto.RoomResponse;
 import com.renterp.domain.structure.dto.UpdateRoomRequest;
@@ -9,6 +11,7 @@ import com.renterp.domain.structure.entity.Floor;
 import com.renterp.domain.structure.entity.Room;
 import com.renterp.domain.structure.repository.FloorRepository;
 import com.renterp.domain.structure.repository.RoomRepository;
+import com.renterp.domain.tenancy.repository.RoomAssignmentRepository;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.data.domain.Page;
@@ -28,10 +31,16 @@ public class RoomService {
 
     private final RoomRepository roomRepository;
     private final FloorRepository floorRepository;
+    private final RoomAssignmentRepository roomAssignmentRepository;
+    private final MeterRoomCoverageRepository meterRoomCoverageRepository;
 
-    public RoomService(RoomRepository roomRepository, FloorRepository floorRepository) {
+    public RoomService(RoomRepository roomRepository, FloorRepository floorRepository,
+                       RoomAssignmentRepository roomAssignmentRepository,
+                       MeterRoomCoverageRepository meterRoomCoverageRepository) {
         this.roomRepository = roomRepository;
         this.floorRepository = floorRepository;
+        this.roomAssignmentRepository = roomAssignmentRepository;
+        this.meterRoomCoverageRepository = meterRoomCoverageRepository;
     }
 
     // ── Create ─────────────────────────────────────────────────────────────────
@@ -136,12 +145,9 @@ public class RoomService {
 
     // ── Soft Delete ────────────────────────────────────────────────────────────
 
-    // TODO(Phase 3/4): once meter_room_coverage and room_assignments exist, block deletion
-    // while a room has active coverage or an active tenant assignment — same shape as
-    // FloorService.deleteFloor()'s active-rooms check. Cannot be enforced yet; those tables
-    // don't exist until MeterController/TenancyController are built. Tracked in
-    // DEVLOG_STRUCTURE.md open items — don't ship either of those controllers without
-    // circling back to this method.
+    // A room with a tenant living in it, or a meter still wired to it, cannot be
+    // deactivated: the tenant would lose their room and the meter's coverage chain
+    // would point at a room billing no longer sees. End the assignment / coverage first.
     @Transactional
     public void deleteRoom(UUID id) {
         log.debug("Soft deleting room — id: {}", id);
@@ -155,6 +161,17 @@ public class RoomService {
         if (!room.isActive()) {
             log.warn("Delete skipped — room already inactive — id: {}", id);
             return;
+        }
+
+        if (roomAssignmentRepository.findFirstByRoomIdAndEffectiveToBsIsNull(id).isPresent()) {
+            log.warn("Delete blocked — room {} has an active tenant assignment", id);
+            throw new InvalidOperationException(
+                    "Room cannot be deleted while a tenant is assigned to it — move the tenant out or transfer them first");
+        }
+        if (meterRoomCoverageRepository.existsByRoomIdAndEffectiveToBsIsNull(id)) {
+            log.warn("Delete blocked — room {} still has active meter coverage", id);
+            throw new InvalidOperationException(
+                    "Room cannot be deleted while a meter still covers it — end the meter's coverage of this room first");
         }
 
         room.setActive(false);
