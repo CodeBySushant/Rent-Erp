@@ -50,11 +50,8 @@ spring:
     virtual:
       enabled: true
 
-  # ── Security (open during dev — locked down once auth service is implemented) ─
-  security:
-    user:
-      name: ${DEV_SECURITY_USER}
-      password: ${DEV_SECURITY_PASSWORD}
+  # (H17) The old spring.security.user block (DEV_SECURITY_USER / _PASSWORD) is
+  # gone: every login is the JWT flow under /api/v1/auth.
 
 # ── Application ─────────────────────────────────────────────────────────────────
 app:
@@ -66,6 +63,7 @@ app:
     enforce: ${AUTH_ENFORCED:true}
     access-token-minutes: 15
     refresh-token-days: 30
+    max-sessions-per-user: ${MAX_SESSIONS_PER_USER:10}   # M16: older sessions end beyond this
     otp:
       ttl-seconds: 300                # a code lives 5 minutes
       resend-after-seconds: 45        # wait before asking for another code
@@ -83,6 +81,29 @@ app:
     # Storage replaces LocalFileStorage, not this API.
     local-dir: ${FILES_DIR:./uploads}
     max-bytes: 5242880                # 5 MB per file
+    max-uploads-per-day: ${FILES_MAX_UPLOADS_PER_DAY:100}     # M21: per user, rolling 24 h
+    max-total-mb-per-user: ${FILES_MAX_TOTAL_MB_PER_USER:500} # M21: kept per user (deleted files excluded)
+
+  # ── Request limits (H11) ──────────────────────────────────────────────────────
+  # Counted in PostgreSQL (rate_limit_counters), shared by all instances.
+  # RATE_LIMIT_ENABLED=false only on a developer machine running the live scripts.
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+
+  # ── Browser origins allowed to call the API (H17) ─────────────────────────────
+  # Comma-separated, e.g. https://admin.rentlo.app. Empty = none (the mobile app
+  # does not need CORS).
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:}
+
+  tenancy:
+    join-request-ttl-hours: ${JOIN_REQUEST_TTL_HOURS:168}   # H12: 7 days for the owner to answer
+
+  # ── Daily clean-up (M16) ──────────────────────────────────────────────────────
+  housekeeping:
+    cron: "0 15 3 * * *"              # 03:15 Asia/Kathmandu
+    otp-retention-days: 7
+    session-retention-days: 90
 
 # ── db-scheduler ────────────────────────────────────────────────────────────────
 db-scheduler:
@@ -96,6 +117,11 @@ db-scheduler:
 # ── Server ──────────────────────────────────────────────────────────────────────
 server:
   port: ${SERVER_PORT}
+  # H11: behind a reverse proxy (nginx, load balancer) on a private network,
+  # take the client address from X-Forwarded-For so per-IP limits see real
+  # clients. Tomcat trusts the header only from private-network proxies.
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:native}
+  shutdown: graceful
 
 # ── Actuator ────────────────────────────────────────────────────────────────────
 management:
@@ -105,7 +131,10 @@ management:
         include: health,info,flyway,metrics
   endpoint:
     health:
-      show-details: always
+      # H17: details (database, disk) only for an ADMIN token; everyone else
+      # sees {"status":"UP"} - enough for a load balancer.
+      show-details: when-authorized
+      roles: ADMIN
 
 # ── Logging ─────────────────────────────────────────────────────────────────────
 logging:

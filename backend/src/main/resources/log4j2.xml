@@ -4,8 +4,25 @@
     <Properties>
         <!-- Full pattern for file logs: timestamp, level, thread, logger, message -->
         <Property name="FILE_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %logger{40} - %msg%n%throwable</Property>
-        <Property name="LOG_DIR">logs</Property>
+        <!-- Named LOG_PATH, not LOG_DIR: a property that refers to its own name loops in Log4j2. -->
+        <Property name="LOG_PATH">${sys:LOG_DIR:-${env:LOG_DIR:-logs}}</Property>
         <Property name="APP">rent-erp</Property>
+
+        <!--
+            Log levels (C10). Production-safe by default; raise them per machine
+            with environment variables (or backend/.env):
+
+              APP_LOG_LEVEL       com.renterp            default INFO   (DEBUG locally)
+              SQL_LOG_LEVEL       org.hibernate.SQL      default WARN   (DEBUG prints queries)
+              SQL_BIND_LOG_LEVEL  bind parameters        default OFF    (TRACE prints VALUES -
+                                  password hashes, token hashes, phone and ID numbers.
+                                  Never enable outside a developer machine.)
+              WEB_LOG_LEVEL       Spring web + security  default INFO
+        -->
+        <Property name="APP_LEVEL">${sys:APP_LOG_LEVEL:-${env:APP_LOG_LEVEL:-INFO}}</Property>
+        <Property name="SQL_LEVEL">${sys:SQL_LOG_LEVEL:-${env:SQL_LOG_LEVEL:-WARN}}</Property>
+        <Property name="SQL_BIND_LEVEL">${sys:SQL_BIND_LOG_LEVEL:-${env:SQL_BIND_LOG_LEVEL:-OFF}}</Property>
+        <Property name="WEB_LEVEL">${sys:WEB_LOG_LEVEL:-${env:WEB_LOG_LEVEL:-INFO}}</Property>
     </Properties>
 
     <Appenders>
@@ -28,8 +45,8 @@
 
         <!-- ── Main rolling file ──────────────────────────────────────────────── -->
         <RollingFile name="FileAppender"
-                     fileName="${LOG_DIR}/${APP}.log"
-                     filePattern="${LOG_DIR}/${APP}-%d{yyyy-MM-dd}-%i.log.gz"
+                     fileName="${LOG_PATH}/${APP}.log"
+                     filePattern="${LOG_PATH}/${APP}-%d{yyyy-MM-dd}-%i.log.gz"
                      immediateFlush="true">
             <PatternLayout pattern="${FILE_PATTERN}"/>
             <Policies>
@@ -41,8 +58,8 @@
 
         <!-- ── SQL-only rolling file (keep shorter — can be huge) ─────────────── -->
         <RollingFile name="SqlAppender"
-                     fileName="${LOG_DIR}/${APP}-sql.log"
-                     filePattern="${LOG_DIR}/${APP}-sql-%d{yyyy-MM-dd}-%i.log.gz"
+                     fileName="${LOG_PATH}/${APP}-sql.log"
+                     filePattern="${LOG_PATH}/${APP}-sql-%d{yyyy-MM-dd}-%i.log.gz"
                      immediateFlush="true">
             <PatternLayout pattern="${FILE_PATTERN}"/>
             <Policies>
@@ -57,24 +74,24 @@
     <Loggers>
 
         <!-- ── Application code: DEBUG ────────────────────────────────────────── -->
-        <Logger name="com.renterp" level="DEBUG" additivity="false">
+        <Logger name="com.renterp" level="${APP_LEVEL}" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="FileAppender"/>
         </Logger>
 
         <!-- ── SQL queries (DEBUG shows the query) ────────────────────────────── -->
-        <Logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+        <Logger name="org.hibernate.SQL" level="${SQL_LEVEL}" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="SqlAppender"/>
         </Logger>
 
         <!-- ── SQL bind parameters (TRACE shows actual values) ────────────────── -->
-        <Logger name="org.hibernate.orm.jdbc.bind" level="TRACE" additivity="false">
+        <Logger name="org.hibernate.orm.jdbc.bind" level="${SQL_BIND_LEVEL}" additivity="false">
             <AppenderRef ref="SqlAppender"/>
         </Logger>
 
         <!-- ── Hibernate statistics / slow queries ────────────────────────────── -->
-        <Logger name="org.hibernate.stat" level="DEBUG" additivity="false">
+        <Logger name="org.hibernate.stat" level="${SQL_LEVEL}" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="FileAppender"/>
         </Logger>
@@ -98,13 +115,13 @@
         </Logger>
 
         <!-- ── Spring Web (request mapping, filter chain) ─────────────────────── -->
-        <Logger name="org.springframework.web" level="DEBUG" additivity="false">
+        <Logger name="org.springframework.web" level="${WEB_LEVEL}" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="FileAppender"/>
         </Logger>
 
         <!-- ── Spring Security filter decisions ───────────────────────────────── -->
-        <Logger name="org.springframework.security" level="DEBUG" additivity="false">
+        <Logger name="org.springframework.security" level="${WEB_LEVEL}" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="FileAppender"/>
         </Logger>

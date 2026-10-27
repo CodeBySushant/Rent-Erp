@@ -19,6 +19,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Stateless token security.
@@ -52,6 +60,44 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * H17: there is no username/password user in Spring Security - every login
+     * goes through /api/v1/auth and a JWT. Declaring this bean stops Spring Boot
+     * from creating its default in-memory user (it needed DEV_SECURITY_USER /
+     * DEV_SECURITY_PASSWORD, or printed a generated password at startup).
+     */
+    @Bean
+    public UserDetailsService noFormLoginUsers() {
+        return username -> {
+            throw new UsernameNotFoundException("Password login uses /api/v1/auth");
+        };
+    }
+
+    /**
+     * H17: browsers may call the API only from the origins listed in
+     * APP_CORS_ALLOWED_ORIGINS (comma-separated, e.g. https://admin.rentlo.app).
+     * Empty (the default) allows no cross-origin browser calls; the mobile app
+     * is not affected by CORS.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${app.cors.allowed-origins:}") String allowedOrigins) {
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty()).toList();
+        if (!origins.isEmpty()) {
+            CorsConfiguration cors = new CorsConfiguration();
+            cors.setAllowedOrigins(origins);
+            cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+            cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "Accept-Language"));
+            cors.setAllowCredentials(false);
+            cors.setMaxAge(3600L);
+            source.registerCorsConfiguration("/api/**", cors);
+            log.info("CORS allowed origins: {}", origins);
+        }
+        return source;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            JwtService jwtService,
@@ -63,6 +109,7 @@ public class SecurityConfig {
         http
             // REST API with bearer tokens: no cookies, no CSRF, no server session.
             .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> { })   // H17: uses the CorsConfigurationSource bean above
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
             .logout(AbstractHttpConfigurer::disable)
@@ -74,7 +121,9 @@ public class SecurityConfig {
                     UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> {
                 auth.requestMatchers(HttpMethod.POST, PUBLIC_POST).permitAll()
-                    .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                    // H17: health is public for load balancers, but shows details
+                    // (database, disk) only to an admin - see management.* in application.yml.
+                    .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                     .requestMatchers("/error").permitAll()
                     .requestMatchers("/api/v1/auth/logout", "/api/v1/auth/me").authenticated()
                     .requestMatchers("/actuator/**").hasRole("ADMIN");
