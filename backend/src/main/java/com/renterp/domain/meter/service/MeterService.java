@@ -42,12 +42,22 @@ public class MeterService {
     private final RoomRepository roomRepository;
     private final FloorRepository floorRepository;
 
+    private final CoverageRules coverageRules;
+    private final com.renterp.common.guard.PropertyGuard propertyGuard;
+    private final com.renterp.domain.tenancy.repository.TenantPropertyMembershipRepository memberships;
+
     public MeterService(MeterRepository meterRepository,
                          MeterRoomCoverageRepository coverageRepository,
                          InfrastructureMeterScopeRepository scopeRepository,
                          PropertyRepository propertyRepository,
                          RoomRepository roomRepository,
-                         FloorRepository floorRepository) {
+                         FloorRepository floorRepository,
+                         CoverageRules coverageRules,
+                         com.renterp.common.guard.PropertyGuard propertyGuard,
+                         com.renterp.domain.tenancy.repository.TenantPropertyMembershipRepository memberships) {
+        this.coverageRules = coverageRules;
+        this.propertyGuard = propertyGuard;
+        this.memberships = memberships;
         this.meterRepository = meterRepository;
         this.coverageRepository = coverageRepository;
         this.scopeRepository = scopeRepository;
@@ -66,6 +76,16 @@ public class MeterService {
         if (!propertyRepository.existsById(request.getPropertyId())) {
             log.warn("Meter creation failed — property not found: {}", request.getPropertyId());
             throw new ResourceNotFoundException("Property", "id", request.getPropertyId());
+        }
+        propertyGuard.requireActive(request.getPropertyId());   // M8
+        // H15: one active MAIN meter per property and purpose - the billing
+        // engine reads "the" main meter, and with two it picked one at random.
+        if (request.getMeterType() == MeterType.MAIN
+                && meterRepository.existsByPropertyIdAndMeterPurposeAndMeterTypeAndActiveTrue(
+                        request.getPropertyId(), request.getMeterPurpose(), MeterType.MAIN)) {
+            throw new InvalidOperationException("MAIN_METER_EXISTS",
+                    "This property already has an active main meter for " + request.getMeterPurpose()
+                            + ". Replace it instead of adding a second one.");
         }
 
         // Cross-field: infrastructure_scope_type is required for INFRASTRUCTURE meters and
@@ -185,6 +205,20 @@ public class MeterService {
         if (request.getMaxReadingValue() != null) {
             meter.setMaxReadingValue(request.getMaxReadingValue());
         }
+        // M2: who reads a DESIGNATED_TENANT meter. Must be a tenant living at
+        // the meter's property now. clearDesignatedTenant=true removes it.
+        if (Boolean.TRUE.equals(request.getClearDesignatedTenant())) {
+            meter.setDesignatedTenantId(null);
+        } else if (request.getDesignatedTenantId() != null) {
+            boolean livesThere = memberships.findByTenantProfileIdAndPropertyIdAndStatus(
+                    request.getDesignatedTenantId(), meter.getPropertyId(),
+                    com.renterp.domain.tenancy.entity.TenantPropertyMembership.MembershipStatus.ACTIVE).isPresent();
+            if (!livesThere) {
+                throw new InvalidOperationException("TENANT_NOT_AT_PROPERTY",
+                        "The designated tenant must currently live at this meter's property.");
+            }
+            meter.setDesignatedTenantId(request.getDesignatedTenantId());
+        }
 
         Meter updated = meterRepository.saveAndFlush(meter);
         log.info("Meter updated successfully — id: {}", updated.getId());
@@ -238,9 +272,8 @@ public class MeterService {
             throw new InvalidOperationException(
                     "Room coverage only applies to TENANT_SUPPLY meters (spec §7.1) — got " + meter.getMeterType());
         }
-        if (!roomRepository.existsById(request.getRoomId())) {
-            throw new ResourceNotFoundException("Room", "id", request.getRoomId());
-        }
+        // H15: same property, active room, not already on another sub-meter.
+        coverageRules.requireCoverable(meter, request.getRoomId());
         // Our own rule (mirrors the M4 chain-conflict logic used elsewhere): if this (meter,
         // room) pair already has an active row (effectiveToBs IS NULL), block. End the existing
         // row first, then add a new one — same shape as reading-chain events, no overlapping
@@ -291,6 +324,10 @@ public class MeterService {
         }
         if (coverage.getEffectiveToBs() != null) {
             throw new InvalidOperationException("Coverage row is already ended");
+        }
+        // H16: coverage cannot end before it started.
+        if (request.getEffectiveToBs().compareTo(coverage.getEffectiveFromBs()) < 0) {
+            throw new InvalidOperationException("INVALID_DATE", "The end date is before the coverage started.");
         }
 
         coverage.setEffectiveToBs(request.getEffectiveToBs());

@@ -17,7 +17,11 @@ public class TenantReadingRequest {
     @Digits(integer = 10, fraction = 2, message = "readingValue has too many digits")
     private BigDecimal readingValue;
 
-    /** Upload with purpose METER_PHOTO; optional but recommended. */
+    /**
+     * Upload with purpose METER_PHOTO. Required (M5) - checked in
+     * ReadingDueService after the access checks, so a tenant who may not read
+     * the meter still gets 403 rather than "photo missing".
+     */
     private UUID photoFileId;
 
     @Size(max = 500)

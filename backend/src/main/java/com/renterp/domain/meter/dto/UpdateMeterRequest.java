@@ -31,6 +31,10 @@ public class UpdateMeterRequest {
     @DecimalMin(value = "1.00", message = "maxReadingValue must be positive")
     private BigDecimal maxReadingValue;
 
-    // designatedTenantId is settable here only in later phases — needs a tenants table to
-    // validate against. Not exposed in the DTO yet.
+    // M2: the tenant profile responsible for reading a DESIGNATED_TENANT meter.
+    // Must have an active tenancy at the meter's property.
+    private java.util.UUID designatedTenantId;
+
+    // M2: true removes the designated tenant.
+    private Boolean clearDesignatedTenant;
 }

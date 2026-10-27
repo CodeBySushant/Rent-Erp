@@ -1,5 +1,6 @@
 package com.renterp.domain.meterreading.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -18,6 +19,7 @@ public class CreateReplacementRequest {
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
              message = "replacementDateBs must be YYYY-MM-DD BS format")
     @Size(max = 20)
+    @BsDate
     private String replacementDateBs;
 
     private String reason;

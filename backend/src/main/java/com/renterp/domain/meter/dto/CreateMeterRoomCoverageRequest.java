@@ -1,5 +1,6 @@
 package com.renterp.domain.meter.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -22,5 +23,6 @@ public class CreateMeterRoomCoverageRequest {
     @Size(max = 20)
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
              message = "effectiveFromBs must be a BS date in YYYY-MM-DD format")
+    @BsDate
     private String effectiveFromBs;
 }

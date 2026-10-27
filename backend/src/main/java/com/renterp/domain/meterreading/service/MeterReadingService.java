@@ -41,16 +41,19 @@ public class MeterReadingService {
     // CORRECTION directly via package-visible helpers, bypassing this gate.
     private static final Set<ReadingType> DEFERRED_TYPES = EnumSet.of(
             ReadingType.VACANCY,
-            ReadingType.TENANT_JOIN,
             ReadingType.DEPARTURE_TOPUP,
             ReadingType.GAP_ABSORBED
     );
 
     // Types that clients submit directly through POST /meters/{id}/readings. Everything
     // else is either deferred (above) or created only inside a wider event workflow.
+    // M1: TENANT_JOIN is the reading the owner takes on the day a tenant moves
+    // into a sub-metered room. The billing engine bills that tenant only the
+    // units after it, so the incoming tenant never pays for earlier use.
     private static final Set<ReadingType> CLIENT_SUBMITTABLE = EnumSet.of(
             ReadingType.INITIAL,
-            ReadingType.BILLING_RUN
+            ReadingType.BILLING_RUN,
+            ReadingType.TENANT_JOIN
     );
 
     // Types whose readings anchor a new chain and legitimately have no predecessor.
@@ -76,8 +79,28 @@ public class MeterReadingService {
                 meterId, request.getReadingType(), request.getReadingValue(),
                 request.getReadingDateBs(), request.isRolloverConfirmed());
 
-        Meter meter = requireActiveMeter(meterId);
+        // C2: the meter row is locked for the rest of the transaction, so two
+        // submissions on one meter are handled one after the other.
+        Meter meter = lockActiveMeter(meterId);
         gateReadingType(request.getReadingType());
+
+        // C2: one reading waits for confirmation at a time. A second pending
+        // reading was checked against the same "previous" value and, confirmed in
+        // the other order, produced wrong or negative consumption.
+        if (readingRepository.existsByMeterIdAndStatus(meterId, ReadingStatus.PENDING)) {
+            throw new InvalidOperationException("READING_PENDING",
+                    "A reading for this meter is already waiting for confirmation. Confirm or discard it first.");
+        }
+        // M5: one monthly (BILLING_RUN) reading per meter per BS month.
+        if (request.getReadingType() == ReadingType.BILLING_RUN && request.getReadingDateBs() != null) {
+            String from = com.renterp.common.util.BsCalendar.monthStart(request.getReadingDateBs());
+            String to = com.renterp.common.util.BsCalendar.monthEnd(request.getReadingDateBs());
+            if (readingRepository.existsByMeterIdAndReadingTypeAndStatusInAndReadingDateBsBetween(meterId,
+                    ReadingType.BILLING_RUN, List.of(ReadingStatus.PENDING, ReadingStatus.CONFIRMED), from, to)) {
+                throw new InvalidOperationException("READING_ALREADY_SUBMITTED",
+                        "This month's reading for this meter has already been recorded. Correct it instead.");
+            }
+        }
 
         MeterReading pending = buildAndValidatePending(meter, request);
         MeterReading saved = readingRepository.save(pending);
@@ -97,8 +120,11 @@ public class MeterReadingService {
             log.warn("Confirm skipped — already confirmed: {}", readingId);
             return MeterReadingResponse.from(reading);
         }
-        Meter meter = requireActiveMeter(reading.getMeterId());
+        Meter meter = lockActiveMeter(reading.getMeterId());
 
+        // C2: check the chain again now - another reading may have been
+        // confirmed since this one was submitted.
+        revalidateAtConfirm(reading, meter);
         stampConsumption(reading, meter);
         reading.setStatus(ReadingStatus.CONFIRMED);
         reading.setConfirmedAt(Instant.now());
@@ -230,6 +256,25 @@ public class MeterReadingService {
                                                  String photoUrl, String notes,
                                                  UUID replacementEventId, UUID coverageEventId,
                                                  boolean skipConsumption) {
+
+        // M6: an event reading (replacement close, coverage anchor) continues
+        // the chain like any other: not dated before, and not lower than, the
+        // meter's last confirmed reading. Chain anchors (opening readings) start
+        // a new chain and are exempt.
+        if (!CHAIN_ANCHOR_TYPES.contains(type)) {
+            readingRepository.findLatestConfirmed(meter.getId()).ifPresent(prev -> {
+                if (readingDateBs.compareTo(prev.getReadingDateBs()) < 0) {
+                    throw new InvalidOperationException("READING_BEFORE_PREVIOUS",
+                            type + " reading date " + readingDateBs + " is before the last confirmed reading ("
+                                    + prev.getReadingDateBs() + ")");
+                }
+                if (value.compareTo(prev.getReadingValue()) < 0) {
+                    throw new InvalidOperationException("READING_BELOW_PREVIOUS",
+                            type + " reading " + value.toPlainString() + " is lower than the last confirmed reading "
+                                    + prev.getReadingValue().toPlainString());
+                }
+            });
+        }
 
         MeterReading r = MeterReading.builder()
                 .meterId(meter.getId())
@@ -370,6 +415,46 @@ public class MeterReadingService {
             if (!r.getId().equals(excludeId)) return r;
         }
         return null;
+    }
+
+    /** C2: the meter, row-locked, refusing an inactive one. */
+    private Meter lockActiveMeter(UUID meterId) {
+        Meter m = meterRepository.findByIdForUpdate(meterId)
+                .orElseThrow(() -> new ResourceNotFoundException("Meter", "id", meterId));
+        if (m.getStatus() == MeterStatus.INACTIVE) {
+            throw new InvalidOperationException("Meter " + meterId + " is INACTIVE — no new readings accepted");
+        }
+        return m;
+    }
+
+    /**
+     * C2: the same chain rules as at submission, against the latest confirmed
+     * reading as it is now.
+     */
+    private void revalidateAtConfirm(MeterReading reading, Meter meter) {
+        Optional<MeterReading> prevOpt = readingRepository.findLatestConfirmed(meter.getId());
+        boolean isAnchor = CHAIN_ANCHOR_TYPES.contains(reading.getReadingType());
+        if (isAnchor && prevOpt.isPresent()) {
+            throw new InvalidOperationException("READING_CHAIN_CHANGED",
+                    reading.getReadingType() + " can no longer be confirmed: this meter already has a confirmed reading. "
+                            + "Discard this one.");
+        }
+        if (!isAnchor && prevOpt.isEmpty()) {
+            throw new InvalidOperationException(
+                    "No prior INITIAL reading exists on this meter — submit an INITIAL reading first");
+        }
+        if (prevOpt.isPresent()) {
+            MeterReading prev = prevOpt.get();
+            if (reading.getReadingDateBs().compareTo(prev.getReadingDateBs()) < 0) {
+                throw new InvalidOperationException("READING_CHAIN_CHANGED",
+                        "A later reading (" + prev.getReadingDateBs() + ") was confirmed first. Discard this one.");
+            }
+            if (reading.getReadingValue().compareTo(prev.getReadingValue()) < 0 && !reading.isRollover()) {
+                throw new InvalidOperationException("READING_CHAIN_CHANGED",
+                        "This reading is now lower than the last confirmed reading " + prev.getReadingValue().toPlainString()
+                                + ". Discard it and submit the correct value.");
+            }
+        }
     }
 
     private Meter requireActiveMeter(UUID meterId) {

@@ -1,5 +1,6 @@
 package com.renterp.domain.meterreading.dto;
 
+import com.renterp.common.validation.BsDate;
 import com.renterp.domain.meterreading.entity.MeterCoverageEvent.CoverageEventType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -24,6 +25,7 @@ public class CreateCoverageEventRequest {
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
              message = "eventDateBs must be YYYY-MM-DD BS format")
     @Size(max = 20)
+    @BsDate
     private String eventDateBs;
 
     private String notes;

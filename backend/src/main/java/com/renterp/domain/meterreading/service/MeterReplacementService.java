@@ -60,6 +60,16 @@ public class MeterReplacementService {
         validateEstimation(req.getCloseReading());
         validateEstimation(req.getOpenReading());
 
+        // M6: the new meter's serial follows the same rule as a new meter (M12):
+        // unique within the property.
+        String newSerial = nullIfBlank(req.getNewMeterSerialNumber());
+        if (newSerial != null && meterRepository.existsByPropertyIdAndSerialNumber(oldMeter.getPropertyId(), newSerial)) {
+            throw new com.renterp.common.exception.DuplicateResourceException("Meter", "propertyId+serialNumber",
+                    oldMeter.getPropertyId() + "+" + newSerial);
+        }
+        // H16: the replacement cannot be dated before the meter's last confirmed
+        // reading (insertConfirmedInternal also checks the close value).
+
         // 1. Create the successor meter carrying every characteristic forward except
         // identity (label, serial, id, status, replacement pointer). Spec §7.8:
         // "coverage/assignment/split carry forward".

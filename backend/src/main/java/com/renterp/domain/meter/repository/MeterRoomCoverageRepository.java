@@ -36,4 +36,18 @@ public interface MeterRoomCoverageRepository extends JpaRepository<MeterRoomCove
 
     // Room delete gate: a room a meter still covers (open-ended row) cannot be deactivated.
     boolean existsByRoomIdAndEffectiveToBsIsNull(UUID roomId);
+
+    // H15: open coverage rows of a room on active meters of one purpose and type.
+    @Query("""
+        SELECT c FROM MeterRoomCoverage c, Meter m
+        WHERE c.meterId = m.id
+          AND c.roomId = :roomId
+          AND c.effectiveToBs IS NULL
+          AND m.active = true
+          AND m.meterPurpose = :purpose
+          AND m.meterType = :type
+    """)
+    List<MeterRoomCoverage> findOpenCoverageOfRoom(@Param("roomId") UUID roomId,
+                                                   @Param("purpose") com.renterp.domain.meter.entity.Meter.MeterPurpose purpose,
+                                                   @Param("type") com.renterp.domain.meter.entity.Meter.MeterType type);
 }

@@ -1,5 +1,6 @@
 package com.renterp.domain.meterreading.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,6 +24,7 @@ public class CorrectionRequest {
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
              message = "submissionDateBs must be YYYY-MM-DD BS format")
     @Size(max = 20)
+    @BsDate
     private String submissionDateBs;
 
     @Size(max = 500)

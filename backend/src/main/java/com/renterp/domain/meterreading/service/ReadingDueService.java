@@ -67,12 +67,18 @@ public class ReadingDueService {
     private final RoomAssignmentRepository assignments;
     private final StoredFileRepository files;
     private final EntityManager em;
+    private final com.renterp.domain.property.repository.PropertyRepository properties;
+    private final com.renterp.domain.file.service.FileService fileService;
 
     public ReadingDueService(AccessGuard guard, MeterRepository meters, MeterRoomCoverageRepository coverage,
                              MeterReadingRepository readings, MeterReadingService readingService,
                              RoomRepository rooms, TenantProfileRepository profiles,
                              TenantPropertyMembershipRepository memberships, RoomAssignmentRepository assignments,
-                             StoredFileRepository files, EntityManager em, NotificationService notifier) {
+                             StoredFileRepository files, EntityManager em, NotificationService notifier,
+                             com.renterp.domain.property.repository.PropertyRepository properties,
+                             com.renterp.domain.file.service.FileService fileService) {
+        this.properties = properties;
+        this.fileService = fileService;
         this.guard = guard;
         this.meters = meters;
         this.coverage = coverage;
@@ -90,7 +96,7 @@ public class ReadingDueService {
     /** Owner: every active meter of the property and its state this month. */
     @Transactional(readOnly = true)
     public List<ReadingDueResponse> dueForProperty(UUID propertyId) {
-        String monthStart = BsCalendar.monthStart(BsCalendar.today());
+        String monthStart = periodStart(propertyId);
         return activeMeters(propertyId).stream()
                 .map(m -> row(m, monthStart, true, null))
                 .toList();
@@ -104,9 +110,9 @@ public class ReadingDueService {
         if (profile.isEmpty()) {
             return List.of();
         }
-        String monthStart = BsCalendar.monthStart(BsCalendar.today());
         List<ReadingDueResponse> out = new ArrayList<>();
         for (TenantPropertyMembership m : activeMemberships(profile.get().getId())) {
+            String monthStart = periodStart(m.getPropertyId());
             Set<UUID> myRooms = currentRooms(m.getId());
             for (Meter meter : activeMeters(m.getPropertyId())) {
                 if (meter.getMeterType() != MeterType.TENANT_SUPPLY) {
@@ -150,7 +156,7 @@ public class ReadingDueService {
             throw ApiException.badRequest("NO_FIRST_READING", "The owner must record this meter's first reading.");
         }
         String today = BsCalendar.today();
-        if (thisMonth(meterId, BsCalendar.monthStart(today)).isPresent()) {
+        if (thisMonth(meterId, periodStart(meter.getPropertyId())).isPresent()) {
             throw ApiException.conflict("READING_ALREADY_SUBMITTED",
                     "This month's reading for this meter has already been submitted.");
         }
@@ -161,13 +167,18 @@ public class ReadingDueService {
         s.setReadingDateBs(today);
         s.setSubmissionDateBs(today);
         s.setNotes(req.getNotes());
-        if (req.getPhotoFileId() != null) {
-            StoredFile photo = files.findByIdAndDeletedAtIsNull(req.getPhotoFileId())
-                    .filter(f -> f.getOwnerUserId().equals(user.userId()) && f.getPurpose() == FilePurpose.METER_PHOTO)
-                    .orElseThrow(() -> ApiException.badRequest("PHOTO_INVALID",
-                            "The meter photo must be a meter photo you uploaded."));
-            s.setPhotoUrl("/api/v1/files/" + photo.getId() + "/content");
+        // M5 / spec M13: a tenant's reading always comes with a photo of the
+        // meter, so the owner can check it before confirming.
+        if (req.getPhotoFileId() == null) {
+            throw ApiException.badRequest("PHOTO_REQUIRED", "Take a photo of the meter to submit the reading.");
         }
+        StoredFile photo = files.findByIdAndDeletedAtIsNull(req.getPhotoFileId())
+                .filter(f -> f.getOwnerUserId().equals(user.userId()) && f.getPurpose() == FilePurpose.METER_PHOTO)
+                .orElseThrow(() -> ApiException.badRequest("PHOTO_INVALID",
+                        "The meter photo must be a meter photo you uploaded."));
+        // H5: tie the photo to the meter's property so the owner can open it.
+        photo = fileService.attachToProperty(photo, meter.getPropertyId());
+        s.setPhotoUrl("/api/v1/files/" + photo.getId() + "/content");
         MeterReadingResponse saved = readingService.submitReading(meterId, s);
         readings.findById(saved.getId()).ifPresent(r -> {
             r.setSubmittedBy(user.userId());
@@ -180,6 +191,16 @@ public class ReadingDueService {
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
+
+    /**
+     * M5: the start of the billing period that is closing now for this
+     * property (its billing day decides), instead of the calendar month. A
+     * reading dated on or after it counts as "this period's" reading.
+     */
+    private String periodStart(UUID propertyId) {
+        int billingDay = properties.findById(propertyId).map(p -> (int) p.getBillingDay()).orElse(1);
+        return BsCalendar.billingPeriodStart(BsCalendar.today(), billingDay);
+    }
 
     /** Null when the tenant may read the meter, else the reason. */
     private static String refusal(Meter meter, boolean designated, boolean covers) {

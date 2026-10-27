@@ -42,13 +42,16 @@ public class CoverageEventService {
     private final MeterRoomCoverageRepository coverageRepository;
     private final RoomRepository roomRepository;
     private final MeterReadingService readingService;
+    private final com.renterp.domain.meter.service.CoverageRules coverageRules;
 
-    public CoverageEventService(MeterCoverageEventRepository eventRepository,
+    public CoverageEventService(com.renterp.domain.meter.service.CoverageRules coverageRules,
+                                 MeterCoverageEventRepository eventRepository,
                                  MeterCoverageEventChangeRepository changeRepository,
                                  MeterRepository meterRepository,
                                  MeterRoomCoverageRepository coverageRepository,
                                  RoomRepository roomRepository,
                                  MeterReadingService readingService) {
+        this.coverageRules = coverageRules;
         this.eventRepository = eventRepository;
         this.changeRepository = changeRepository;
         this.meterRepository = meterRepository;
@@ -71,10 +74,23 @@ public class CoverageEventService {
                 .build();
         event = eventRepository.saveAndFlush(event);
 
-        List<MeterCoverageEventChange> changes = new ArrayList<>();
-        // 2. Process each affected meter atomically. Any failure rolls back the whole txn.
+        // 2. Process the affected meters atomically; any failure rolls back the whole txn.
+        //    H15: all removals happen before any addition, so a room can move from
+        //    one meter to another inside one event whatever order the meters come in;
+        //    every addition then passes CoverageRules (same property, not metered twice).
+        List<Meter> meters = new ArrayList<>();
         for (AffectedMeter am : req.getAffectedMeters()) {
-            changes.add(processAffectedMeter(event, req, am));
+            meters.add(validateMeter(req, am));
+        }
+        for (int i = 0; i < meters.size(); i++) {
+            removeRooms(meters.get(i), req, req.getAffectedMeters().get(i));
+        }
+        for (int i = 0; i < meters.size(); i++) {
+            addRooms(meters.get(i), req, req.getAffectedMeters().get(i));
+        }
+        List<MeterCoverageEventChange> changes = new ArrayList<>();
+        for (int i = 0; i < meters.size(); i++) {
+            changes.add(recordChange(event, meters.get(i), req, req.getAffectedMeters().get(i)));
         }
 
         log.info("Coverage event created — id: {}, changes: {}", event.getId(), changes.size());
@@ -96,9 +112,7 @@ public class CoverageEventService {
 
     // ── Internals ─────────────────────────────────────────────────────────────
 
-    private MeterCoverageEventChange processAffectedMeter(MeterCoverageEvent event,
-                                                            CreateCoverageEventRequest req,
-                                                            AffectedMeter am) {
+    private Meter validateMeter(CreateCoverageEventRequest req, AffectedMeter am) {
         Meter meter = meterRepository.findById(am.getMeterId())
                 .orElseThrow(() -> new ResourceNotFoundException("Meter", "id", am.getMeterId()));
         if (meter.getStatus() == MeterStatus.INACTIVE) {
@@ -107,14 +121,14 @@ public class CoverageEventService {
         if (!meter.getPropertyId().equals(req.getPropertyId())) {
             throw new InvalidOperationException("Meter " + meter.getId() + " does not belong to property " + req.getPropertyId());
         }
-        // Coverage only applies to TENANT_SUPPLY meters, same rule as MeterController's raw
-        // coverage endpoint. Blocking INFRASTRUCTURE / MAIN keeps event semantics clean.
         if (meter.getMeterType() != MeterType.TENANT_SUPPLY) {
             throw new InvalidOperationException(
                     "Coverage events only apply to TENANT_SUPPLY meters — meter " + meter.getId() + " is " + meter.getMeterType());
         }
+        return meter;
+    }
 
-        // Removals — end each active (meter, room) coverage row on the event date.
+    private void removeRooms(Meter meter, CreateCoverageEventRequest req, AffectedMeter am) {
         List<UUID> roomsRemoved = am.getRoomsRemoved() == null ? List.of() : am.getRoomsRemoved();
         for (UUID roomId : roomsRemoved) {
             Optional<MeterRoomCoverage> active =
@@ -123,35 +137,41 @@ public class CoverageEventService {
                 throw new InvalidOperationException(
                     "Meter " + meter.getId() + " has no active coverage on room " + roomId + " — cannot remove");
             }
+            if (req.getEventDateBs().compareTo(active.get().getEffectiveFromBs()) < 0) {   // H16
+                throw new InvalidOperationException("INVALID_DATE",
+                        "The event date is before this room's coverage started.");
+            }
             active.get().setEffectiveToBs(req.getEventDateBs());
             coverageRepository.saveAndFlush(active.get());
         }
+    }
 
-        // Additions — open new coverage rows. Duplicate active pair → 409, matching the raw
-        // MeterController.addRoomCoverage rule so a coverage event can't accidentally create
-        // an overlap that a direct call would refuse.
+    private void addRooms(Meter meter, CreateCoverageEventRequest req, AffectedMeter am) {
         List<UUID> roomsAdded = am.getRoomsAdded() == null ? List.of() : am.getRoomsAdded();
         for (UUID roomId : roomsAdded) {
-            if (!roomRepository.existsById(roomId)) {
-                throw new ResourceNotFoundException("Room", "id", roomId);
-            }
             Optional<MeterRoomCoverage> current =
                     coverageRepository.findFirstByMeterIdAndRoomIdAndEffectiveToBsIsNull(meter.getId(), roomId);
             if (current.isPresent()) {
                 throw new DuplicateResourceException("MeterRoomCoverage",
                         "meterId+roomId (active)", meter.getId() + "+" + roomId);
             }
-            coverageRepository.save(MeterRoomCoverage.builder()
+            coverageRules.requireCoverable(meter, roomId);   // H15
+            coverageRepository.saveAndFlush(MeterRoomCoverage.builder()
                     .meterId(meter.getId()).roomId(roomId)
                     .effectiveFromBs(req.getEventDateBs())
                     .build());
         }
+    }
 
-        // Anchor reading — required whenever the meter is on the changed side of the event
-        // (spec §14.1 M9). We enforce that iff coverage changed on this meter.
+    private MeterCoverageEventChange recordChange(MeterCoverageEvent event, Meter meter,
+                                                  CreateCoverageEventRequest req, AffectedMeter am) {
+        List<UUID> roomsAdded = am.getRoomsAdded() == null ? List.of() : am.getRoomsAdded();
+        List<UUID> roomsRemoved = am.getRoomsRemoved() == null ? List.of() : am.getRoomsRemoved();
         boolean coverageChanged = !roomsAdded.isEmpty() || !roomsRemoved.isEmpty();
         UUID anchorId = null;
         if (am.getAnchorReading() != null) {
+            // M6: insertConfirmedInternal now checks the anchor against the
+            // meter's last confirmed reading (date and value).
             MeterReading anchor = readingService.insertConfirmedInternal(
                     meter,
                     ReadingType.COVERAGE_ANCHOR,

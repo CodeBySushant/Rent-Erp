@@ -6,9 +6,15 @@ import com.renterp.domain.meter.entity.Meter.MeterType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -31,4 +37,19 @@ public interface MeterRepository extends JpaRepository<Meter, UUID> {
 
     // Used by PropertyService §6.5 gate — block a switch TO SUB_METERED when no active meter exists.
     boolean existsByPropertyIdAndActive(UUID propertyId, boolean active);
+
+    // C2 / M5: serialises reading submissions on one meter, so two submissions
+    // cannot both pass the "one pending / one per month" checks.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Meter m where m.id = :id")
+    Optional<Meter> findByIdForUpdate(@Param("id") UUID id);
+
+    // H15: one active MAIN meter per property and purpose.
+    boolean existsByPropertyIdAndMeterPurposeAndMeterTypeAndActiveTrue(
+            UUID propertyId, MeterPurpose meterPurpose, MeterType meterType);
+
+    // C8: a merged tenant profile keeps its designated meters.
+    @Modifying
+    @Query("update Meter m set m.designatedTenantId = :to, m.version = m.version + 1 where m.designatedTenantId = :from")
+    int moveDesignatedTenant(@Param("from") UUID from, @Param("to") UUID to);
 }

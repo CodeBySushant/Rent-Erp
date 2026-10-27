@@ -23,6 +23,14 @@ public interface MeterReadingRepository extends JpaRepository<MeterReading, UUID
 
     Page<MeterReading> findByMeterIdAndStatus(UUID meterId, ReadingStatus status, Pageable pageable);
 
+    // C2: is a reading of this meter waiting for confirmation?
+    boolean existsByMeterIdAndStatus(UUID meterId, ReadingStatus status);
+
+    // M5: one BILLING_RUN reading per meter per BS month.
+    boolean existsByMeterIdAndReadingTypeAndStatusInAndReadingDateBsBetween(
+            UUID meterId, ReadingType readingType, java.util.Collection<ReadingStatus> statuses,
+            String fromBs, String toBs);
+
     // Latest CONFIRMED reading for a meter, ordered by reading_date_bs (VARCHAR compares
     // lexicographically, correct for zero-padded YYYY-MM-DD BS dates). Ties break on
     // createdAt so a later submission for the same physical date still wins deterministically.
