@@ -72,6 +72,9 @@ app:
       max-sends-per-hour: 5           # per phone + purpose
       max-attempts: 5                 # wrong tries before the code is burned
       verification-token-minutes: 15  # sign-up proof lifetime
+      # DEV ONLY: when set (6 digits), every OTP is this code. Honoured only with
+      # APP_ENV=local; startup fails if it is set in any other environment.
+      dev-fixed-code: ${OTP_DEV_FIXED_CODE:}
     password:
       max-failed-attempts: 5          # in a row, before the password login locks
       lock-minutes: 15

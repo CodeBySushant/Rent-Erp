@@ -43,13 +43,17 @@ public class OtpService {
     private final int maxSendsPerHour;
     private final int maxAttempts;
     private final Duration verificationTokenTtl;
+    /** Non-null only in local development; see the constructor. */
+    private final String devFixedCode;
 
     public OtpService(OtpAttemptRepository repository, PasswordEncoder encoder, OtpSender sender,
                       @Value("${app.auth.otp.ttl-seconds:300}") long ttlSeconds,
                       @Value("${app.auth.otp.resend-after-seconds:45}") long resendAfterSeconds,
                       @Value("${app.auth.otp.max-sends-per-hour:5}") int maxSendsPerHour,
                       @Value("${app.auth.otp.max-attempts:5}") int maxAttempts,
-                      @Value("${app.auth.otp.verification-token-minutes:15}") long verificationTokenMinutes) {
+                      @Value("${app.auth.otp.verification-token-minutes:15}") long verificationTokenMinutes,
+                      @Value("${app.env:production}") String appEnv,
+                      @Value("${app.auth.otp.dev-fixed-code:}") String devFixedCode) {
         this.repository = repository;
         this.encoder = encoder;
         this.sender = sender;
@@ -58,6 +62,25 @@ public class OtpService {
         this.maxSendsPerHour = maxSendsPerHour;
         this.maxAttempts = maxAttempts;
         this.verificationTokenTtl = Duration.ofMinutes(verificationTokenMinutes);
+
+        // Development shortcut while no SMS provider is connected: every code is
+        // this fixed value. It only works with APP_ENV=local, and the app refuses
+        // to start if it is set anywhere else, so it cannot reach staging/production.
+        String fixed = devFixedCode == null ? "" : devFixedCode.trim();
+        if (fixed.isEmpty()) {
+            this.devFixedCode = null;
+        } else {
+            if (!"local".equals(appEnv)) {
+                throw new IllegalStateException(
+                        "OTP_DEV_FIXED_CODE is set but APP_ENV is '" + appEnv
+                                + "'. A fixed login code is only allowed with APP_ENV=local - remove OTP_DEV_FIXED_CODE.");
+            }
+            if (!fixed.matches("\\d{" + CODE_LENGTH + "}")) {
+                throw new IllegalStateException("OTP_DEV_FIXED_CODE must be exactly " + CODE_LENGTH + " digits.");
+            }
+            this.devFixedCode = fixed;
+            log.warn("DEV ONLY: every OTP is fixed to {} (OTP_DEV_FIXED_CODE). Never use outside local development.", fixed);
+        }
     }
 
     /**
@@ -82,7 +105,7 @@ public class OtpService {
                     "Too many codes requested for this number. Try again in an hour.");
         }
 
-        String code = TokenHasher.randomDigits(CODE_LENGTH);
+        String code = devFixedCode != null ? devFixedCode : TokenHasher.randomDigits(CODE_LENGTH);
         OtpAttempt attempt = repository.save(OtpAttempt.builder()
                 .phone(phone)
                 .codeHash(encoder.encode(code))
