@@ -38,7 +38,8 @@ class RoomServiceDeleteTest {
         rooms = mock(RoomRepository.class);
         assignments = mock(RoomAssignmentRepository.class);
         coverage = mock(MeterRoomCoverageRepository.class);
-        service = new RoomService(rooms, mock(FloorRepository.class), assignments, coverage);
+        service = new RoomService(rooms, mock(FloorRepository.class), assignments, coverage,
+                mock(com.renterp.common.guard.PropertyGuard.class));
         roomId = UUID.randomUUID();
         room = new Room();
         room.setActive(true);

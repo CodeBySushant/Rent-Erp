@@ -1,6 +1,10 @@
 package com.renterp.domain.property.service;
 
 import com.renterp.common.exception.ApiException;
+import com.renterp.domain.billing.entity.BillingRun;
+import com.renterp.domain.billing.repository.BillingRunRepository;
+import com.renterp.domain.tenancy.repository.TenantPropertyMembershipRepository;
+import jakarta.persistence.EntityManager;
 import com.renterp.common.exception.InvalidOperationException;
 import com.renterp.common.exception.ResourceNotFoundException;
 import com.renterp.domain.property.dto.CreatePropertyRequest;
@@ -37,11 +41,18 @@ public class PropertyService {
     private final MeterRepository meterRepository;
     private final AccessGuard accessGuard;
     private final JoinCodeGenerator joinCodeGenerator;
+    private final BillingRunRepository billingRunRepository;
+    private final TenantPropertyMembershipRepository membershipRepository;
+    private final EntityManager em;
 
     public PropertyService(PropertyRepository propertyRepository, UserRepository userRepository,
                             PropertyAccessService propertyAccessService,
                             MeterRepository meterRepository, AccessGuard accessGuard,
-                            JoinCodeGenerator joinCodeGenerator) {
+                            JoinCodeGenerator joinCodeGenerator, BillingRunRepository billingRunRepository,
+                            TenantPropertyMembershipRepository membershipRepository, EntityManager em) {
+        this.billingRunRepository = billingRunRepository;
+        this.membershipRepository = membershipRepository;
+        this.em = em;
         this.joinCodeGenerator = joinCodeGenerator;
         this.propertyRepository = propertyRepository;
         this.userRepository = userRepository;
@@ -100,6 +111,7 @@ public class PropertyService {
                 .penaltyFrequency(request.getPenaltyFrequency())
                 .penaltyGraceDays(request.getPenaltyGraceDays())
                 .penaltyCapAmount(request.getPenaltyCapAmount())
+                .penaltyAmount(request.getPenaltyAmount())
                 .lateDepartureChargeType(request.getLateDepartureChargeType())
                 .lateDepartureChargeAmount(request.getLateDepartureChargeAmount())
                 .roundingMethod(request.getRoundingMethod())
@@ -152,7 +164,7 @@ public class PropertyService {
         if (visible.isPresent()) {
             page = visible.get().isEmpty()
                     ? Page.empty(pageable)
-                    : propertyRepository.findByIdIn(visible.get(), pageable);
+                    : propertyRepository.findByIdInAndActiveTrue(visible.get(), pageable);
         } else {
             page = (ownerUserId != null)
                     ? propertyRepository.findByOwnerUserId(ownerUserId, pageable)
@@ -176,6 +188,17 @@ public class PropertyService {
                     log.warn("Update failed — property not found — id: {}", id);
                     return new ResourceNotFoundException("Property", "id", id);
                 });
+        if (!property.isActive()) {   // M8
+            throw ApiException.conflict("PROPERTY_INACTIVE", "This property has been closed. Changes are no longer possible.");
+        }
+        // M10: billing settings are frozen while a bill run is still a draft -
+        // the draft was computed with the old settings and confirming it would
+        // send bills that no longer match the property. Send or discard it first.
+        if (changesBillingSettings(request)
+                && billingRunRepository.existsByPropertyIdAndStatus(id, BillingRun.Status.DRAFT)) {
+            throw ApiException.conflict("DRAFT_RUN_OPEN",
+                    "Send or discard this month's draft bills before changing billing settings.");
+        }
 
         if (request.getName() != null) {
             property.setName(request.getName());
@@ -245,6 +268,9 @@ public class PropertyService {
         if (request.getPenaltyCapAmount() != null) {
             property.setPenaltyCapAmount(request.getPenaltyCapAmount());
         }
+        if (request.getPenaltyAmount() != null) {
+            property.setPenaltyAmount(request.getPenaltyAmount());
+        }
         if (request.getLateDepartureChargeType() != null) {
             property.setLateDepartureChargeType(request.getLateDepartureChargeType());
         }
@@ -298,9 +324,45 @@ public class PropertyService {
             log.warn("Delete skipped — property already inactive — id: {}", id);
             return;
         }
+        // M8: a property with people living in it, or bills still in draft,
+        // cannot be closed.
+        if (!membershipRepository.findByPropertyIdAndStatus(id,
+                com.renterp.domain.tenancy.entity.TenantPropertyMembership.MembershipStatus.ACTIVE).isEmpty()) {
+            throw ApiException.conflict("PROPERTY_HAS_TENANTS",
+                    "Tenants still live here. Move them out before closing the property.");
+        }
+        if (billingRunRepository.existsByPropertyIdAndStatus(id, BillingRun.Status.DRAFT)) {
+            throw ApiException.conflict("DRAFT_RUN_OPEN", "Send or discard the draft bills before closing the property.");
+        }
+        // Shared access ends with the property; the owner keeps read access to
+        // its history. Waiting join requests are cancelled.
+        em.createQuery("update PropertyAccess a set a.active = false, a.version = a.version + 1 "
+                        + "where a.propertyId = :id and a.active = true and a.role <> :owner")
+                .setParameter("id", id)
+                .setParameter("owner", AccessRole.OWNER)
+                .executeUpdate();
+        em.createQuery("update JoinRequest j set j.status = :cancelled, j.version = j.version + 1 "
+                        + "where j.propertyId = :id and j.status = :pending")
+                .setParameter("id", id)
+                .setParameter("cancelled", com.renterp.domain.tenancy.entity.JoinRequest.JoinRequestStatus.CANCELLED)
+                .setParameter("pending", com.renterp.domain.tenancy.entity.JoinRequest.JoinRequestStatus.PENDING)
+                .executeUpdate();
 
         property.setActive(false);
         propertyRepository.saveAndFlush(property);
         log.info("Property soft deleted — id: {}", id);
+    }
+
+    /** M10: whether the update touches anything the billing engine reads. */
+    private static boolean changesBillingSettings(UpdatePropertyRequest r) {
+        return r.getElectricityBillingMode() != null || r.getWaterMode() != null || r.getDefaultSplitRule() != null
+                || r.getNeaTariffMode() != null || r.getMidMonthDepartureRateMode() != null
+                || r.getBillingDay() != null || r.getGracePeriodDays() != null || r.getPaymentModelDefault() != null
+                || r.getCommonUnitsChargedToTenants() != null || r.getPenaltyType() != null
+                || r.getPenaltyFrequency() != null || r.getPenaltyGraceDays() != null
+                || r.getPenaltyCapAmount() != null || r.getPenaltyAmount() != null
+                || r.getRoundingMethod() != null || r.getRoundingRemainderTo() != null
+                || r.getOverageThresholdPercent() != null || r.getOverageAction() != null
+                || r.getTdsEnabled() != null || r.getTdsRatePercent() != null;
     }
 }

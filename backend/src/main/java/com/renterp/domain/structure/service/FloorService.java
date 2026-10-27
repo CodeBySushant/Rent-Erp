@@ -27,9 +27,12 @@ public class FloorService {
     private final FloorRepository floorRepository;
     private final RoomRepository roomRepository;
     private final PropertyRepository propertyRepository;
+    private final com.renterp.common.guard.PropertyGuard propertyGuard;
 
     public FloorService(FloorRepository floorRepository, RoomRepository roomRepository,
-                         PropertyRepository propertyRepository) {
+                         PropertyRepository propertyRepository,
+                         com.renterp.common.guard.PropertyGuard propertyGuard) {
+        this.propertyGuard = propertyGuard;
         this.floorRepository = floorRepository;
         this.roomRepository = roomRepository;
         this.propertyRepository = propertyRepository;
@@ -46,7 +49,8 @@ public class FloorService {
             log.warn("Floor creation failed — property not found: {}", request.getPropertyId());
             throw new ResourceNotFoundException("Property", "id", request.getPropertyId());
         }
-        if (floorRepository.existsByPropertyIdAndFloorNumber(request.getPropertyId(), request.getFloorNumber())) {
+        propertyGuard.requireActive(request.getPropertyId());   // M8
+        if (floorRepository.existsByPropertyIdAndFloorNumberAndActiveTrue(request.getPropertyId(), request.getFloorNumber())) {
             log.warn("Floor creation failed — floorNumber {} already exists for property {}",
                     request.getFloorNumber(), request.getPropertyId());
             throw new DuplicateResourceException("Floor", "propertyId+floorNumber",
@@ -111,7 +115,7 @@ public class FloorService {
             floor.setName(request.getName());
         }
         if (request.getFloorNumber() != null && request.getFloorNumber() != floor.getFloorNumber()) {
-            if (floorRepository.existsByPropertyIdAndFloorNumber(floor.getPropertyId(), request.getFloorNumber())) {
+            if (floorRepository.existsByPropertyIdAndFloorNumberAndActiveTrue(floor.getPropertyId(), request.getFloorNumber())) {
                 log.warn("Update failed — floorNumber {} already exists for property {}",
                         request.getFloorNumber(), floor.getPropertyId());
                 throw new DuplicateResourceException("Floor", "propertyId+floorNumber",

@@ -22,6 +22,9 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
     // Properties the caller holds an access grant on (authorization-scoped list).
     Page<Property> findByIdIn(Collection<UUID> ids, Pageable pageable);
 
+    // M8: owners, managers and viewers list only properties that are still open.
+    Page<Property> findByIdInAndActiveTrue(Collection<UUID> ids, Pageable pageable);
+
     // Concurrency layer 2 of B10 (double-tap Generate / two devices): the billing engine
     // takes a PESSIMISTIC_WRITE lock on the property row before creating a run, so two
     // concurrent generate requests for the same property serialise here rather than racing

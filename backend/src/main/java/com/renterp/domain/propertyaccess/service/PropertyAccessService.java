@@ -30,11 +30,14 @@ public class PropertyAccessService {
     private final PropertyRepository propertyRepository;
     private final UserRepository userRepository;
     private final AccessGuard accessGuard;
+    private final com.renterp.common.guard.PropertyGuard propertyGuard;
 
     public PropertyAccessService(PropertyAccessRepository propertyAccessRepository,
                                   PropertyRepository propertyRepository,
                                   UserRepository userRepository,
-                                  AccessGuard accessGuard) {
+                                  AccessGuard accessGuard,
+                                  com.renterp.common.guard.PropertyGuard propertyGuard) {
+        this.propertyGuard = propertyGuard;
         this.propertyAccessRepository = propertyAccessRepository;
         this.propertyRepository = propertyRepository;
         this.userRepository = userRepository;
@@ -67,18 +70,41 @@ public class PropertyAccessService {
             log.warn("Access grant failed — granting user not found: {}", request.getGrantedBy());
             throw new ResourceNotFoundException("User", "id", request.getGrantedBy());
         }
-        if (propertyAccessRepository.existsByPropertyIdAndUserId(request.getPropertyId(), request.getUserId())) {
-            log.warn("Access grant failed — grant already exists for property: {}, user: {}",
-                    request.getPropertyId(), request.getUserId());
-            throw new DuplicateResourceException("PropertyAccess", "propertyId+userId",
-                    request.getPropertyId() + "+" + request.getUserId());
+        propertyGuard.requireActive(request.getPropertyId());   // M8
+
+        // The granting user is whoever is signed in, never the request body.
+        UUID grantedBy = accessGuard.current().map(com.renterp.domain.auth.security.AuthUser::userId)
+                .orElse(request.getGrantedBy());
+
+        // H13: a revoked grant is switched back on (with the new role) instead
+        // of answering 409 forever - (property, user) is unique in the table.
+        java.util.Optional<PropertyAccess> earlier =
+                propertyAccessRepository.findFirstByPropertyIdAndUserId(request.getPropertyId(), request.getUserId());
+        if (earlier.isPresent()) {
+            PropertyAccess prior = earlier.get();
+            if (prior.isActive()) {
+                log.warn("Access grant failed — grant already exists for property: {}, user: {}",
+                        request.getPropertyId(), request.getUserId());
+                throw new DuplicateResourceException("PropertyAccess", "propertyId+userId",
+                        request.getPropertyId() + "+" + request.getUserId());
+            }
+            if (prior.getRole() == AccessRole.OWNER) {
+                throw new InvalidOperationException("OWNER access cannot be granted again — use ownership transfer instead");
+            }
+            prior.setActive(true);
+            prior.setRole(request.getRole());
+            prior.setGrantedBy(grantedBy);
+            PropertyAccess restored = propertyAccessRepository.saveAndFlush(prior);
+            log.info("Property access restored — id: {}, property: {}, user: {}, role: {}",
+                    restored.getId(), restored.getPropertyId(), restored.getUserId(), restored.getRole());
+            return PropertyAccessResponse.from(restored);
         }
 
         PropertyAccess access = PropertyAccess.builder()
                 .propertyId(request.getPropertyId())
                 .userId(request.getUserId())
                 .role(request.getRole())
-                .grantedBy(request.getGrantedBy())
+                .grantedBy(grantedBy)
                 .build();
 
         PropertyAccess saved = propertyAccessRepository.save(access);

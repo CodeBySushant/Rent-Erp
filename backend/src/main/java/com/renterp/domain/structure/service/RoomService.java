@@ -33,10 +33,13 @@ public class RoomService {
     private final FloorRepository floorRepository;
     private final RoomAssignmentRepository roomAssignmentRepository;
     private final MeterRoomCoverageRepository meterRoomCoverageRepository;
+    private final com.renterp.common.guard.PropertyGuard propertyGuard;
 
     public RoomService(RoomRepository roomRepository, FloorRepository floorRepository,
                        RoomAssignmentRepository roomAssignmentRepository,
-                       MeterRoomCoverageRepository meterRoomCoverageRepository) {
+                       MeterRoomCoverageRepository meterRoomCoverageRepository,
+                       com.renterp.common.guard.PropertyGuard propertyGuard) {
+        this.propertyGuard = propertyGuard;
         this.roomRepository = roomRepository;
         this.floorRepository = floorRepository;
         this.roomAssignmentRepository = roomAssignmentRepository;
@@ -49,11 +52,15 @@ public class RoomService {
     public RoomResponse createRoom(CreateRoomRequest request) {
         log.debug("Creating room — floor: {}, name: {}", request.getFloorId(), request.getName());
 
-        if (!floorRepository.existsById(request.getFloorId())) {
-            log.warn("Room creation failed — floor not found: {}", request.getFloorId());
-            throw new ResourceNotFoundException("Floor", "id", request.getFloorId());
+        Floor parent = floorRepository.findById(request.getFloorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Floor", "id", request.getFloorId()));
+        // M8: no new rooms on a removed floor or a closed property.
+        if (!parent.isActive()) {
+            throw new InvalidOperationException("FLOOR_INACTIVE", "This floor has been removed.");
         }
-        if (roomRepository.existsByFloorIdAndName(request.getFloorId(), request.getName())) {
+        propertyGuard.requireActive(parent.getPropertyId());
+        // H13: a removed room's name may be used again.
+        if (roomRepository.existsByFloorIdAndNameAndActiveTrue(request.getFloorId(), request.getName())) {
             log.warn("Room creation failed — name '{}' already exists on floor {}",
                     request.getName(), request.getFloorId());
             throw new DuplicateResourceException("Room", "floorId+name",
@@ -126,7 +133,7 @@ public class RoomService {
                 });
 
         if (request.getName() != null && !request.getName().equals(room.getName())) {
-            if (roomRepository.existsByFloorIdAndName(room.getFloorId(), request.getName())) {
+            if (roomRepository.existsByFloorIdAndNameAndActiveTrue(room.getFloorId(), request.getName())) {
                 log.warn("Update failed — name '{}' already exists on floor {}",
                         request.getName(), room.getFloorId());
                 throw new DuplicateResourceException("Room", "floorId+name",

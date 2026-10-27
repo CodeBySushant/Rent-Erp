@@ -21,6 +21,9 @@ public interface PropertyAccessRepository extends JpaRepository<PropertyAccess, 
 
     boolean existsByPropertyIdAndUserId(UUID propertyId, UUID userId);
 
+    // H13: the (one) grant row of a user on a property, active or revoked.
+    Optional<PropertyAccess> findFirstByPropertyIdAndUserId(UUID propertyId, UUID userId);
+
     // Authorization: the caller's active grant on one property, if any.
     Optional<PropertyAccess> findFirstByPropertyIdAndUserIdAndActiveTrue(UUID propertyId, UUID userId);
 

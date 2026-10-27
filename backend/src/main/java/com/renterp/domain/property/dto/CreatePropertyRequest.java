@@ -85,6 +85,11 @@ public class CreatePropertyRequest {
     @DecimalMin(value = "0.00", message = "Penalty cap amount cannot be negative")
     private BigDecimal penaltyCapAmount;
 
+    // M4: FIXED rupees / PERCENTAGE percent / PER_DAY rupees per day. Null = no penalty.
+    @DecimalMin(value = "0.00", message = "Penalty amount cannot be negative")
+    @jakarta.validation.constraints.Digits(integer = 8, fraction = 2, message = "Penalty amount has too many digits")
+    private BigDecimal penaltyAmount;
+
     private LateDepartureChargeType lateDepartureChargeType = LateDepartureChargeType.NONE;
 
     // Fixed amount or percentage value depending on lateDepartureChargeType; null when type = NONE.

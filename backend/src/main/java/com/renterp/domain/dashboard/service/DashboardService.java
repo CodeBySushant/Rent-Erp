@@ -126,7 +126,7 @@ public class DashboardService {
                 (int) q.overdueMemberships(id, today),
                 q.outstanding(id),
                 (int) q.activeMeters(id),
-                (int) q.metersWithoutReadingSince(id, BsCalendar.monthStart(today)),
+                (int) q.metersWithoutReadingSince(id, BsCalendar.billingPeriodStart(today, p.getBillingDay())),   // M5
                 (int) q.pendingPayments(id),
                 current);
     }
@@ -146,8 +146,14 @@ public class DashboardService {
         if (status != null && status.equalsIgnoreCase("ALL")) {
             ms = memberships.findByPropertyId(propertyId, Pageable.unpaged()).getContent();
         } else {
-            MembershipStatus wanted = status == null ? MembershipStatus.ACTIVE
-                    : MembershipStatus.valueOf(status.toUpperCase(Locale.ROOT));
+            MembershipStatus wanted;
+            try {
+                wanted = status == null ? MembershipStatus.ACTIVE
+                        : MembershipStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {   // M14: was an unhandled 500
+                throw com.renterp.common.exception.ApiException.badRequest("INVALID_STATUS",
+                        "status must be ACTIVE, TERMINATED or ALL.");
+            }
             ms = memberships.findByPropertyIdAndStatus(propertyId, wanted);
         }
         if (ms.isEmpty()) {

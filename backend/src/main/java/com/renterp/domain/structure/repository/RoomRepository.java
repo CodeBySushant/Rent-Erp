@@ -19,6 +19,9 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
 
     boolean existsByFloorIdAndName(UUID floorId, String name);
 
+    // H13: only active rooms hold a name (V25 partial unique index).
+    boolean existsByFloorIdAndNameAndActiveTrue(UUID floorId, String name);
+
     // Used by FloorService.deleteFloor() to block deletion while active rooms remain.
     boolean existsByFloorIdAndActive(UUID floorId, boolean active);
 

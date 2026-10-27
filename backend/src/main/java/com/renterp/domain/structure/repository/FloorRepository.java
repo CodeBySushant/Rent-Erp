@@ -20,4 +20,7 @@ public interface FloorRepository extends JpaRepository<Floor, UUID> {
     List<Floor> findAllByPropertyId(UUID propertyId);
 
     boolean existsByPropertyIdAndFloorNumber(UUID propertyId, short floorNumber);
+
+    // H13: only active floors hold a floor number (V25 partial unique index).
+    boolean existsByPropertyIdAndFloorNumberAndActiveTrue(UUID propertyId, short floorNumber);
 }

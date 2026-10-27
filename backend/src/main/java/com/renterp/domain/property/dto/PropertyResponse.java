@@ -42,6 +42,7 @@ public class PropertyResponse {
     private final PenaltyFrequency penaltyFrequency;
     private final short penaltyGraceDays;
     private final BigDecimal penaltyCapAmount;
+    private final BigDecimal penaltyAmount;
     private final LateDepartureChargeType lateDepartureChargeType;
     private final BigDecimal lateDepartureChargeAmount;
     private final RoundingMethod roundingMethod;
@@ -77,6 +78,7 @@ public class PropertyResponse {
         this.penaltyFrequency = property.getPenaltyFrequency();
         this.penaltyGraceDays = property.getPenaltyGraceDays();
         this.penaltyCapAmount = property.getPenaltyCapAmount();
+        this.penaltyAmount = property.getPenaltyAmount();
         this.lateDepartureChargeType = property.getLateDepartureChargeType();
         this.lateDepartureChargeAmount = property.getLateDepartureChargeAmount();
         this.roundingMethod = property.getRoundingMethod();

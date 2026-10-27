@@ -104,6 +104,12 @@ public class Property extends BaseAuditEntity {
     @Column(name = "penalty_cap_amount", precision = 10, scale = 2)
     private BigDecimal penaltyCapAmount;
 
+    // M4 (V25): the value the penalty type uses - FIXED: rupees each time;
+    // PERCENTAGE: percent of the overdue balance; PER_DAY: rupees per day late.
+    // NULL or 0 = no penalty is charged even when a type is set.
+    @Column(name = "penalty_amount", precision = 10, scale = 2)
+    private BigDecimal penaltyAmount;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "late_departure_charge_type", nullable = false, length = 50)
     @Builder.Default
