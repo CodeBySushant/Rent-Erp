@@ -14,7 +14,7 @@ A rental management SaaS for Nepal. Landlord-primary design — the app works fu
 ---
 
 ## Current Phase
-**Beta spec 100% complete.** Phases 1–5 built and tested on `main`. Phase 6 (app integration, branch `feature/app-integration`, 2026-10-02) adds auth, payments (manual + proofs), move-out, room transfer, tenant requests, owner payment details, account self-service and in-app notifications — feature work complete, clean-up and production readiness remaining. Status per controller: `DEVLOG.md` → Controller Log.
+**Beta spec 100% complete.** Phases 1–5 built and tested on `main`. Phase 6 (app integration, branch `feature/app-integration`, 2026-10-02) adds auth, payments (manual + proofs), move-out, room transfer, tenant requests, owner payment details, account self-service and in-app notifications — feature work complete, clean-up and production readiness remaining. Pre-deployment hardening (V25, 2026-10-28) applied — `docs/devlog/DEVLOG_HARDENING.md`; KYC (owner and tenant) is stored and verified by the developer (ADMIN) for now. Status per controller: `DEVLOG.md` → Controller Log.
 
 ### Beta scope (build this, nothing else):
 - Full billing engine (all metering modes, NEA blended rate, segment billing)

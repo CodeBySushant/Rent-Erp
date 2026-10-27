@@ -127,7 +127,11 @@ $sB = (Call GET '/me/stay' $null $B).Body.data
 Assert 'owner B (not a tenant) sees nothing' ((@($sB.stays).Count -eq 0) -and (-not ((Call GET '/me/stay' $null $B).Raw -match 'Shrestha')))
 
 # --- After moving out ------------------------------------------------------------------------
-Check 'owner ends the tenancy' (Call POST ('/memberships/' + $mId + '/terminate') @{ endedAtBs = '2082-07-01'; reason = 'Moved out' } $A) 200
+# H2 (hardening): owners end a tenancy through move-out; /terminate is admin-only.
+$today = $res.Body.data.todayBs
+$mo = Call POST ('/memberships/' + $mId + '/move-out') @{ plannedMoveOutBs = $today; reason = 'Moved out' } $A
+Check 'owner gives move-out notice' $mo 201
+Check 'owner settles the move-out' (Call POST ('/move-outs/' + $mo.Body.data.id + '/settle') @{ movedOutBs = '2082-07-01' } $A) 200
 $st2 = (Call GET '/me/stay' $null $C).Body.data.stays[0]
 Assert 'stay is terminated, rooms released' (($st2.status -eq 'TERMINATED') -and (@($st2.rooms).Count -eq 0) -and ($st2.endedAtBs -eq '2082-07-01'))
 Assert 'landlord phone no longer shared' ($null -eq $st2.landlordPhone)

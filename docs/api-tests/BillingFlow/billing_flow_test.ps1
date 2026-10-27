@@ -120,7 +120,7 @@ $runId = $d1.Body.data.id
 Assert 'run is a draft' ($d1.Body.data.status -eq 'DRAFT') $d1.Raw
 $d2 = CallKey $path $may $A $key1
 Assert 'same key replays the same run (no duplicate)' ((($d2.Status -eq 200) -or ($d2.Status -eq 201)) -and ($d2.Body.data.id -eq $runId)) $d2.Raw
-Check 'new key for the same month -> 409' (CallKey $path $may $A ([guid]::NewGuid().ToString())) 409 'DUPLICATE'
+Check 'new key for the same month -> 409' (CallKey $path $may $A ([guid]::NewGuid().ToString())) 409 'BILLING_RUN_ALREADY_EXISTS'
 Check 'other owner cannot bill A property -> 403' (CallKey $path $may $B ([guid]::NewGuid().ToString())) 403 'FORBIDDEN'
 
 $bills = @((Call GET ('/billing-runs/' + $runId + '/bills') $null $A).Body.data)

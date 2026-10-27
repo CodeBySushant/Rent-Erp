@@ -29,7 +29,7 @@ BS (Bikram Sambat) calendar throughout. NPR only.
 | Framework | Spring Boot 4.1.0 |
 | Build | Maven 3.9+ (no wrapper — Maven must be installed) |
 | Database | PostgreSQL 13+ (developed against 17) |
-| Migrations | Flyway (V1 → V12) |
+| Migrations | Flyway (V1 → V25) |
 | ORM | Hibernate / Spring Data JPA, `ddl-auto: validate` |
 | Job queue | db-scheduler 15.0.0 (Postgres-backed, no Kafka) |
 | Connection pool | HikariCP (max 20) |
@@ -117,10 +117,11 @@ DB_NAME=renterp
 DB_USERNAME=postgres
 DB_PASSWORD=your_postgres_password
 
-DEV_SECURITY_USER=dev
-DEV_SECURITY_PASSWORD=dev123456
-
 JWT_SECRET=local_dev_secret_at_least_thirty_two_chars_long
+
+# Local development only (see .env.example for every option):
+APP_LOG_LEVEL=DEBUG
+RATE_LIMIT_ENABLED=false
 ```
 
 Notes:
@@ -128,7 +129,10 @@ Notes:
 - **No defaults exist.** `application.yml` uses `${VAR}` with no fallbacks, so a missing variable is a startup crash, not a warning.
 - **Skip inline comments.** dotenv-java does not reliably strip a trailing `# comment` from a value.
 - **No quotes** around values. Special characters like `@` and `.` are fine; avoid `#`.
-- Everything below `JWT_SECRET` in `.env.example` (Sparrow SMS, AWS, Khalti, eSewa, FCM) is **not read by any current code**. Omit it.
+- `DEV_SECURITY_USER` / `DEV_SECURITY_PASSWORD` are no longer used (hardening H17) — delete them from old `.env` files.
+- Logging is production-safe by default (INFO, no SQL, no bind values). Raise it locally with `APP_LOG_LEVEL`, `SQL_LOG_LEVEL`, `SQL_BIND_LOG_LEVEL` (see `.env.example`).
+- Request limits are on by default. Set `RATE_LIMIT_ENABLED=false` on a developer machine running the live scripts.
+- Sparrow SMS, AWS, Khalti, eSewa and FCM keys in `.env.example` are **not read by any current code**. Omit them.
 - Watch out for Notepad saving as `.env.txt`. Verify with `dir -Force .env*`.
 
 ### 3. Build
@@ -154,7 +158,7 @@ Must be run from `backend/`, or `.env` won't be found.
 A healthy start looks like:
 
 ```
-Successfully applied 12 migrations to schema "public", now at version v12
+Successfully applied 25 migrations to schema "public", now at version v25
 112 mappings in 'requestMappingHandlerMapping'
 Tomcat started on port 8080 (http)
 Started RentErpApplication in 6.4 seconds
@@ -185,9 +189,9 @@ Logs are written to `backend/logs/rent-erp.log` and `backend/logs/rent-erp-sql.l
 
 | URL | Shows |
 |---|---|
-| `http://localhost:8080/actuator/health` | Overall health; `db` component proves the Postgres connection |
-| `http://localhost:8080/actuator/flyway` | All 12 migrations with checksums |
-| `http://localhost:8080/actuator/metrics` | JVM memory, threads, request timings |
+| `http://localhost:8080/actuator/health` | `{"status":"UP"}`; component details (db, disk) only with an ADMIN token |
+| `http://localhost:8080/actuator/flyway` | All 25 migrations with checksums (ADMIN token) |
+| `http://localhost:8080/actuator/metrics` | JVM memory, threads, request timings (ADMIN token) |
 | `http://localhost:8080/api/v1/users` | Real endpoint — empty paginated list on a fresh DB |
 
 Health should report `"status":"UP"` with `db` showing `result: 1`. That's the single best "is the backend fine?" check — if it's green, any API failure is application logic, not infrastructure.
@@ -260,7 +264,7 @@ cd backend
 mvn test
 ```
 
-44 tests on `feature/app-integration`: `BsCalendarTest` (BS month lengths, parsing, day arithmetic, today in Nepal time), `BillingPass2MathTest`, `JwtServiceTest`, `TokenHasherTest`, `PasswordPolicyTest`, `AccessGuardTest`, `FileTypeSnifferTest`, `LocalFileStorageTest`, `JoinCodeGeneratorTest` and the application context test (needs PostgreSQL).
+44 tests on `feature/app-integration` (+14 from the 2026-10-28 hardening: `BsCalendarBillingPeriodTest`, `ErrorNamesTest`, `NotificationTextTest`, one more `PasswordPolicyTest`): `BsCalendarTest` (BS month lengths, parsing, day arithmetic, today in Nepal time), `BillingPass2MathTest`, `JwtServiceTest`, `TokenHasherTest`, `PasswordPolicyTest`, `AccessGuardTest`, `FileTypeSnifferTest`, `LocalFileStorageTest`, `JoinCodeGeneratorTest` and the application context test (needs PostgreSQL).
 
 ### Live API scripts (branch `feature/app-integration`)
 
@@ -308,7 +312,7 @@ cd backend
 mvn spring-boot:run
 ```
 
-Flyway rebuilds all 12 migrations in under a second. Whole cycle takes under a minute.
+Flyway rebuilds all 25 migrations in under a second. Whole cycle takes under a minute.
 
 If connections persist after stopping the app:
 
@@ -352,7 +356,7 @@ Rent-Erp/
 │       └── resources/
 │           ├── application.yml
 │           ├── log4j2.xml
-│           └── db/migration/     V1 → V23
+│           └── db/migration/     V1 → V25
 ├── scripts/
 │   └── update_branch_log.ps1     regenerates docs/BRANCH_COMMITS.md
 └── docs/
@@ -469,6 +473,8 @@ SQL statements and bind parameters go to `backend/logs/rent-erp-sql.log` — use
 ---
 
 ## Current state
+
+**Hardening (2026-10-28, V25):** fixes from the pre-deployment backend audit — reading-chain integrity, billing-period overlap, draft bills hidden from tenants, one tenant profile per person, safe logging, admin-only KYC decisions, rate limits, penalties, infrastructure meters, notification languages, optimistic locking and more. Every change, API difference and new error code: [docs/devlog/DEVLOG_HARDENING.md](docs/devlog/DEVLOG_HARDENING.md).
 
 **`main`:** Phase 5 complete: billing engine, meters and readings, tenancy, tenant finance, and property structure are all implemented and tested.
 

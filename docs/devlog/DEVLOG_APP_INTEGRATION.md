@@ -189,3 +189,6 @@ Owner Property Access → Join Requests: accept with a start date, then give the
 2. Production: SMS sender for OTP; email sender for email-change codes; file storage location and backups (today local disk); environment and secrets; Firebase push from `device_tokens`.
 3. Decisions: final bill for a partial last month at move-out (owner enters "final charges" today); billing only some tenants; one-off extra charges in Create Bill.
 
+### [2026-10-28] Pre-deployment hardening (V25)
+
+Backend audit fixes before deployment. Behaviour changes the app relies on: tenants never see draft bills; an owner-added tenant's profile is linked at sign-up / login (no second profile); tenant meter readings need a photo; notifications arrive in the user's language and as `PagedResponse`; KYC decisions are admin-only; `/memberships/{id}/terminate` and `DELETE /users/{id}` are admin-only. Detail, API table and new error codes: [DEVLOG_HARDENING.md](DEVLOG_HARDENING.md).
