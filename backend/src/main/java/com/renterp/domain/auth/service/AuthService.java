@@ -1,6 +1,8 @@
 package com.renterp.domain.auth.service;
 
 import com.renterp.common.exception.ApiException;
+import com.renterp.common.ratelimit.RateLimiter;
+import com.renterp.common.web.ClientIp;
 import com.renterp.domain.auth.dto.AuthResponse;
 import com.renterp.domain.auth.dto.OtpChallengeResponse;
 import com.renterp.domain.auth.dto.PasswordLoginRequest;
@@ -46,13 +48,15 @@ public class AuthService {
     private final OtpService otpService;
     private final AuthTokenService tokenService;
     private final LoginAttemptService loginAttempts;
+    private final RateLimiter rateLimiter;
 
     // Compared against when the email is unknown, so an unknown email takes as
     // long as a wrong password and the response time does not reveal accounts.
     private final String dummyHash;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, OtpService otpService,
-                       AuthTokenService tokenService, LoginAttemptService loginAttempts) {
+                       AuthTokenService tokenService, LoginAttemptService loginAttempts, RateLimiter rateLimiter) {
+        this.rateLimiter = rateLimiter;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.otpService = otpService;
@@ -64,6 +68,10 @@ public class AuthService {
     // ── OTP ────────────────────────────────────────────────────────────────────
 
     public OtpChallengeResponse requestOtp(RequestOtpRequest request) {
+        // Per caller address, on top of the per-phone limits in OtpService (H11):
+        // stops one client from sending codes to many numbers (SMS pumping).
+        rateLimiter.hit("otp-ip:" + ClientIp.current(), 20, Duration.ofHours(1),
+                "OTP_RATE_LIMITED", "Too many codes requested from this device. Try again later.");
         String phone = request.getPhone();
         if (request.getPurpose() == RequestOtpRequest.Purpose.SIGNUP) {
             if (userRepository.existsByPhone(phone)) {
@@ -78,6 +86,7 @@ public class AuthService {
     }
 
     public VerificationTokenResponse verifySignupOtp(VerifyOtpRequest request) {
+        limitCodeChecks();
         OtpAttempt checked = otpService.check(request.getVerificationId(), request.getCode(),
                 OtpAttempt.Purpose.SIGNUP);
         return otpService.issueVerificationToken(checked.getId());
@@ -92,6 +101,8 @@ public class AuthService {
      */
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent) {
+        rateLimiter.hit("register-ip:" + ClientIp.current(), 10, Duration.ofHours(1),
+                "REGISTER_RATE_LIMITED", "Too many sign-ups from this device. Try again later.");
         String problem = PasswordPolicy.problem(request.getPassword());
         if (problem != null) {
             throw ApiException.badRequest("PASSWORD_WEAK", problem);
@@ -124,6 +135,7 @@ public class AuthService {
     // ── Login ──────────────────────────────────────────────────────────────────
 
     public AuthResponse loginWithOtp(VerifyOtpRequest request, String userAgent) {
+        limitCodeChecks();
         OtpAttempt checked = otpService.check(request.getVerificationId(), request.getCode(),
                 OtpAttempt.Purpose.LOGIN);
         User user = userRepository.findByPhoneAndActiveTrue(checked.getPhone())
@@ -135,6 +147,16 @@ public class AuthService {
 
     public AuthResponse loginWithPassword(PasswordLoginRequest request, String userAgent) {
         String email = normaliseEmail(request.getEmail());
+        // H11: per address and per email, before any password is checked, so
+        // guessing is slow even across many accounts.
+        rateLimiter.hit("login-ip:" + ClientIp.current(), 30, Duration.ofMinutes(15),
+                "LOGIN_RATE_LIMITED", "Too many login attempts. Try again in a few minutes.");
+        rateLimiter.hit("login-email:" + email, 15, Duration.ofMinutes(15),
+                "LOGIN_RATE_LIMITED", "Too many login attempts. Try again in a few minutes.");
+        // L2: BCrypt cannot take more than 72 bytes; no stored password is longer.
+        if (PasswordPolicy.tooLongForBcrypt(request.getPassword())) {
+            throw invalidCredentials();
+        }
         User user = userRepository.findByEmailIgnoreCase(email).filter(User::isActive).orElse(null);
         if (user == null) {
             passwordEncoder.matches(request.getPassword(), dummyHash);
@@ -173,6 +195,12 @@ public class AuthService {
                 .orElseThrow(() -> ApiException.unauthorized("ACCOUNT_DISABLED",
                         "This account is no longer active."));
         return UserResponse.from(user);
+    }
+
+    /** H11: wrong-code guessing across many challenges from one address. */
+    private void limitCodeChecks() {
+        rateLimiter.hit("otp-check-ip:" + ClientIp.current(), 30, Duration.ofMinutes(15),
+                "OTP_RATE_LIMITED", "Too many code attempts. Try again in a few minutes.");
     }
 
     private static String normaliseEmail(String email) {

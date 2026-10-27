@@ -9,6 +9,7 @@ import com.renterp.domain.auth.repository.UserSessionRepository;
 import com.renterp.domain.auth.security.AuthUser;
 import com.renterp.domain.auth.security.JwtService;
 import com.renterp.domain.auth.security.TokenHasher;
+import com.renterp.domain.notification.repository.DeviceTokenRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -30,13 +32,19 @@ public class AuthTokenService {
 
     private final UserSessionRepository sessionRepository;
     private final JwtService jwtService;
+    private final DeviceTokenRepository deviceTokens;
     private final Duration refreshTtl;
+    private final int maxSessions;
 
     public AuthTokenService(UserSessionRepository sessionRepository, JwtService jwtService,
-                            @Value("${app.auth.refresh-token-days:30}") long refreshTokenDays) {
+                            DeviceTokenRepository deviceTokens,
+                            @Value("${app.auth.refresh-token-days:30}") long refreshTokenDays,
+                            @Value("${app.auth.max-sessions-per-user:10}") int maxSessions) {
         this.sessionRepository = sessionRepository;
         this.jwtService = jwtService;
+        this.deviceTokens = deviceTokens;
         this.refreshTtl = Duration.ofDays(refreshTokenDays);
+        this.maxSessions = Math.max(1, maxSessions);
     }
 
     /** Opens a new session for {@code user} and returns its tokens. */
@@ -58,7 +66,31 @@ public class AuthTokenService {
                 .expiresAt(now.plus(refreshTtl))
                 .lastUsedAt(now)
                 .build());
+        endOldestBeyondCap(user, session.getId(), now);
         return response(user, session.getId(), refreshToken);
+    }
+
+    /**
+     * At most {@code app.auth.max-sessions-per-user} signed-in devices (M16).
+     * Logging in on one more ends the least recently used session; the newest
+     * one is never touched.
+     */
+    private void endOldestBeyondCap(User user, UUID keep, Instant now) {
+        List<UserSession> active = sessionRepository.findActiveByUserId(user.getId(), now);
+        if (active.size() <= maxSessions) {
+            return;
+        }
+        active.stream()
+                .filter(s -> !s.getId().equals(keep))
+                .sorted(java.util.Comparator.comparing(
+                        (UserSession s) -> s.getLastUsedAt() == null ? s.getCreatedAt() : s.getLastUsedAt(),
+                        java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                .limit(active.size() - maxSessions)
+                .forEach(s -> {
+                    s.setRevokedAt(now);
+                    sessionRepository.save(s);
+                    deviceTokens.deleteBySessionId(s.getId());
+                });
     }
 
     /**
@@ -97,6 +129,8 @@ public class AuthTokenService {
                 .ifPresent(s -> {
                     s.setRevokedAt(Instant.now());
                     sessionRepository.save(s);
+                    // The device is signed out: stop pushing to it (M12).
+                    deviceTokens.deleteBySessionId(s.getId());
                 });
     }
 

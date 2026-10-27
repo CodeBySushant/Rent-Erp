@@ -39,7 +39,6 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserResponse>> createUser(
             @Valid @RequestBody CreateUserRequest request) {
 
-        log.debug("POST /api/v1/users — phone: {}", request.getPhone());
         // Accounts are created through /api/v1/auth/register; this direct
         // create is an admin tool.
         accessGuard.requireAdmin();
@@ -90,11 +89,13 @@ public class UserController {
     }
 
     // ── DELETE /api/v1/users/{id} ──────────────────────────────────────────────
-    // Soft delete only — sets is_active = false. Row is never removed from DB.
+    // Admin only (H3). Soft delete — is_active = false, sessions ended. A user
+    // deletes their own account with DELETE /api/v1/me, which checks for active
+    // tenants and unpaid bills and anonymises the account.
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable UUID id) {
         log.debug("DELETE /api/v1/users/{}", id);
-        accessGuard.requireSelfOrAdmin(id);
+        accessGuard.requireAdmin();
         userService.deleteUser(id);
         return ResponseEntity.ok(ApiResponse.success("User deactivated successfully"));
     }

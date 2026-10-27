@@ -203,11 +203,18 @@ public class ResourceAccess {
             return;
         }
         TenantProfile p = profile.get();
-        if (user.userId().equals(p.getUserId()) || user.userId().equals(p.getCreatedBy())) {
+        if (user.userId().equals(p.getUserId())) {
             return;
         }
         Set<UUID> propertyIds = new LinkedHashSet<>(memberships.findPropertyIdsByTenantProfileId(tenantProfileId));
         propertyIds.addAll(joinRequests.findPropertyIdsByTenantProfileId(tenantProfileId));
+        // M20: the person who created a profile reaches it only until it is tied
+        // to a property (the moment between "create profile" and "add tenancy").
+        // After that, access comes from the property - so it ends when the
+        // creator no longer has access there.
+        if (propertyIds.isEmpty() && user.userId().equals(p.getCreatedBy())) {
+            return;
+        }
         for (UUID propertyId : propertyIds) {
             if (guard.hasPropertyAccess(propertyId, level.role)) {
                 return;
@@ -217,17 +224,20 @@ public class ResourceAccess {
     }
 
     /**
-     * Approving, rejecting or flagging a tenant's KYC: someone who manages the
-     * tenant (see {@link #tenantProfile}), never the tenant themself.
+     * Approving, rejecting or flagging a tenant's KYC (H6): the developer /
+     * admin only. Owners and managers no longer decide identity checks.
      */
     public void tenantProfileDecide(UUID tenantProfileId) {
-        if (!guard.checking()) {
-            return;
-        }
-        if (!guard.requireUser().isAdmin() && isSelfProfile(tenantProfileId)) {
-            throw ApiException.forbidden("You cannot verify your own identity documents.");
-        }
-        tenantProfile(tenantProfileId, Level.WRITE);
+        guard.requireAdmin();
+    }
+
+    /**
+     * Submitting or reading a tenant's KYC (ID number, document photos): the
+     * tenant themself or an admin (H6). Owners see whether a tenant is
+     * verified through the profile, not the documents.
+     */
+    public void tenantKyc(UUID tenantProfileId) {
+        requireSelfProfile(tenantProfileId);
     }
 
     /**
@@ -318,15 +328,39 @@ public class ResourceAccess {
         runs.findById(runId).ifPresent(r -> property(r.getPropertyId(), level));
     }
 
-    /** A bill: the property at the level, or (read only) the tenant it was issued to. */
+    /**
+     * A bill: the property at the level, or (read only) the tenant it was
+     * issued to. C7: a tenant never sees a DRAFT bill - it is not sent yet and
+     * may still change or be discarded; to them it does not exist (404).
+     */
     public void tenantBill(UUID billId, Level level) {
         bills.findById(billId).ifPresent(b -> {
             if (level == Level.READ) {
                 membership(b.getMembershipId(), Level.READ);
+                if (b.getStatus() == com.renterp.domain.billing.entity.TenantBill.Status.DRAFT
+                        && !canSeeDrafts(b.getPropertyId())) {
+                    throw ApiException.notFound("BILL_NOT_FOUND", "Bill not found.");
+                }
             } else {
                 property(b.getPropertyId(), level);
             }
         });
+    }
+
+    /**
+     * C7: whether the caller may see DRAFT bills of this property - staff of the
+     * property and admins (and unenforced dev requests), never its tenants.
+     */
+    public boolean canSeeDrafts(UUID propertyId) {
+        if (!guard.checking()) {
+            return true;
+        }
+        return guard.hasPropertyAccess(propertyId, Level.READ.role);
+    }
+
+    /** C7: as {@link #canSeeDrafts(UUID)}, for a membership's property. */
+    public boolean canSeeDraftsOfMembership(UUID membershipId) {
+        return memberships.findById(membershipId).map(m -> canSeeDrafts(m.getPropertyId())).orElse(false);
     }
 
     /** Sending payment proof: only the tenant the bill was issued to. */
@@ -381,7 +415,9 @@ public class ResourceAccess {
      */
     public void moveOut(UUID moveOutId, boolean allowTenant) {
         moveOuts.findById(moveOutId).ifPresent(mo -> {
-            if (allowTenant) {
+            // H1: the tenant may only withdraw a notice they gave themselves -
+            // never one the owner gave them.
+            if (allowTenant && mo.isRequestedByTenant()) {
                 membershipSelfOrManager(mo.getMembershipId());
             } else {
                 property(mo.getPropertyId(), Level.WRITE);
@@ -395,7 +431,8 @@ public class ResourceAccess {
      */
     public void tenantRequest(UUID requestId, boolean allowTenant) {
         tenantRequests.findById(requestId).ifPresent(r -> {
-            if (allowTenant) {
+            // H1: a tenant withdraws only requests they created themselves.
+            if (allowTenant && r.isByTenant()) {
                 membershipSelfOrManager(r.getMembershipId());
             } else {
                 property(r.getPropertyId(), Level.WRITE);

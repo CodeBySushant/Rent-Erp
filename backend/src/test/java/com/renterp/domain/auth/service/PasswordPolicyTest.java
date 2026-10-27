@@ -21,4 +21,11 @@ class PasswordPolicyTest {
         assertEquals("Include at least one letter and one number", PasswordPolicy.problem("12345678"));
         assertEquals("Use at most 72 characters", PasswordPolicy.problem("a1".repeat(40)));
     }
+
+    @Test
+    void longerThanBcryptIsFlagged() {   // L2
+        org.junit.jupiter.api.Assertions.assertTrue(PasswordPolicy.tooLongForBcrypt("a1".repeat(37)));
+        org.junit.jupiter.api.Assertions.assertFalse(PasswordPolicy.tooLongForBcrypt("a1".repeat(36)));
+        org.junit.jupiter.api.Assertions.assertFalse(PasswordPolicy.tooLongForBcrypt(null));
+    }
 }

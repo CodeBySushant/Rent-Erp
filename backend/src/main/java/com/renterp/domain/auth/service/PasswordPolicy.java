@@ -10,6 +10,15 @@ public final class PasswordPolicy {
     private PasswordPolicy() {
     }
 
+    /**
+     * True when {@code password} is longer than BCrypt can handle (72 bytes).
+     * Such a value is never a stored password, so callers reject it before
+     * calling the encoder, which may otherwise throw and answer 500 (L2).
+     */
+    public static boolean tooLongForBcrypt(String password) {
+        return password != null && password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72;
+    }
+
     /** The problem with {@code password}, or null when it is acceptable. */
     public static String problem(String password) {
         if (password == null || password.length() < 8) {

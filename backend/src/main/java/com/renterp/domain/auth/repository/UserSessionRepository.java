@@ -27,8 +27,9 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
 
     // The access-token filter checks the session on every request: revoked or
     // expired sessions stop working immediately, not when the JWT expires.
+    // A deactivated account stops at once too (H3), not when its token expires.
     @Query("select (count(s) > 0) from UserSession s where s.id = :id and s.user.id = :userId "
-            + "and s.revokedAt is null and s.expiresAt > :now")
+            + "and s.revokedAt is null and s.expiresAt > :now and s.user.active = true")
     boolean isActive(@Param("id") UUID id, @Param("userId") UUID userId, @Param("now") Instant now);
 
     @Query("select s from UserSession s where s.user.id = :userId and s.revokedAt is null "
@@ -38,5 +39,12 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
     // Revoke all sessions for a user (e.g. password change, suspicious activity)
     @Modifying
     @Query("UPDATE UserSession s SET s.revokedAt = :now WHERE s.user.id = :userId AND s.revokedAt IS NULL")
-    int revokeAllByUserId(UUID userId, Instant now);
+    int revokeAllByUserId(@Param("userId") UUID userId, @Param("now") Instant now);
+
+    // ── Housekeeping (M16) ────────────────────────────────────────────────────
+    // Sessions that ended (revoked or expired) more than the retention ago.
+    @Modifying
+    @Query("delete from UserSession s where (s.revokedAt is not null and s.revokedAt < :before) "
+            + "or s.expiresAt < :before")
+    int deleteEndedBefore(@Param("before") Instant before);
 }

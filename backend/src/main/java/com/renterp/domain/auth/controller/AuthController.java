@@ -12,6 +12,9 @@ import com.renterp.domain.auth.dto.VerificationTokenResponse;
 import com.renterp.domain.auth.dto.VerifyOtpRequest;
 import com.renterp.domain.auth.security.AccessGuard;
 import com.renterp.domain.auth.service.AuthService;
+import com.renterp.domain.tenancy.service.TenantProfileLinker;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,12 +34,30 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
+    private static final Logger log = LogManager.getLogger(AuthController.class);
+
     private final AuthService authService;
     private final AccessGuard accessGuard;
+    private final TenantProfileLinker profileLinker;
 
-    public AuthController(AuthService authService, AccessGuard accessGuard) {
+    public AuthController(AuthService authService, AccessGuard accessGuard, TenantProfileLinker profileLinker) {
         this.authService = authService;
         this.accessGuard = accessGuard;
+        this.profileLinker = profileLinker;
+    }
+
+    /**
+     * C8: after the account is saved (its own transaction has committed), link
+     * any tenant profile an owner created for this phone. Never fails the
+     * login - a problem here is logged and retried on the next login.
+     */
+    private AuthResponse linked(AuthResponse response) {
+        try {
+            profileLinker.linkForUser(response.user().getId(), response.user().getPhone());
+        } catch (RuntimeException e) {
+            log.error("Linking tenant profiles failed — user: {}", response.user().getId(), e);
+        }
+        return response;
     }
 
     @PostMapping("/otp/request")
@@ -56,14 +77,14 @@ public class AuthController {
             @Valid @RequestBody RegisterRequest request,
             @RequestHeader(value = "User-Agent", required = false) String userAgent) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Account created", authService.register(request, userAgent)));
+                .body(ApiResponse.success("Account created", linked(authService.register(request, userAgent))));
     }
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> loginWithOtp(
             @Valid @RequestBody VerifyOtpRequest request,
             @RequestHeader(value = "User-Agent", required = false) String userAgent) {
-        return ResponseEntity.ok(ApiResponse.success("Logged in", authService.loginWithOtp(request, userAgent)));
+        return ResponseEntity.ok(ApiResponse.success("Logged in", linked(authService.loginWithOtp(request, userAgent))));
     }
 
     @PostMapping("/login/password")
@@ -71,7 +92,7 @@ public class AuthController {
             @Valid @RequestBody PasswordLoginRequest request,
             @RequestHeader(value = "User-Agent", required = false) String userAgent) {
         return ResponseEntity.ok(ApiResponse.success("Logged in",
-                authService.loginWithPassword(request, userAgent)));
+                linked(authService.loginWithPassword(request, userAgent))));
     }
 
     @PostMapping("/refresh")

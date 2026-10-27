@@ -15,7 +15,8 @@ public class UpdateUserRequest {
     @Pattern(regexp = "^(en|hi|ne)$", message = "Language must be 'en', 'hi' or 'ne'")
     private String preferredLanguage;
 
-    // FCM token updated when device re-registers for push notifications
+    // Deprecated and ignored (M12): push tokens are registered per device with
+    // POST /api/v1/me/devices. Kept so older app builds do not get a 400.
     @Size(max = 512, message = "FCM token must not exceed 512 characters")
     private String fcmToken;
 }

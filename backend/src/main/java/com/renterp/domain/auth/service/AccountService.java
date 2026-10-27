@@ -1,6 +1,7 @@
 package com.renterp.domain.auth.service;
 
 import com.renterp.common.exception.ApiException;
+import com.renterp.common.ratelimit.RateLimiter;
 import com.renterp.domain.auth.dto.AccountRequests;
 import com.renterp.domain.auth.dto.OtpChallengeResponse;
 import com.renterp.domain.auth.dto.SessionResponse;
@@ -14,6 +15,7 @@ import com.renterp.domain.auth.repository.UserSessionRepository;
 import com.renterp.domain.auth.security.AccessGuard;
 import com.renterp.domain.auth.security.AuthUser;
 import com.renterp.domain.auth.security.TokenHasher;
+import com.renterp.domain.notification.repository.DeviceTokenRepository;
 import com.renterp.domain.tenancy.entity.TenantProfile;
 import com.renterp.domain.tenancy.repository.TenantProfileRepository;
 import jakarta.persistence.EntityManager;
@@ -23,6 +25,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -59,9 +62,14 @@ public class AccountService {
     private final TenantProfileRepository profiles;
     private final AccessGuard guard;
     private final EntityManager em;
+    private final DeviceTokenRepository deviceTokens;
+    private final RateLimiter rateLimiter;
 
     public AccountService(UserRepository users, UserSessionRepository sessions, PasswordEncoder encoder,
-                          OtpService otp, OtpAttemptRepository attempts, TenantProfileRepository profiles, AccessGuard guard, EntityManager em) {
+                          OtpService otp, OtpAttemptRepository attempts, TenantProfileRepository profiles, AccessGuard guard,
+                          EntityManager em, DeviceTokenRepository deviceTokens, RateLimiter rateLimiter) {
+        this.deviceTokens = deviceTokens;
+        this.rateLimiter = rateLimiter;
         this.users = users;
         this.sessions = sessions;
         this.encoder = encoder;
@@ -79,17 +87,19 @@ public class AccountService {
     public int changePassword(AccountRequests.ChangePassword req) {
         AuthUser me = guard.requireUser();
         User user = current(me);
+        // Policy first (it rejects > 72 bytes), so the encoder never sees a
+        // value it cannot handle (L2).
+        String problem = PasswordPolicy.problem(req.getNewPassword());
+        if (problem != null) {
+            throw ApiException.badRequest("WEAK_PASSWORD", problem);
+        }
         if (user.getPasswordHash() != null) {
-            if (req.getCurrentPassword() == null || !encoder.matches(req.getCurrentPassword(), user.getPasswordHash())) {
+            if (!passwordMatches(req.getCurrentPassword(), user.getPasswordHash())) {
                 throw ApiException.badRequest("PASSWORD_INCORRECT", "Your current password is not correct.");
             }
             if (encoder.matches(req.getNewPassword(), user.getPasswordHash())) {
                 throw ApiException.badRequest("PASSWORD_UNCHANGED", "Choose a password different from the current one.");
             }
-        }
-        String problem = PasswordPolicy.problem(req.getNewPassword());
-        if (problem != null) {
-            throw ApiException.badRequest("WEAK_PASSWORD", problem);
         }
         user.setPasswordHash(encoder.encode(req.getNewPassword()));
         user.setFailedLoginAttempts(0);
@@ -110,6 +120,7 @@ public class AccountService {
             throw ApiException.badRequest("SAME_PHONE", "This is already your number.");
         }
         requirePhoneFree(req.getPhone(), user.getId());
+        limitChangeCodes(me);
         return otp.issue(req.getPhone(), OtpAttempt.Purpose.CHANGE_PHONE, user.getId());
     }
 
@@ -144,6 +155,7 @@ public class AccountService {
             throw ApiException.badRequest("SAME_EMAIL", "This is already your email.");
         }
         requireEmailFree(email, user.getId());
+        limitChangeCodes(me);
         return otp.issue(email, OtpAttempt.Purpose.CHANGE_EMAIL, user.getId());
     }
 
@@ -181,6 +193,7 @@ public class AccountService {
                 .orElseThrow(() -> ApiException.notFound("SESSION_NOT_FOUND", "That device is not signed in."));
         s.setRevokedAt(Instant.now());
         sessions.save(s);
+        deviceTokens.deleteBySessionId(s.getId());
     }
 
     @Transactional
@@ -197,8 +210,7 @@ public class AccountService {
         if (!"DELETE".equals(req.getConfirm())) {
             throw ApiException.badRequest("CONFIRM_REQUIRED", "Type DELETE to confirm.");
         }
-        if (user.getPasswordHash() != null
-                && (req.getPassword() == null || !encoder.matches(req.getPassword(), user.getPasswordHash()))) {
+        if (user.getPasswordHash() != null && !passwordMatches(req.getPassword(), user.getPasswordHash())) {
             throw ApiException.badRequest("PASSWORD_INCORRECT", "Your password is not correct.");
         }
         long activeTenants = em.createQuery("""
@@ -233,6 +245,10 @@ public class AccountService {
             profiles.save(profile);
         }
 
+        // H4: an owner's properties close with the account, so they cannot be
+        // joined or shared any more. History (bills, payments) stays.
+        int closed = closeOwnedProperties(user.getId());
+
         user.setActive(false);
         user.setPhone("del" + TokenHasher.randomDigits(17));
         user.setEmail(null);
@@ -241,10 +257,51 @@ public class AccountService {
         user.setFcmToken(null);
         users.save(user);
         sessions.revokeAllByUserId(user.getId(), Instant.now());
-        log.info("Account deleted — user: {}", user.getId());
+        deviceTokens.deleteByUserId(user.getId());
+        log.info("Account deleted — user: {}, properties closed: {}", user.getId(), closed);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────
+
+    /**
+     * H4: deactivates every property the user owns, every access grant on
+     * those properties and the user's own grants elsewhere, and cancels join
+     * requests still waiting at those properties. Only reached when no
+     * property of theirs has an active tenant.
+     */
+    private int closeOwnedProperties(java.util.UUID userId) {
+        List<java.util.UUID> owned = em.createQuery(
+                        "select p.id from Property p where p.ownerUserId = :uid and p.active = true", java.util.UUID.class)
+                .setParameter("uid", userId)
+                .getResultList();
+        if (!owned.isEmpty()) {
+            em.createQuery("update Property p set p.active = false, p.version = p.version + 1 where p.id in :ids")
+                    .setParameter("ids", owned).executeUpdate();
+            em.createQuery("update PropertyAccess a set a.active = false, a.version = a.version + 1 "
+                            + "where a.propertyId in :ids and a.active = true")
+                    .setParameter("ids", owned).executeUpdate();
+            em.createQuery("update JoinRequest j set j.status = :cancelled, j.version = j.version + 1 "
+                            + "where j.propertyId in :ids and j.status = :pending")
+                    .setParameter("cancelled", com.renterp.domain.tenancy.entity.JoinRequest.JoinRequestStatus.CANCELLED)
+                    .setParameter("pending", com.renterp.domain.tenancy.entity.JoinRequest.JoinRequestStatus.PENDING)
+                    .setParameter("ids", owned).executeUpdate();
+        }
+        em.createQuery("update PropertyAccess a set a.active = false, a.version = a.version + 1 "
+                        + "where a.userId = :uid and a.active = true")
+                .setParameter("uid", userId).executeUpdate();
+        return owned.size();
+    }
+
+    /** L2: a value BCrypt cannot hold (> 72 bytes) never matches. */
+    private boolean passwordMatches(String raw, String hash) {
+        return raw != null && !PasswordPolicy.tooLongForBcrypt(raw) && encoder.matches(raw, hash);
+    }
+
+    /** H11: change codes go to a new phone / email, so cap how many one user can send. */
+    private void limitChangeCodes(AuthUser me) {
+        rateLimiter.hit("change-code-user:" + me.userId(), 10, Duration.ofHours(1),
+                "OTP_RATE_LIMITED", "Too many codes requested. Try again in an hour.");
+    }
 
     private User current(AuthUser me) {
         return users.findById(me.userId()).filter(User::isActive)
@@ -268,6 +325,7 @@ public class AccountService {
             if (!s.getId().equals(me.sessionId())) {
                 s.setRevokedAt(now);
                 sessions.save(s);
+                deviceTokens.deleteBySessionId(s.getId());
                 n++;
             }
         }

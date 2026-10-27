@@ -33,6 +33,13 @@ public interface OtpAttemptRepository extends JpaRepository<OtpAttempt, UUID> {
 
     Optional<OtpAttempt> findByVerificationTokenHash(String verificationTokenHash);
 
+    // Housekeeping (M16): codes that expired before the cut-off. Sign-up codes
+    // whose verification token may still be spent are kept by the caller's
+    // cut-off (days, while a token lives minutes).
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("delete from OtpAttempt o where o.expiresAt < :before")
+    int deleteExpiredBefore(@Param("before") Instant before);
+
     // Row-locked read for checking a code, so two concurrent verifies of the
     // same challenge cannot both pass or both miscount attempts.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
