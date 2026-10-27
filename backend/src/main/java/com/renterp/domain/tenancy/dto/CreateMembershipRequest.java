@@ -1,5 +1,6 @@
 package com.renterp.domain.tenancy.dto;
 
+import com.renterp.common.validation.BsDate;
 import com.renterp.domain.tenancy.entity.TenantPropertyMembership.PaymentModelOverride;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -26,6 +27,7 @@ public class CreateMembershipRequest {
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
              message = "startedAtBs must be YYYY-MM-DD BS format")
     @Size(max = 20)
+    @BsDate
     private String startedAtBs;
 
     // NULL = fall back to Property.paymentModelDefault (T10).

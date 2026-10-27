@@ -10,6 +10,9 @@ import com.renterp.domain.file.entity.StoredFile;
 import com.renterp.domain.file.entity.StoredFile.FilePurpose;
 import com.renterp.domain.file.repository.StoredFileRepository;
 import com.renterp.domain.identity.dto.AdminOwnerIdentityResponse;
+import com.renterp.domain.identity.dto.AdminTenantKycResponse;
+import com.renterp.domain.tenancy.entity.TenantKyc;
+import com.renterp.domain.tenancy.service.TenantProfileLinker;
 import com.renterp.domain.identity.dto.IdentityResponse;
 import com.renterp.domain.identity.dto.SubmitIdentityRequest;
 import com.renterp.domain.identity.entity.OwnerIdentity;
@@ -59,10 +62,13 @@ public class IdentityService {
     private final TenantProfileRepository profiles;
     private final TenantProfileService profileService;
     private final TenantKycRepository kycRepository;
+    private final TenantProfileLinker linker;
 
     public IdentityService(AccessGuard guard, OwnerIdentityRepository owners, StoredFileRepository files,
                            UserRepository users, TenantProfileRepository profiles,
-                           TenantProfileService profileService, TenantKycRepository kycRepository) {
+                           TenantProfileService profileService, TenantKycRepository kycRepository,
+                           TenantProfileLinker linker) {
+        this.linker = linker;
         this.guard = guard;
         this.owners = owners;
         this.files = files;
@@ -134,8 +140,44 @@ public class IdentityService {
         }).toList();
     }
 
+    /**
+     * Developer / admin view of tenant identity submissions (H6), newest first,
+     * optionally only one status (PENDING = waiting for review). Decide with
+     * POST /api/v1/tenant-profiles/{id}/kyc/approve | reject | flag.
+     */
+    @Transactional(readOnly = true)
+    public List<AdminTenantKycResponse> adminTenantKyc(String status, int page, int size) {
+        guard.requireAdmin();
+        PageRequest pr = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200),
+                Sort.by(Sort.Direction.DESC, "submittedAt"));
+        List<TenantKyc> rows;
+        if (status == null || status.isBlank()) {
+            rows = kycRepository.findAll(pr).getContent();
+        } else {
+            TenantKyc.KycStatus wanted;
+            try {
+                wanted = TenantKyc.KycStatus.valueOf(status.trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw ApiException.badRequest("INVALID_STATUS", "status must be PENDING, APPROVED, REJECTED or FLAGGED.");
+            }
+            rows = kycRepository.findByStatus(wanted, pr).getContent();
+        }
+        Map<UUID, TenantProfile> byProfile = profiles.findAllById(rows.stream().map(TenantKyc::getTenantProfileId).toList())
+                .stream().collect(Collectors.toMap(TenantProfile::getId, Function.identity()));
+        return rows.stream().map(k -> {
+            TenantProfile p = byProfile.get(k.getTenantProfileId());
+            return new AdminTenantKycResponse(k.getId(), k.getTenantProfileId(), p == null ? null : p.getUserId(),
+                    p == null ? null : p.getFullName(), p == null ? null : p.getPhone(),
+                    k.getIdType().name(), k.getIdNumber(), k.getIdFrontFileId(), k.getIdBackFileId(),
+                    k.getSelfieFileId(), k.getStatus().name(), k.getSubmittedAt(), k.getVerifiedAt(),
+                    k.getVerifiedBy(), k.getRejectionReason(), k.getFlagReason());
+        }).toList();
+    }
+
     private void submitTenant(AuthUser user, SubmitIdentityRequest req, String idNumber) {
-        TenantProfile profile = profiles.findByUserId(user.userId()).orElse(null);
+        // C8: a profile the owner already created for this phone is used first.
+        String phone = users.findById(user.userId()).map(User::getPhone).orElse(null);
+        TenantProfile profile = linker.linkForUser(user.userId(), phone).orElse(null);
         UUID profileId;
         if (profile == null) {
             User u = users.findById(user.userId())
@@ -152,9 +194,9 @@ public class IdentityService {
         SubmitKycRequest kyc = new SubmitKycRequest();
         kyc.setIdType(req.idType());
         kyc.setIdNumber(idNumber);
-        kyc.setPhotoFrontUrl(fileUrl(req.idFrontFileId()));
-        kyc.setPhotoBackUrl(req.idBackFileId() == null ? null : fileUrl(req.idBackFileId()));
-        kyc.setPhotoSelfieUrl(fileUrl(req.selfieFileId()));
+        kyc.setIdFrontFileId(req.idFrontFileId());
+        kyc.setIdBackFileId(req.idBackFileId());
+        kyc.setSelfieFileId(req.selfieFileId());
         profileService.submitKyc(profileId, kyc);
     }
 
@@ -166,10 +208,6 @@ public class IdentityService {
             throw ApiException.badRequest("FILE_INVALID",
                     "One of the photos is not valid for this step. Upload it again.");
         }
-    }
-
-    private static String fileUrl(UUID fileId) {
-        return "/api/v1/files/" + fileId + "/content";
     }
 
     private static IdentityResponse toOwnerResponse(OwnerIdentity o) {

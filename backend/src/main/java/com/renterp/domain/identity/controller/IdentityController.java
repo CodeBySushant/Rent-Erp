@@ -35,6 +35,18 @@ public class IdentityController {
         return ResponseEntity.ok(ApiResponse.success("Identity saved", service.submit(req)));
     }
 
+    /**
+     * ADMIN only (H6): tenant identity submissions with full ID numbers and photo
+     * file ids. ?status=PENDING lists the ones waiting for review.
+     */
+    @GetMapping("/api/v1/admin/tenant-kyc")
+    public ResponseEntity<ApiResponse<List<com.renterp.domain.identity.dto.AdminTenantKycResponse>>> adminTenantKyc(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(ApiResponse.success("Tenant identities fetched",
+                service.adminTenantKyc(status, page, size)));
+    }
+
     /** ADMIN only: stored owner identities with full ID numbers. */
     @GetMapping("/api/v1/admin/owner-identities")
     public ResponseEntity<ApiResponse<List<AdminOwnerIdentityResponse>>> adminList(

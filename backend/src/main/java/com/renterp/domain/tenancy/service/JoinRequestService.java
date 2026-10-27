@@ -32,8 +32,10 @@ public class JoinRequestService {
 
     private static final Logger log = LogManager.getLogger(JoinRequestService.class);
 
-    // Spec §14.3 T1 — 5-minute expiry from request time.
-    private static final Duration REQUEST_TTL = Duration.ofMinutes(5);
+    // H12: how long a join request waits for the owner. Spec §14.3 T1 said 5
+    // minutes, which made owners answer within minutes or the tenant had to
+    // resend. Configurable (app.tenancy.join-request-ttl-hours), default 7 days.
+    private final Duration requestTtl;
 
     private final NotificationService notifier;
     private final JoinRequestRepository joinRepository;
@@ -46,7 +48,10 @@ public class JoinRequestService {
                                TenantProfileRepository profileRepository,
                                PropertyRepository propertyRepository,
                                BlockedTenantService blockedService,
-                               MembershipService membershipService, NotificationService notifier) {
+                               MembershipService membershipService, NotificationService notifier,
+                               @org.springframework.beans.factory.annotation.Value(
+                                       "${app.tenancy.join-request-ttl-hours:168}") long ttlHours) {
+        this.requestTtl = Duration.ofHours(Math.max(1, ttlHours));
         this.joinRepository = joinRepository;
         this.profileRepository = profileRepository;
         this.propertyRepository = propertyRepository;
@@ -68,6 +73,11 @@ public class JoinRequestService {
         if (!propertyRepository.existsById(req.getPropertyId())) {
             throw new ResourceNotFoundException("Property", "id", req.getPropertyId());
         }
+        // M8: a closed property takes no join requests.
+        propertyRepository.findById(req.getPropertyId()).filter(p -> !p.isActive()).ifPresent(p -> {
+            throw com.renterp.common.exception.ApiException.conflict("PROPERTY_INACTIVE",
+                    "This property is no longer taking tenants.");
+        });
 
         // T3 — property has blocked this tenant. Neutral message per spec, but still 409.
         if (blockedService.isBlocked(req.getPropertyId(), req.getTenantProfileId())) {
@@ -92,7 +102,7 @@ public class JoinRequestService {
                 .status(JoinRequestStatus.PENDING)
                 .message(req.getMessage())
                 .requestedAt(now)
-                .expiresAt(now.plus(REQUEST_TTL))
+                .expiresAt(now.plus(requestTtl))
                 .build();
         log.info("Join request created — tenant: {}, property: {}", req.getTenantProfileId(), req.getPropertyId());
         JoinRequest saved = joinRepository.saveAndFlush(jr);

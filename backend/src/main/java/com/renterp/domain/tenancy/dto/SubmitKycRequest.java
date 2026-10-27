@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.UUID;
+
 @Getter
 @Setter
 public class SubmitKycRequest {
@@ -18,12 +20,14 @@ public class SubmitKycRequest {
     @Size(max = 100)
     private String idNumber;
 
-    @Size(max = 500)
-    private String photoFrontUrl;
+    // H6: the photos are uploads (POST /api/v1/files) made by the tenant
+    // themself, purposes KYC_ID_FRONT / KYC_ID_BACK / KYC_SELFIE. Free-text
+    // URLs are no longer accepted.
+    @NotNull(message = "idFrontFileId is required")
+    private UUID idFrontFileId;
 
-    @Size(max = 500)
-    private String photoBackUrl;
+    private UUID idBackFileId;
 
-    @Size(max = 500)
-    private String photoSelfieUrl;
+    @NotNull(message = "selfieFileId is required")
+    private UUID selfieFileId;
 }

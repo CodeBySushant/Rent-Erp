@@ -22,7 +22,8 @@ public class CreateTenantProfileRequest {
     @Pattern(regexp = "^(97|98)\\d{8}$", message = "phone must be a valid 10-digit Nepal number starting with 97 or 98")
     private String phone;
 
-    @Size(max = 20)
+    // M15: Nepal mobile numbers only, like every phone field in the API.
+    @Pattern(regexp = com.renterp.common.validation.NepalPhone.REGEX, message = "whatsappNumber: " + com.renterp.common.validation.NepalPhone.MESSAGE)
     private String whatsappNumber;
 
     @Pattern(regexp = "^(en|hi|ne)$", message = "preferredLanguage must be 'en', 'hi' or 'ne'")
@@ -36,6 +37,7 @@ public class CreateTenantProfileRequest {
     @Size(max = 255)
     private String emergencyContactName;
 
-    @Size(max = 20)
+    // M15: Nepal mobile numbers only, like every phone field in the API.
+    @Pattern(regexp = com.renterp.common.validation.NepalPhone.REGEX, message = "emergencyContactPhone: " + com.renterp.common.validation.NepalPhone.MESSAGE)
     private String emergencyContactPhone;
 }

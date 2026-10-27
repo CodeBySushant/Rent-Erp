@@ -41,6 +41,18 @@ public class TenantKyc extends BaseAuditEntity {
     @Column(name = "photo_selfie_url", length = 500)
     private String photoSelfieUrl;
 
+    // H6 (V25): the photos as stored_files ids - the uploads themselves, which
+    // only the tenant and an admin can open. The *_url columns above are kept
+    // for rows written before V25 and are filled with the matching file URL.
+    @Column(name = "id_front_file_id", columnDefinition = "uuid")
+    private UUID idFrontFileId;
+
+    @Column(name = "id_back_file_id", columnDefinition = "uuid")
+    private UUID idBackFileId;
+
+    @Column(name = "selfie_file_id", columnDefinition = "uuid")
+    private UUID selfieFileId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

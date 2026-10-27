@@ -10,4 +10,8 @@ import java.util.UUID;
 @Repository
 public interface TenantKycRepository extends JpaRepository<TenantKyc, UUID> {
     Optional<TenantKyc> findByTenantProfileId(UUID tenantProfileId);
+
+    // H6: admin review queue.
+    org.springframework.data.domain.Page<TenantKyc> findByStatus(
+            TenantKyc.KycStatus status, org.springframework.data.domain.Pageable pageable);
 }

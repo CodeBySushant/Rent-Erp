@@ -1,5 +1,6 @@
 package com.renterp.domain.tenancy.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -20,6 +21,7 @@ public class RoomTransferRequest {
 
     @NotBlank(message = "effectiveDateBs is required")
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", message = "effectiveDateBs must be YYYY-MM-DD (BS)")
+    @BsDate
     private String effectiveDateBs;
 
     /** Rent in the new room; defaults to the old room's rent. */

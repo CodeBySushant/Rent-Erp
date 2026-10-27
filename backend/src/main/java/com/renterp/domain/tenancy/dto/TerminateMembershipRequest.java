@@ -1,5 +1,6 @@
 package com.renterp.domain.tenancy.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -14,6 +15,7 @@ public class TerminateMembershipRequest {
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
              message = "endedAtBs must be YYYY-MM-DD BS format")
     @Size(max = 20)
+    @BsDate
     private String endedAtBs;
 
     private String reason;

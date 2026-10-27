@@ -18,6 +18,9 @@ public class TenantKycResponse {
     private final String photoFrontUrl;
     private final String photoBackUrl;
     private final String photoSelfieUrl;
+    private final UUID idFrontFileId;
+    private final UUID idBackFileId;
+    private final UUID selfieFileId;
     private final KycStatus status;
     private final Instant submittedAt;
     private final Instant verifiedAt;
@@ -36,6 +39,9 @@ public class TenantKycResponse {
         this.photoFrontUrl = k.getPhotoFrontUrl();
         this.photoBackUrl = k.getPhotoBackUrl();
         this.photoSelfieUrl = k.getPhotoSelfieUrl();
+        this.idFrontFileId = k.getIdFrontFileId();
+        this.idBackFileId = k.getIdBackFileId();
+        this.selfieFileId = k.getSelfieFileId();
         this.status = k.getStatus();
         this.submittedAt = k.getSubmittedAt();
         this.verifiedAt = k.getVerifiedAt();

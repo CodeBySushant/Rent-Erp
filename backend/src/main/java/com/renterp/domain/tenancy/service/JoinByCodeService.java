@@ -1,6 +1,8 @@
 package com.renterp.domain.tenancy.service;
 
 import com.renterp.common.exception.ApiException;
+import com.renterp.common.ratelimit.RateLimiter;
+import com.renterp.common.web.ClientIp;
 import com.renterp.domain.auth.entity.User;
 import com.renterp.domain.auth.repository.UserRepository;
 import com.renterp.domain.auth.security.AccessGuard;
@@ -22,14 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.time.Instant;
-import java.util.Deque;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * Joining a property by its share code. The tenant never handles internal
@@ -54,12 +51,15 @@ public class JoinByCodeService {
     private final TenantProfileService profileService;
     private final JoinRequestService joinRequestService;
     private final AccessGuard guard;
-    private final Map<UUID, Deque<Instant>> lookups = new ConcurrentHashMap<>();
+    private final RateLimiter rateLimiter;
+    private final TenantProfileLinker linker;
 
     public JoinByCodeService(PropertyRepository properties, UserRepository users, TenantProfileRepository profiles,
                              TenantPropertyMembershipRepository memberships, JoinRequestRepository joinRequests,
                              TenantProfileService profileService, JoinRequestService joinRequestService,
-                             AccessGuard guard) {
+                             AccessGuard guard, RateLimiter rateLimiter, TenantProfileLinker linker) {
+        this.rateLimiter = rateLimiter;
+        this.linker = linker;
         this.properties = properties;
         this.users = users;
         this.profiles = profiles;
@@ -88,11 +88,16 @@ public class JoinByCodeService {
     @Transactional
     public JoinRequestResponse join(String rawCode, String message) {
         AuthUser user = guard.requireUser();
+        // H11: joining is limited too - before, only the look-up was, so codes
+        // could be guessed through this endpoint.
+        rateLimit(user.userId());
         Property p = findActive(rawCode);
         if (guard.hasPropertyAccess(p.getId(), AccessRole.VIEW_ONLY)) {
             throw ApiException.badRequest("OWN_PROPERTY", "You already manage this property.");
         }
-        TenantProfile profile = profiles.findByUserId(user.userId()).orElseGet(() -> createOwnProfile(user));
+        // C8: pick up a profile the owner already created for this phone first.
+        String phone = users.findById(user.userId()).map(User::getPhone).orElse(null);
+        TenantProfile profile = linker.linkForUser(user.userId(), phone).orElseGet(() -> createOwnProfile(user));
         if (memberships.findByTenantProfileIdAndPropertyIdAndStatus(
                 profile.getId(), p.getId(), MembershipStatus.ACTIVE).isPresent()) {
             throw ApiException.conflict("ALREADY_MEMBER", "You already live at this property.");
@@ -129,16 +134,15 @@ public class JoinByCodeService {
                         "No property has this code. Check it with your landlord."));
     }
 
+    /**
+     * H11: 20 code look-ups or join attempts per account and 40 per address in
+     * 10 minutes - enough for typos, far too few to guess codes. Counted in the
+     * database (shared by all instances, survives restarts).
+     */
     private void rateLimit(UUID userId) {
-        Instant now = Instant.now();
-        Deque<Instant> q = lookups.computeIfAbsent(userId, k -> new ConcurrentLinkedDeque<>());
-        while (!q.isEmpty() && q.peekFirst().isBefore(now.minus(WINDOW))) {
-            q.pollFirst();
-        }
-        if (q.size() >= LOOKUPS_PER_WINDOW) {
-            throw ApiException.tooManyRequests("JOIN_LOOKUP_LIMIT",
-                    "Too many property code look-ups. Try again in a few minutes.");
-        }
-        q.addLast(now);
+        rateLimiter.hit("join-user:" + userId, LOOKUPS_PER_WINDOW, WINDOW,
+                "JOIN_LOOKUP_LIMIT", "Too many property code look-ups. Try again in a few minutes.");
+        rateLimiter.hit("join-ip:" + ClientIp.current(), LOOKUPS_PER_WINDOW * 2, WINDOW,
+                "JOIN_LOOKUP_LIMIT", "Too many property code look-ups. Try again in a few minutes.");
     }
 }

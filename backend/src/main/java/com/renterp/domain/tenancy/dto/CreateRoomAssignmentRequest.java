@@ -1,5 +1,6 @@
 package com.renterp.domain.tenancy.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -22,6 +23,7 @@ public class CreateRoomAssignmentRequest {
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
              message = "effectiveFromBs must be YYYY-MM-DD BS format")
     @Size(max = 20)
+    @BsDate
     private String effectiveFromBs;
 
     // Required as of V11 (rent storage lives on the assignment). Nullable in the

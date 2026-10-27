@@ -1,5 +1,6 @@
 package com.renterp.domain.tenancy.dto;
 
+import com.renterp.common.validation.BsDate;
 import com.renterp.domain.tenancy.entity.TenantPropertyMembership.PaymentModelOverride;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -45,6 +46,7 @@ public class AddTenantRequest {
 
     @NotBlank(message = "moveInDateBs is required")
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", message = "moveInDateBs must be YYYY-MM-DD (BS)")
+    @BsDate
     private String moveInDateBs;
 
     @NotNull(message = "monthlyRent is required")
@@ -59,6 +61,7 @@ public class AddTenantRequest {
 
     /** Defaults to the move-in date. */
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", message = "depositReceivedAtBs must be YYYY-MM-DD (BS)")
+    @BsDate
     private String depositReceivedAtBs;
 
     private PaymentModelOverride paymentModelOverride;

@@ -37,13 +37,19 @@ public class MembershipService {
     private final PropertyRepository propertyRepository;
     private final RoomRepository roomRepository;
     private final FloorRepository floorRepository;
+    private final com.renterp.common.guard.PropertyGuard propertyGuard;
+    private final jakarta.persistence.EntityManager em;
 
-    public MembershipService(TenantPropertyMembershipRepository membershipRepository,
+    public MembershipService(com.renterp.common.guard.PropertyGuard propertyGuard,
+                              jakarta.persistence.EntityManager em,
+                              TenantPropertyMembershipRepository membershipRepository,
                               RoomAssignmentRepository assignmentRepository,
                               TenantProfileRepository profileRepository,
                               PropertyRepository propertyRepository,
                               RoomRepository roomRepository,
                               FloorRepository floorRepository) {
+        this.propertyGuard = propertyGuard;
+        this.em = em;
         this.membershipRepository = membershipRepository;
         this.assignmentRepository = assignmentRepository;
         this.profileRepository = profileRepository;
@@ -73,6 +79,10 @@ public class MembershipService {
         }
         if (!propertyRepository.existsById(propertyId)) {
             throw new ResourceNotFoundException("Property", "id", propertyId);
+        }
+        propertyGuard.requireActive(propertyId);   // M8
+        if (startedAtBs == null || !com.renterp.common.util.BsCalendar.isValid(startedAtBs)) {   // H16
+            throw new InvalidOperationException("INVALID_DATE", "The start date is not a valid BS date.");
         }
         // Room-level assignments enforce single-occupancy separately; here we enforce
         // that this tenant is in this property at most once at any time.
@@ -128,11 +138,56 @@ public class MembershipService {
         return MembershipResponse.from(membershipRepository.saveAndFlush(m));
     }
 
+    /**
+     * H2: the admin-only raw termination. Refused while the tenancy still has
+     * an open move-out notice, a payment waiting for approval, a held deposit
+     * or an unpaid bill - those are settled through move-out instead.
+     */
+    @Transactional
+    public MembershipResponse terminateDirect(UUID id, TerminateMembershipRequest req) {
+        requireMembership(id);
+        long open = count("select count(mo) from MoveOut mo where mo.membershipId = :id and mo.status = :s",
+                id, com.renterp.domain.moveout.entity.MoveOut.Status.NOTICE_GIVEN);
+        long pending = count("select count(p) from Payment p where p.membershipId = :id and p.status = :s",
+                id, com.renterp.domain.payment.entity.Payment.Status.PENDING);
+        long held = count("select count(d) from TenantDeposit d where d.membershipId = :id and d.status = :s "
+                        + "and d.amount > 0",
+                id, com.renterp.domain.tenantfinance.entity.TenantDeposit.DepositStatus.HELD);
+        long unpaid = count("select count(b) from TenantBill b where b.membershipId = :id and b.status = :s "
+                        + "and b.supersededByBillId is null and b.balanceDue > 0",
+                id, com.renterp.domain.billing.entity.TenantBill.Status.ISSUED);
+        if (open + pending + held + unpaid > 0) {
+            throw new InvalidOperationException("SETTLE_WITH_MOVE_OUT",
+                    "This tenancy still has a move-out notice, a waiting payment, a held deposit or unpaid bills. "
+                            + "End it with move-out settlement instead.");
+        }
+        return terminate(id, req);
+    }
+
+    private long count(String jpql, UUID id, Object status) {
+        return em.createQuery(jpql, Long.class).setParameter("id", id).setParameter("s", status).getSingleResult();
+    }
+
     @Transactional
     public MembershipResponse terminate(UUID id, TerminateMembershipRequest req) {
         TenantPropertyMembership m = requireMembership(id);
         if (m.getStatus() == MembershipStatus.TERMINATED) {
             throw new InvalidOperationException("Membership is already TERMINATED");
+        }
+        // H16: the end date must be a real date, not before the tenancy began
+        // and not before any current room was taken.
+        String ended = req.getEndedAtBs();
+        if (ended == null || !com.renterp.common.util.BsCalendar.isValid(ended)) {
+            throw new InvalidOperationException("INVALID_DATE", "The end date is not a valid BS date.");
+        }
+        if (m.getStartedAtBs() != null && ended.compareTo(m.getStartedAtBs()) < 0) {
+            throw new InvalidOperationException("INVALID_DATE", "The end date is before the tenancy started.");
+        }
+        for (RoomAssignment a : assignmentRepository.findByMembershipIdAndEffectiveToBsIsNull(id)) {
+            if (ended.compareTo(a.getEffectiveFromBs()) < 0) {
+                throw new InvalidOperationException("INVALID_DATE",
+                        "The end date is before the tenant moved into one of their rooms.");
+            }
         }
         // Also end every active room_assignment on the same date. The tenant's rooms
         // logically release when the membership ends.
@@ -165,6 +220,14 @@ public class MembershipService {
                 .orElseThrow(() -> new ResourceNotFoundException("Floor", "id", room.getFloorId()));
         if (!floor.getPropertyId().equals(m.getPropertyId())) {
             throw new InvalidOperationException("Room " + room.getId() + " does not belong to membership's property " + m.getPropertyId());
+        }
+        // M8: a removed room (or a room on a removed floor) cannot be given out.
+        if (!room.isActive() || !floor.isActive()) {
+            throw new InvalidOperationException("ROOM_INACTIVE", "That room has been removed.");
+        }
+        // H16: a room cannot be taken before the tenancy starts.
+        if (m.getStartedAtBs() != null && req.getEffectiveFromBs().compareTo(m.getStartedAtBs()) < 0) {
+            throw new InvalidOperationException("INVALID_DATE", "The room cannot start before the tenancy starts.");
         }
 
         // Room-single-occupancy invariant (spec §10.2) — no other active assignment
@@ -207,6 +270,10 @@ public class MembershipService {
         }
         if (a.getEffectiveToBs() != null) {
             throw new InvalidOperationException("Room assignment already ended");
+        }
+        // H16: an assignment cannot end before it began.
+        if (req.getEffectiveToBs().compareTo(a.getEffectiveFromBs()) < 0) {
+            throw new InvalidOperationException("INVALID_DATE", "The end date is before the room was taken.");
         }
         a.setEffectiveToBs(req.getEffectiveToBs());
         return RoomAssignmentResponse.from(assignmentRepository.saveAndFlush(a));

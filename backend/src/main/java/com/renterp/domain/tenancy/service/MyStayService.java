@@ -113,6 +113,10 @@ public class MyStayService {
         Map<UUID, BigDecimal> owed = new HashMap<>();
         Set<UUID> overdue = new HashSet<>();
         for (TenantBill b : q.liveBills(membershipIds)) {          // newest month first
+            // C7: My Stay is the tenant's own screen - a DRAFT bill is not sent yet.
+            if (b.getStatus() == TenantBill.Status.DRAFT) {
+                continue;
+            }
             latest.putIfAbsent(b.getMembershipId(), b);
             if (b.getStatus() == TenantBill.Status.ISSUED) {
                 owed.merge(b.getMembershipId(), b.getBalanceDue(), BigDecimal::add);

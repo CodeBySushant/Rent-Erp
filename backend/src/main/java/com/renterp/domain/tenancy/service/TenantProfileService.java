@@ -4,7 +4,11 @@ import java.util.Optional;
 import java.util.List;
 import com.renterp.domain.auth.security.AuthUser;
 import com.renterp.domain.auth.security.AccessGuard;
+import com.renterp.common.exception.ApiException;
 import com.renterp.common.exception.DuplicateResourceException;
+import com.renterp.domain.file.entity.StoredFile;
+import com.renterp.domain.file.entity.StoredFile.FilePurpose;
+import com.renterp.domain.file.repository.StoredFileRepository;
 import com.renterp.common.exception.InvalidOperationException;
 import com.renterp.common.exception.ResourceNotFoundException;
 import com.renterp.domain.auth.repository.UserRepository;
@@ -39,12 +43,14 @@ public class TenantProfileService {
     private final TenantPropertyMembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final AccessGuard guard;
+    private final StoredFileRepository files;
 
     public TenantProfileService(TenantProfileRepository profileRepository,
                                  TenantKycRepository kycRepository,
                                  TenantPropertyMembershipRepository membershipRepository,
                                  UserRepository userRepository,
-                                 AccessGuard guard) {
+                                 AccessGuard guard, StoredFileRepository files) {
+        this.files = files;
         this.profileRepository = profileRepository;
         this.kycRepository = kycRepository;
         this.membershipRepository = membershipRepository;
@@ -142,7 +148,18 @@ public class TenantProfileService {
 
     @Transactional
     public TenantKycResponse submitKyc(UUID tenantProfileId, SubmitKycRequest req) {
-        requireProfile(tenantProfileId);
+        TenantProfile profile = requireProfile(tenantProfileId);
+        // H6: identity photos are the tenant's own uploads; the developer/admin
+        // reviews them. A profile without an account cannot submit.
+        if (profile.getUserId() == null) {
+            throw ApiException.badRequest("KYC_NEEDS_ACCOUNT",
+                    "The tenant submits their identity from their own app account.");
+        }
+        requireKycFile(req.getIdFrontFileId(), profile.getUserId(), FilePurpose.KYC_ID_FRONT);
+        requireKycFile(req.getSelfieFileId(), profile.getUserId(), FilePurpose.KYC_SELFIE);
+        if (req.getIdBackFileId() != null) {
+            requireKycFile(req.getIdBackFileId(), profile.getUserId(), FilePurpose.KYC_ID_BACK);
+        }
         TenantKyc kyc = kycRepository.findByTenantProfileId(tenantProfileId).orElse(null);
 
         if (kyc == null) {
@@ -150,9 +167,12 @@ public class TenantProfileService {
                     .tenantProfileId(tenantProfileId)
                     .idType(req.getIdType())
                     .idNumber(req.getIdNumber())
-                    .photoFrontUrl(req.getPhotoFrontUrl())
-                    .photoBackUrl(req.getPhotoBackUrl())
-                    .photoSelfieUrl(req.getPhotoSelfieUrl())
+                    .idFrontFileId(req.getIdFrontFileId())
+                    .idBackFileId(req.getIdBackFileId())
+                    .selfieFileId(req.getSelfieFileId())
+                    .photoFrontUrl(fileUrl(req.getIdFrontFileId()))
+                    .photoBackUrl(fileUrl(req.getIdBackFileId()))
+                    .photoSelfieUrl(fileUrl(req.getSelfieFileId()))
                     .status(KycStatus.PENDING)
                     .submittedAt(Instant.now())
                     .build();
@@ -172,9 +192,12 @@ public class TenantProfileService {
             }
             kyc.setIdType(req.getIdType());
             kyc.setIdNumber(req.getIdNumber());
-            kyc.setPhotoFrontUrl(req.getPhotoFrontUrl());
-            kyc.setPhotoBackUrl(req.getPhotoBackUrl());
-            kyc.setPhotoSelfieUrl(req.getPhotoSelfieUrl());
+            kyc.setIdFrontFileId(req.getIdFrontFileId());
+            kyc.setIdBackFileId(req.getIdBackFileId());
+            kyc.setSelfieFileId(req.getSelfieFileId());
+            kyc.setPhotoFrontUrl(fileUrl(req.getIdFrontFileId()));
+            kyc.setPhotoBackUrl(fileUrl(req.getIdBackFileId()));
+            kyc.setPhotoSelfieUrl(fileUrl(req.getSelfieFileId()));
             kyc.setStatus(KycStatus.PENDING);
             kyc.setSubmittedAt(Instant.now());
             kyc.setResubmitCount((short) (kyc.getResubmitCount() + 1));
@@ -203,6 +226,7 @@ public class TenantProfileService {
         }
         kyc.setStatus(KycStatus.APPROVED);
         kyc.setVerifiedAt(Instant.now());
+        kyc.setVerifiedBy(decider());
         return TenantKycResponse.from(kycRepository.saveAndFlush(kyc));
     }
 
@@ -214,6 +238,7 @@ public class TenantProfileService {
         }
         kyc.setStatus(KycStatus.REJECTED);
         kyc.setVerifiedAt(Instant.now());
+        kyc.setVerifiedBy(decider());
         kyc.setRejectionReason(req.getReason());
         return TenantKycResponse.from(kycRepository.saveAndFlush(kyc));
     }
@@ -233,6 +258,25 @@ public class TenantProfileService {
         // Already FLAGGED — update the reason but no status change.
         kyc.setFlagReason(req.getReason());
         return TenantKycResponse.from(kycRepository.saveAndFlush(kyc));
+    }
+
+    /** H6: who decided - recorded on the KYC row (was never set before). */
+    private UUID decider() {
+        return guard.current().map(AuthUser::userId).orElse(null);
+    }
+
+    /** A KYC photo must be the tenant's own upload with the right purpose (H6). */
+    private void requireKycFile(UUID fileId, UUID ownerUserId, FilePurpose purpose) {
+        StoredFile f = files.findByIdAndDeletedAtIsNull(fileId).orElseThrow(() ->
+                ApiException.badRequest("FILE_NOT_FOUND", "One of the photos could not be found. Upload it again."));
+        if (!ownerUserId.equals(f.getOwnerUserId()) || f.getPurpose() != purpose) {
+            throw ApiException.badRequest("FILE_INVALID",
+                    "One of the photos is not valid for this step. Upload it again.");
+        }
+    }
+
+    private static String fileUrl(UUID fileId) {
+        return fileId == null ? null : "/api/v1/files/" + fileId + "/content";
     }
 
     // ── Helpers exposed for other services ────────────────────────────────

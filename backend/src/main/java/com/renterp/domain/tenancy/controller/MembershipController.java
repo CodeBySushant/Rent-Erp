@@ -64,14 +64,14 @@ public class MembershipController {
         return ResponseEntity.ok(ApiResponse.success("Membership updated", service.update(id, req)));
     }
 
-    // Formal termination — the Vacancy flow (Phase 7) will supersede this endpoint,
-    // but the raw form is needed for admin/testing until then. Ends all active room
-    // assignments on the same endedAtBs inside the same transaction.
+    // H2: admin-only repair tool. Owners end a tenancy through move-out
+    // (/memberships/{id}/move-out then /move-outs/{id}/settle), which settles the
+    // deposit and bills. This raw form refuses while money is still open.
     @PostMapping("/{id}/terminate")
     public ResponseEntity<ApiResponse<MembershipResponse>> terminate(@PathVariable UUID id,
                                                                       @Valid @RequestBody TerminateMembershipRequest req) {
-        access.membership(id, ResourceAccess.Level.WRITE);
-        return ResponseEntity.ok(ApiResponse.success("Membership terminated", service.terminate(id, req)));
+        access.requireAdmin();
+        return ResponseEntity.ok(ApiResponse.success("Membership terminated", service.terminateDirect(id, req)));
     }
 
     // ── Room assignments — nested under membership ────────────────────────

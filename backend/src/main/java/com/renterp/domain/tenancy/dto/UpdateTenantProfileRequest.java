@@ -15,7 +15,8 @@ public class UpdateTenantProfileRequest {
     @Size(max = 255)
     private String fullName;
 
-    @Size(max = 20)
+    // M15: Nepal mobile numbers only, like every phone field in the API.
+    @Pattern(regexp = com.renterp.common.validation.NepalPhone.REGEX, message = "whatsappNumber: " + com.renterp.common.validation.NepalPhone.MESSAGE)
     private String whatsappNumber;
 
     @Pattern(regexp = "^(en|hi|ne)$", message = "preferredLanguage must be 'en', 'hi' or 'ne'")
@@ -29,6 +30,7 @@ public class UpdateTenantProfileRequest {
     @Size(max = 255)
     private String emergencyContactName;
 
-    @Size(max = 20)
+    // M15: Nepal mobile numbers only, like every phone field in the API.
+    @Pattern(regexp = com.renterp.common.validation.NepalPhone.REGEX, message = "emergencyContactPhone: " + com.renterp.common.validation.NepalPhone.MESSAGE)
     private String emergencyContactPhone;
 }

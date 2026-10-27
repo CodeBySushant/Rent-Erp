@@ -18,4 +18,6 @@ public interface PropertyBlockedTenantRepository extends JpaRepository<PropertyB
     boolean existsByPropertyIdAndTenantProfileIdAndActive(UUID propertyId, UUID tenantProfileId, boolean active);
 
     List<PropertyBlockedTenant> findByPropertyIdAndActiveOrderByBlockedAtDesc(UUID propertyId, boolean active);
+
+    List<PropertyBlockedTenant> findByTenantProfileIdAndActive(UUID tenantProfileId, boolean active);
 }

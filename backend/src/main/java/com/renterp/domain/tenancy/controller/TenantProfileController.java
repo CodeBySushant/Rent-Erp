@@ -67,14 +67,14 @@ public class TenantProfileController {
     @PostMapping("/{id}/kyc")
     public ResponseEntity<ApiResponse<TenantKycResponse>> submitKyc(@PathVariable UUID id,
                                                                      @Valid @RequestBody SubmitKycRequest req) {
-        access.tenantProfile(id, ResourceAccess.Level.WRITE);
+        access.tenantKyc(id);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("KYC submitted", service.submitKyc(id, req)));
     }
 
     @GetMapping("/{id}/kyc")
     public ResponseEntity<ApiResponse<TenantKycResponse>> getKyc(@PathVariable UUID id) {
-        access.tenantProfile(id, ResourceAccess.Level.READ);
+        access.tenantKyc(id);
         return ResponseEntity.ok(ApiResponse.success("KYC fetched", service.getKyc(id)));
     }
 

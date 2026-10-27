@@ -1,6 +1,9 @@
 package com.renterp.domain.tenancy.service;
 
 import com.renterp.common.exception.ApiException;
+import com.renterp.domain.auth.entity.User;
+import com.renterp.domain.auth.repository.UserRepository;
+import com.renterp.domain.tenancy.entity.TenantProfile;
 import com.renterp.common.exception.ResourceNotFoundException;
 import com.renterp.common.util.BsCalendar;
 import com.renterp.domain.property.entity.Property;
@@ -27,6 +30,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -54,12 +58,17 @@ public class TenantOnboardingService {
     private final TenantProfileService profileService;
     private final MembershipService membershipService;
     private final TenantDepositService depositService;
+    private final UserRepository users;
+    private final TenantProfileLinker linker;
 
     public TenantOnboardingService(PropertyRepository properties, RoomRepository rooms, FloorRepository floors,
                                    RoomAssignmentRepository assignments,
                                    TenantPropertyMembershipRepository memberships,
                                    TenantProfileService profileService, MembershipService membershipService,
-                                   TenantDepositService depositService) {
+                                   TenantDepositService depositService, UserRepository users,
+                                   TenantProfileLinker linker) {
+        this.users = users;
+        this.linker = linker;
         this.properties = properties;
         this.rooms = rooms;
         this.floors = floors;
@@ -105,18 +114,23 @@ public class TenantOnboardingService {
         }
 
         // ── 2. Create everything, or nothing ───────────────────────────────
-        CreateTenantProfileRequest profileReq = new CreateTenantProfileRequest();
-        profileReq.setFullName(req.getFullName().trim());
-        profileReq.setPhone(req.getPhone());
-        profileReq.setWhatsappNumber(req.getWhatsappNumber());
-        profileReq.setPreferredLanguage(req.getPreferredLanguage() == null ? "en" : req.getPreferredLanguage());
-        profileReq.setNumOccupants(req.getNumOccupants());
-        profileReq.setEmergencyContactName(req.getEmergencyContactName());
-        profileReq.setEmergencyContactPhone(req.getEmergencyContactPhone());
-        TenantProfileResponse profile = profileService.createProfile(profileReq);
+        // C8: when the phone already belongs to an app account, the tenancy goes
+        // on that person's own profile (so they see it in the app at once)
+        // instead of a second, unlinked profile.
+        Optional<User> appUser = users.findByPhoneAndActiveTrue(req.getPhone());
+        UUID profileId = null;
+        if (appUser.isPresent()) {
+            Optional<TenantProfile> own = linker.linkForUser(appUser.get().getId(), req.getPhone());
+            if (own.isPresent()) {
+                profileId = own.get().getId();
+            }
+        }
+        if (profileId == null) {
+            profileId = createProfile(req, appUser.map(User::getId).orElse(null));
+        }
 
         TenantPropertyMembership membership = membershipService.createInternal(
-                profile.getId(), propertyId, req.getMoveInDateBs(), req.getPaymentModelOverride(), null);
+                profileId, propertyId, req.getMoveInDateBs(), req.getPaymentModelOverride(), null);
 
         CreateRoomAssignmentRequest assignReq = new CreateRoomAssignmentRequest();
         assignReq.setRoomId(room.getId());
@@ -134,8 +148,21 @@ public class TenantOnboardingService {
             depositId = deposit.getId();
         }
 
-        log.info("Tenant added — property: {}, room: {}, membership: {}", propertyId, room.getId(), membership.getId());
-        return new AddTenantResponse(membership.getId(), profile.getId(), assignment.getId(), depositId,
+        return new AddTenantResponse(membership.getId(), profileId, assignment.getId(), depositId,
                 propertyId, room.getId());
+    }
+
+    /** A new profile from the Add Tenant form, linked to {@code userId} when given. */
+    private UUID createProfile(AddTenantRequest req, UUID userId) {
+        CreateTenantProfileRequest profileReq = new CreateTenantProfileRequest();
+        profileReq.setUserId(userId);
+        profileReq.setFullName(req.getFullName().trim());
+        profileReq.setPhone(req.getPhone());
+        profileReq.setWhatsappNumber(req.getWhatsappNumber());
+        profileReq.setPreferredLanguage(req.getPreferredLanguage() == null ? "en" : req.getPreferredLanguage());
+        profileReq.setNumOccupants(req.getNumOccupants());
+        profileReq.setEmergencyContactName(req.getEmergencyContactName());
+        profileReq.setEmergencyContactPhone(req.getEmergencyContactPhone());
+        return profileService.createProfile(profileReq).getId();
     }
 }

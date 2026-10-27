@@ -54,7 +54,8 @@ class IdentityServiceTest {
         when(owners.findById(me)).thenReturn(Optional.empty());
         when(owners.saveAndFlush(any(OwnerIdentity.class))).thenAnswer(i -> i.getArgument(0));
         service = new IdentityService(guard, owners, files, mock(UserRepository.class),
-                mock(TenantProfileRepository.class), mock(TenantProfileService.class), mock(TenantKycRepository.class));
+                mock(TenantProfileRepository.class), mock(TenantProfileService.class), mock(TenantKycRepository.class),
+                mock(com.renterp.domain.tenancy.service.TenantProfileLinker.class));
         stubFile(front, me, FilePurpose.KYC_ID_FRONT);
         stubFile(selfie, me, FilePurpose.KYC_SELFIE);
     }

@@ -1,5 +1,6 @@
 package com.renterp.domain.moveout.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,6 +18,7 @@ public class SettleMoveOutRequest {
 
     @NotBlank(message = "movedOutBs is required")
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", message = "movedOutBs must be YYYY-MM-DD (BS)")
+    @BsDate
     private String movedOutBs;
 
     @PositiveOrZero @Digits(integer = 8, fraction = 2)
