@@ -24,7 +24,10 @@ public class StoredFile {
     @Column(name = "owner_user_id", columnDefinition = "uuid", nullable = false, updatable = false)
     private UUID ownerUserId;
 
-    @Column(name = "property_id", columnDefinition = "uuid", updatable = false)
+    // Set at upload, or once afterwards when an upload without a property is
+    // attached to a bill / meter / request of that property (H5) - so the
+    // property's owner and managers can open it.
+    @Column(name = "property_id", columnDefinition = "uuid")
     private UUID propertyId;
 
     @Enumerated(EnumType.STRING)

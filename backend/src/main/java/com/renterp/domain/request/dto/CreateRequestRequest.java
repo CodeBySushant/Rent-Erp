@@ -1,5 +1,6 @@
 package com.renterp.domain.request.dto;
 
+import com.renterp.common.validation.BsDate;
 import com.renterp.domain.request.entity.TenantRequest.Type;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -23,6 +24,7 @@ public class CreateRequestRequest {
 
     /** Room change / vacate: when. */
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", message = "preferredDateBs must be YYYY-MM-DD (BS)")
+    @BsDate
     private String preferredDateBs;
 
     /** Maintenance: a photo uploaded with purpose REQUEST_PHOTO. */

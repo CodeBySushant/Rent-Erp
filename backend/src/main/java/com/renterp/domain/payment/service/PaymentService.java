@@ -63,10 +63,13 @@ public class PaymentService {
     private final TenantProfileRepository profiles;
     private final TenantPropertyMembershipRepository memberships;
     private final AccessGuard guard;
+    private final com.renterp.domain.file.service.FileService fileService;
 
     public PaymentService(PaymentRepository payments, TenantBillRepository bills, StoredFileRepository files,
                           TenantProfileRepository profiles, TenantPropertyMembershipRepository memberships,
-                          AccessGuard guard, NotificationService notifier) {
+                          AccessGuard guard, NotificationService notifier,
+                          com.renterp.domain.file.service.FileService fileService) {
+        this.fileService = fileService;
         this.payments = payments;
         this.bills = bills;
         this.files = files;
@@ -80,7 +83,7 @@ public class PaymentService {
     @Transactional
     public PaymentResponse record(UUID billId, RecordPaymentRequest req, String idempotencyKey) {
         AuthUser user = guard.requireUser();
-        Optional<Payment> replay = replay(user, idempotencyKey);
+        Optional<Payment> replay = replay(user, idempotencyKey, billId);
         if (replay.isPresent()) {
             return response(replay.get());
         }
@@ -143,7 +146,7 @@ public class PaymentService {
     @Transactional
     public PaymentResponse submitProof(UUID billId, RecordPaymentRequest req, String idempotencyKey) {
         AuthUser user = guard.requireUser();
-        Optional<Payment> replay = replay(user, idempotencyKey);
+        Optional<Payment> replay = replay(user, idempotencyKey, billId);
         if (replay.isPresent()) {
             return response(replay.get());
         }
@@ -159,6 +162,8 @@ public class PaymentService {
             throw ApiException.badRequest("PROOF_INVALID", "Upload the receipt as a payment proof.");
         }
         TenantBill bill = lockPayableBill(billId);
+        // H5: the receipt belongs to this bill's property, so the owner can open it.
+        proof = fileService.attachToProperty(proof, bill.getPropertyId());
         requireWithinBalance(bill, req.getAmount());
         if (payments.existsByBillIdAndStatus(billId, Status.PENDING)) {
             throw ApiException.conflict("PAYMENT_PENDING",
@@ -261,9 +266,22 @@ public class PaymentService {
 
     // ── Rules ───────────────────────────────────────────────────────────────
 
-    private Optional<Payment> replay(AuthUser user, String key) {
+    /**
+     * Idempotent replay (L3): the same key from the same user returns the first
+     * payment - but only for the same bill. Reusing a key for another bill is a
+     * client bug and is refused instead of silently returning the wrong payment.
+     */
+    private Optional<Payment> replay(AuthUser user, String key, UUID billId) {
         String k = blankToNull(key);
-        return k == null ? Optional.empty() : payments.findBySubmittedByAndIdempotencyKey(user.userId(), k);
+        if (k == null) {
+            return Optional.empty();
+        }
+        Optional<Payment> earlier = payments.findBySubmittedByAndIdempotencyKey(user.userId(), k);
+        if (earlier.isPresent() && !earlier.get().getBillId().equals(billId)) {
+            throw ApiException.conflict("IDEMPOTENCY_KEY_REUSED",
+                    "This Idempotency-Key was already used for a different bill.");
+        }
+        return earlier;
     }
 
     private TenantBill lockPayableBill(UUID billId) {

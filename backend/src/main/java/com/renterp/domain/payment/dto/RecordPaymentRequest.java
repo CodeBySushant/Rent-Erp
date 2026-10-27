@@ -1,5 +1,6 @@
 package com.renterp.domain.payment.dto;
 
+import com.renterp.common.validation.BsDate;
 import com.renterp.domain.payment.entity.Payment.Method;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -27,6 +28,7 @@ public class RecordPaymentRequest {
 
     @NotBlank(message = "paidAtBs is required")
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", message = "paidAtBs must be YYYY-MM-DD (BS)")
+    @BsDate
     private String paidAtBs;
 
     @Size(max = 100)

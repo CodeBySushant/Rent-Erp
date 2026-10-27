@@ -1,5 +1,6 @@
 package com.renterp.domain.request.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -24,5 +25,6 @@ public class DecideRequestRequest {
     private UUID toRoomId;
 
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", message = "effectiveDateBs must be YYYY-MM-DD (BS)")
+    @BsDate
     private String effectiveDateBs;
 }

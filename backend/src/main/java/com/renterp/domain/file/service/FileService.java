@@ -59,12 +59,18 @@ public class FileService {
     private final TenantPropertyMembershipRepository memberships;
     private final JoinRequestRepository joinRequests;
     private final long maxBytes;
+    private final int maxUploadsPerDay;
+    private final long maxTotalBytesPerUser;
 
     public FileService(StoredFileRepository files, FileStorage storage, AccessGuard guard,
                        TenantProfileRepository profiles,
                        TenantPropertyMembershipRepository memberships,
                        JoinRequestRepository joinRequests,
-                       @Value("${app.files.max-bytes:5242880}") long maxBytes) {
+                       @Value("${app.files.max-bytes:5242880}") long maxBytes,
+                       @Value("${app.files.max-uploads-per-day:100}") int maxUploadsPerDay,
+                       @Value("${app.files.max-total-mb-per-user:500}") long maxTotalMbPerUser) {
+        this.maxUploadsPerDay = maxUploadsPerDay;
+        this.maxTotalBytesPerUser = maxTotalMbPerUser * 1024L * 1024L;
         this.files = files;
         this.storage = storage;
         this.guard = guard;
@@ -85,6 +91,7 @@ public class FileService {
         if (propertyId != null) {
             requireCanAttach(user, purpose, propertyId);
         }
+        requireWithinQuota(user, file.getSize());
 
         byte[] bytes;
         try {
@@ -165,6 +172,43 @@ public class FileService {
     }
 
     public record Download(StoredFile file, InputStream content) {
+    }
+
+    /**
+     * M21: per-user limits so one account cannot fill the disk - at most
+     * {@code app.files.max-uploads-per-day} uploads in 24 hours and
+     * {@code app.files.max-total-mb-per-user} MB kept in total. Admins are not
+     * limited.
+     */
+    private void requireWithinQuota(AuthUser user, long incomingBytes) {
+        if (user.isAdmin()) {
+            return;
+        }
+        long today = files.countByOwnerUserIdAndCreatedAtAfter(user.userId(), Instant.now().minus(java.time.Duration.ofDays(1)));
+        if (today >= maxUploadsPerDay) {
+            throw ApiException.tooManyRequests("UPLOAD_LIMIT",
+                    "You have uploaded too many files today. Try again tomorrow.");
+        }
+        if (files.totalBytesOf(user.userId()) + incomingBytes > maxTotalBytesPerUser) {
+            throw ApiException.conflict("STORAGE_QUOTA_FULL",
+                    "Your storage is full. Delete old files you no longer need.");
+        }
+    }
+
+    /**
+     * H5: ties an upload to the property it is used for (payment proof, meter
+     * photo, request photo), so the property's owner and managers can open it.
+     * An upload already tied to another property is refused. Returns the file.
+     */
+    public StoredFile attachToProperty(StoredFile f, UUID propertyId) {
+        if (f.getPropertyId() == null) {
+            f.setPropertyId(propertyId);
+            return files.save(f);
+        }
+        if (!f.getPropertyId().equals(propertyId)) {
+            throw ApiException.badRequest("FILE_OTHER_PROPERTY", "This file was uploaded for a different property.");
+        }
+        return f;
     }
 
     // ── Rules ───────────────────────────────────────────────────────────────

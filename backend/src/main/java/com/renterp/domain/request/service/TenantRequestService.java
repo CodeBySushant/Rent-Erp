@@ -6,7 +6,9 @@ import com.renterp.common.exception.ApiException;
 import com.renterp.common.util.BsCalendar;
 import com.renterp.domain.auth.security.AccessGuard;
 import com.renterp.domain.auth.security.AuthUser;
+import com.renterp.domain.file.entity.StoredFile;
 import com.renterp.domain.file.entity.StoredFile.FilePurpose;
+import com.renterp.domain.file.service.FileService;
 import com.renterp.domain.file.repository.StoredFileRepository;
 import com.renterp.domain.moveout.dto.MoveOutNoticeRequest;
 import com.renterp.domain.moveout.entity.MoveOut;
@@ -63,12 +65,14 @@ public class TenantRequestService {
     private final RoomAssignmentRepository assignments;
     private final RoomRepository rooms;
     private final AccessGuard guard;
+    private final FileService fileService;
 
-    public TenantRequestService(TenantRequestRepository requests, TenantPropertyMembershipRepository memberships,
+    public TenantRequestService(FileService fileService, TenantRequestRepository requests, TenantPropertyMembershipRepository memberships,
                                 TenantProfileRepository profiles, StoredFileRepository files,
                                 MoveOutService moveOutService, MoveOutRepository moveOuts,
                                 RoomTransferService transfers, RoomAssignmentRepository assignments,
                                 RoomRepository rooms, AccessGuard guard, NotificationService notifier) {
+        this.fileService = fileService;
         this.requests = requests;
         this.memberships = memberships;
         this.profiles = profiles;
@@ -106,9 +110,11 @@ public class TenantRequestService {
             }
         }
         if (req.getPhotoFileId() != null) {
-            files.findByIdAndDeletedAtIsNull(req.getPhotoFileId())
+            StoredFile photo = files.findByIdAndDeletedAtIsNull(req.getPhotoFileId())
                     .filter(f -> f.getOwnerUserId().equals(user.userId()) && f.getPurpose() == FilePurpose.REQUEST_PHOTO)
                     .orElseThrow(() -> ApiException.badRequest("PHOTO_INVALID", "The photo must be one you uploaded for this request."));
+            // H5: tie the photo to the tenancy's property so the owner can open it.
+            fileService.attachToProperty(photo, m.getPropertyId());
         }
         boolean byTenant = profiles.findById(m.getTenantProfileId())
                 .map(tp -> user.userId().equals(tp.getUserId())).orElse(false);
