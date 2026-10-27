@@ -3,7 +3,11 @@ package com.renterp.common.exception;
 import com.renterp.common.response.ApiResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import jakarta.persistence.OptimisticLockException;
+import jakarta.validation.ConstraintViolationException;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
@@ -52,10 +57,10 @@ public class GlobalExceptionHandler {
     // ── 404 Not Found ──────────────────────────────────────────────────────────
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotFound(ResourceNotFoundException ex) {
-        log.warn("Resource not found: {}", ex.getMessage());
+        log.warn("Resource not found: {}", ex.getDetail());
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.failure(ex.getMessage(), "NOT_FOUND"));
+                .body(ApiResponse.failure(ex.getMessage(), ex.getCode()));
     }
 
     // Unknown URL (no controller, no static resource).
@@ -69,10 +74,10 @@ public class GlobalExceptionHandler {
     // ── 409 Conflict ───────────────────────────────────────────────────────────
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ApiResponse<Void>> handleDuplicate(DuplicateResourceException ex) {
-        log.warn("Duplicate resource: {}", ex.getMessage());
+        log.warn("Duplicate resource: {}", ex.getDetail());
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
-                .body(ApiResponse.failure(ex.getMessage(), "DUPLICATE"));
+                .body(ApiResponse.failure(ex.getMessage(), ex.getCode()));
     }
 
     // A unique / foreign-key / check constraint fired that a service did not
@@ -93,7 +98,7 @@ public class GlobalExceptionHandler {
         log.warn("Invalid operation: {}", ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.failure(ex.getMessage(), "INVALID_OPERATION"));
+                .body(ApiResponse.failure(ex.getMessage(), ex.getCode()));
     }
 
     // ── 400 Validation failure (@Valid on request body) ────────────────────────
@@ -182,9 +187,71 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.failure("You do not have access to this resource.", "FORBIDDEN"));
     }
 
+    // ── 409 Concurrent update (M14 / L4) ───────────────────────────────────────
+    // Optimistic-lock version mismatch, or a row lock that could not be taken.
+    @ExceptionHandler({ConcurrencyFailureException.class, OptimisticLockException.class})
+    public ResponseEntity<ApiResponse<Void>> handleConcurrency(Exception ex) {
+        log.warn("Concurrent update rejected: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiResponse.failure(
+                        "Someone else changed this at the same time. Refresh and try again.",
+                        "CONCURRENT_UPDATE"));
+    }
+
+    // ── 400 Bad sort / paging field (M14) ─────────────────────────────────────
+    // Spring Data moved PropertyReferenceException between packages (mapping -> core
+    // in Spring Data 4), so it is matched by class name rather than imported.
+    private static boolean isBadSortField(Throwable ex) {
+        for (Throwable t = ex; t != null; t = (t.getCause() == t ? null : t.getCause())) {
+            if ("PropertyReferenceException".equals(t.getClass().getSimpleName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private ResponseEntity<ApiResponse<Void>> badSortField(Throwable ex) {
+        log.warn("Bad sort field: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.failure("You cannot sort by that field.", "INVALID_SORT"));
+    }
+
+    // Spring Data sometimes wraps the bad-sort error; anything else here is a bug (500).
+    @ExceptionHandler(InvalidDataAccessApiUsageException.class)
+    public ResponseEntity<ApiResponse<Void>> handleApiUsage(InvalidDataAccessApiUsageException ex) {
+        if (isBadSortField(ex)) {
+            return badSortField(ex);
+        }
+        return handleGeneric(ex);
+    }
+
+    // ── 400 Parameter validation (M14) ────────────────────────────────────────
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodValidation(HandlerMethodValidationException ex) {
+        log.warn("Parameter validation failed: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.failure("A request parameter is not valid.", "VALIDATION_FAILED"));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException ex) {
+        String errors = ex.getConstraintViolations().stream()
+                .map(v -> v.getMessage())
+                .collect(Collectors.joining(", "));
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.failure(errors.isBlank() ? "Invalid request." : errors, "VALIDATION_FAILED"));
+    }
+
     // ── 500 Catch-all ──────────────────────────────────────────────────────────
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneric(Exception ex) {
+        if (isBadSortField(ex)) {
+            return badSortField(ex);
+        }
         log.error("Unhandled exception: {}", ex.getMessage(), ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)

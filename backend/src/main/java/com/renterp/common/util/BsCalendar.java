@@ -277,6 +277,34 @@ public final class BsCalendar {
     }
 
     /**
+     * Start of the billing period currently closing on {@code todayBs}, for a
+     * property whose billing day is {@code billingDay} (M5). Same rule as the
+     * app's Create Bill screen: the period is a whole BS month; before this
+     * month's billing day (clamped to the month length) it is still last month.
+     * E.g. billing day 5: on 2082-06-03 → 2082-05-01, on 2082-06-05 → 2082-06-01.
+     */
+    public static String billingPeriodStart(String todayBs, int billingDay) {
+        BsDate d = parse(todayBs);
+        int clamped = Math.min(Math.max(1, billingDay), daysInMonth(d.year(), d.month()));
+        int year = d.year();
+        int month = d.month();
+        if (d.day() < clamped) {
+            month -= 1;
+            if (month < 1) {
+                month = 12;
+                year -= 1;
+            }
+        }
+        return new BsDate(year, month, 1).toString();
+    }
+
+    /** Last day of the BS month containing {@code bs}, e.g. 2082-06-17 → 2082-06-30 (or 31/32). */
+    public static String monthEnd(String bs) {
+        BsDate d = parse(bs);
+        return new BsDate(d.year(), d.month(), daysInMonth(d.year(), d.month())).toString();
+    }
+
+    /**
      * The BS date {@code days} after {@code bs} (e.g. due date = generation date + grace
      * period). {@code days} may be negative. Result is validated in-range.
      */
