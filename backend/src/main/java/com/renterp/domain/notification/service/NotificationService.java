@@ -41,10 +41,16 @@ public class NotificationService {
     private final TenantProfileRepository profiles;
     private final AccessGuard guard;
     private final EntityManager em;
+    private final com.renterp.domain.auth.repository.UserRepository users;
+    private final com.renterp.domain.notification.push.PushSender push;
 
     public NotificationService(NotificationRepository notifications, DeviceTokenRepository devices,
                                TenantPropertyMembershipRepository memberships, TenantProfileRepository profiles,
-                               AccessGuard guard, EntityManager em) {
+                               AccessGuard guard, EntityManager em,
+                               com.renterp.domain.auth.repository.UserRepository users,
+                               com.renterp.domain.notification.push.PushSender push) {
+        this.users = users;
+        this.push = push;
         this.notifications = notifications;
         this.devices = devices;
         this.memberships = memberships;
@@ -89,15 +95,53 @@ public class NotificationService {
         if (userId.equals(actor)) {
             return;
         }
-        notifications.save(Notification.builder()
+        // M12: written in the recipient's language (en / hi / ne).
+        String lang = users.findById(userId).map(u -> u.getPreferredLanguage()).orElse("en");
+        String title = NotificationText.title(type, lang);
+        String text = NotificationText.body(body, lang);
+        String stored = text == null || text.length() <= 500 ? text : text.substring(0, 500);
+        Notification saved = notifications.save(Notification.builder()
                 .userId(userId)
                 .type(type)
-                .title(type.title)
-                .body(body == null || body.length() <= 500 ? body : body.substring(0, 500))
+                .title(title)
+                .body(stored)
                 .propertyId(propertyId)
                 .entityType(entityType)
                 .entityId(entityId)
                 .build());
+        pushAfterCommit(userId, title, stored, saved, entityType, entityId);
+    }
+
+    /**
+     * M12: push only once the change and its notification are committed; a
+     * rolled-back change never pushes, and a push failure never affects it.
+     */
+    private void pushAfterCommit(UUID userId, String title, String body, Notification n,
+                                 String entityType, UUID entityId) {
+        java.util.Map<String, String> data = new java.util.HashMap<>();
+        data.put("notificationId", String.valueOf(n.getId()));
+        data.put("type", n.getType().name());
+        if (entityType != null) data.put("entityType", entityType);
+        if (entityId != null) data.put("entityId", entityId.toString());
+        Runnable send = () -> {
+            try {
+                push.send(userId, title, body, data);
+            } catch (RuntimeException e) {
+                org.apache.logging.log4j.LogManager.getLogger(NotificationService.class)
+                        .warn("Push failed for user {}: {}", userId, e.getMessage());
+            }
+        };
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            send.run();
+                        }
+                    });
+        } else {
+            send.run();
+        }
     }
 
     /** "Rs 1,05,000" (Nepali grouping, no paisa when whole). Never the rupee sign. */
@@ -169,6 +213,14 @@ public class NotificationService {
                 .orElseGet(() -> DeviceToken.builder().token(req.getToken()).build());
         t.setUserId(me.userId());
         t.setPlatform(req.getPlatform());
+        t.setSessionId(me.sessionId());   // M12: removed when this session ends
         devices.save(t);
+    }
+
+    /** M12: the app stops push on this device (e.g. notifications switched off). */
+    @Transactional
+    public int unregisterDevice(String token) {
+        AuthUser me = guard.requireUser();
+        return devices.deleteByTokenAndUserId(token, me.userId());
     }
 }

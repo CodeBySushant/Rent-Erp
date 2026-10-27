@@ -30,4 +30,8 @@ public class DeviceToken extends BaseAuditEntity {
 
     @Column(nullable = false, length = 20)
     private String platform;
+
+    /** The session that registered the token (V25, M12); logout removes it. */
+    @Column(name = "session_id", columnDefinition = "uuid")
+    private UUID sessionId;
 }
