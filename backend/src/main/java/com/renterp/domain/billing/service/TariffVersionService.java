@@ -42,6 +42,7 @@ public class TariffVersionService {
         if (tariffRepository.existsByEffectiveFromBsAndActiveTrue(req.getEffectiveFromBs())) {
             throw new DuplicateResourceException("Active TariffVersion", "effectiveFromBs", req.getEffectiveFromBs());
         }
+        requireNoOverlap(null, req.getEffectiveFromBs(), req.getEffectiveToBs(), true);
         TariffVersion t = TariffVersion.builder()
                 .name(req.getName())
                 .effectiveFromBs(req.getEffectiveFromBs())
@@ -84,12 +85,15 @@ public class TariffVersionService {
     @Transactional
     public TariffResponse update(UUID id, UpdateTariffRequest req) {
         TariffVersion t = require(id);
-        // B5 — a schedule a confirmed bill was priced against is frozen.
-        if (billingRunRepository.existsByTariffVersionIdAndStatus(id, BillingRun.Status.CONFIRMED)) {
-            throw new InvalidOperationException(
-                    "Tariff version " + id + " is referenced by a CONFIRMED billing run and cannot be edited");
+        // B5 — a schedule a bill was priced against is frozen. M17: draft runs
+        // count too - confirming one after an edit would not match its prices.
+        if (billingRunRepository.existsByTariffVersionIdAndStatusIn(id,
+                java.util.List.of(BillingRun.Status.CONFIRMED, BillingRun.Status.DRAFT))) {
+            throw new InvalidOperationException("TARIFF_IN_USE",
+                    "Tariff version " + id + " is referenced by a billing run and cannot be edited");
         }
         validateDates(req.getEffectiveFromBs(), req.getEffectiveToBs());
+        requireNoOverlap(id, req.getEffectiveFromBs(), req.getEffectiveToBs(), false);
         // If the start date is moving, keep the active-uniqueness rule intact.
         if (!t.getEffectiveFromBs().equals(req.getEffectiveFromBs())
                 && tariffRepository.existsByEffectiveFromBsAndActiveTrue(req.getEffectiveFromBs())) {
@@ -120,6 +124,38 @@ public class TariffVersionService {
         t.setActive(false);
         tariffRepository.saveAndFlush(t);
         log.info("Tariff version deactivated — id: {}", id);
+    }
+
+    /**
+     * M17: two active tariffs may not be in force on the same day - the engine
+     * would pick one silently. When a new tariff starts after an open-ended
+     * one ({@code closeOpenEnded}, on create), that one is closed the day
+     * before; any other overlap is refused.
+     */
+    private void requireNoOverlap(UUID selfId, String fromBs, String toBs, boolean closeOpenEnded) {
+        String newTo = toBs == null ? "9999-12-31" : toBs;
+        for (TariffVersion other : tariffRepository.findByActiveTrue(org.springframework.data.domain.Pageable.unpaged())) {
+            if (other.getId().equals(selfId)) {
+                continue;
+            }
+            String otherTo = other.getEffectiveToBs() == null ? "9999-12-31" : other.getEffectiveToBs();
+            boolean overlaps = other.getEffectiveFromBs().compareTo(newTo) <= 0 && fromBs.compareTo(otherTo) <= 0;
+            if (!overlaps) {
+                continue;
+            }
+            if (closeOpenEnded && other.getEffectiveToBs() == null
+                    && other.getEffectiveFromBs().compareTo(fromBs) < 0) {
+                other.setEffectiveToBs(BsCalendar.addDays(fromBs, -1));
+                tariffRepository.save(other);
+                log.info("Tariff {} closed on {} - superseded by a tariff from {}",
+                        other.getId(), other.getEffectiveToBs(), fromBs);
+                continue;
+            }
+            throw new InvalidOperationException("TARIFF_OVERLAP",
+                    "Tariff '" + other.getName() + "' (" + other.getEffectiveFromBs() + " to "
+                            + (other.getEffectiveToBs() == null ? "open" : other.getEffectiveToBs())
+                            + ") is already in force on some of these days.");
+        }
     }
 
     private void validateDates(String fromBs, String toBs) {

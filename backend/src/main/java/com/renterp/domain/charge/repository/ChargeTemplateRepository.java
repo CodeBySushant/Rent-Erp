@@ -19,4 +19,22 @@ public interface ChargeTemplateRepository extends JpaRepository<ChargeTemplate, 
     // Billing engine: active charge templates for a property (pass 1 bills active only;
     // deactivated-charge proration B7 lands in pass 2).
     List<ChargeTemplate> findByPropertyIdAndActiveTrue(UUID propertyId);
+
+    /**
+     * H14: the charges a billing period may still bill - active ones, plus ones
+     * deactivated as THIS_CYCLE_PRORATED / NEXT_CYCLE on or after the period's
+     * first day. VOID (and pre-V25 rows without a date) are never billed again.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            select c from ChargeTemplate c
+            where c.propertyId = :propertyId
+              and (c.active = true
+                   or (c.deactivationMode in :modes and c.deactivatedAtBs is not null
+                       and c.deactivatedAtBs >= :periodStartBs))
+            """)
+    List<ChargeTemplate> findBillableInPeriod(
+            @org.springframework.data.repository.query.Param("propertyId") UUID propertyId,
+            @org.springframework.data.repository.query.Param("periodStartBs") String periodStartBs,
+            @org.springframework.data.repository.query.Param("modes")
+            java.util.Collection<ChargeTemplate.DeactivationMode> modes);
 }

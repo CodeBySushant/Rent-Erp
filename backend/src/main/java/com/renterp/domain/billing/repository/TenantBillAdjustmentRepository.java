@@ -17,4 +17,7 @@ public interface TenantBillAdjustmentRepository extends JpaRepository<TenantBill
 
     // Cancelling a run releases the adjustments its bills consumed, back to PENDING.
     List<TenantBillAdjustment> findByAppliedBillId(UUID appliedBillId);
+
+    // M4: late fees already charged for one overdue bill.
+    List<TenantBillAdjustment> findByOriginBillIdAndSourceAndStatus(UUID originBillId, TenantBillAdjustment.Source source, Status status);
 }

@@ -63,7 +63,9 @@ public class TenantBillController {
             @PathVariable UUID mid,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         access.membership(mid, ResourceAccess.Level.READ);
-        Page<TenantBillResponse> page = tenantBillService.listByMembership(mid, pageable);
+        // C7: the tenant gets sent bills only; staff also see drafts.
+        Page<TenantBillResponse> page = tenantBillService.listByMembership(mid,
+                access.canSeeDraftsOfMembership(mid), pageable);
         return ResponseEntity.ok(ApiResponse.success("Tenant bills fetched", PagedResponse.from(page)));
     }
 

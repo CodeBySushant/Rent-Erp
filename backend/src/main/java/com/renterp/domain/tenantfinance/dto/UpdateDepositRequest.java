@@ -1,5 +1,6 @@
 package com.renterp.domain.tenantfinance.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -21,6 +22,7 @@ public class UpdateDepositRequest {
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
              message = "receivedAtBs must be YYYY-MM-DD BS format")
     @Size(max = 20)
+    @BsDate
     private String receivedAtBs;
 
     private String notes;

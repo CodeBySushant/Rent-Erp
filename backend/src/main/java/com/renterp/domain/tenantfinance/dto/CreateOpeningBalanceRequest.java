@@ -1,5 +1,6 @@
 package com.renterp.domain.tenantfinance.dto;
 
+import com.renterp.common.validation.BsDate;
 import com.renterp.domain.tenantfinance.entity.TenantOpeningBalance.Direction;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -20,6 +21,7 @@ public class CreateOpeningBalanceRequest {
     @NotBlank
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
     @Size(max = 20)
+    @BsDate
     private String asOfBs;
 
     private String notes;

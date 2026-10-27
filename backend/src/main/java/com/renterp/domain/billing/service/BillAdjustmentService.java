@@ -37,6 +37,12 @@ public class BillAdjustmentService {
     public AdjustmentResponse create(UUID membershipId, CreateAdjustmentRequest req) {
         TenantPropertyMembership m = membershipRepository.findById(membershipId)
                 .orElseThrow(() -> new ResourceNotFoundException("TenantPropertyMembership", "id", membershipId));
+        // M11: an adjustment is carried onto the tenancy's next bill; an ended
+        // tenancy has none, so it would stay PENDING forever.
+        if (m.getStatus() != TenantPropertyMembership.MembershipStatus.ACTIVE) {
+            throw new com.renterp.common.exception.InvalidOperationException("TENANCY_ENDED",
+                    "This tenancy has ended. Add the amount to the move-out settlement instead.");
+        }
         TenantBillAdjustment a = TenantBillAdjustment.builder()
                 .membershipId(membershipId)
                 .propertyId(m.getPropertyId())

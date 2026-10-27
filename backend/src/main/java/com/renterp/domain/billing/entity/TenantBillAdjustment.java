@@ -66,7 +66,10 @@ public class TenantBillAdjustment extends BaseAuditEntity {
 
     public enum AdjustmentType { CHARGE, CREDIT }
 
-    public enum Source { ONE_TIME, BILL_CORRECTION, OVERPAYMENT, MANUAL }
+    // PENALTY (V25, M4): a late fee the billing engine charged on a bill for an
+    // earlier, overdue bill (origin_bill_id). Recorded APPLIED; VOID when the
+    // run that charged it is cancelled.
+    public enum Source { ONE_TIME, BILL_CORRECTION, OVERPAYMENT, MANUAL, PENALTY }
 
     public enum Status { PENDING, APPLIED, VOID }
 }

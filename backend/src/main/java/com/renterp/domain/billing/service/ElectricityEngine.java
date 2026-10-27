@@ -56,11 +56,14 @@ public class ElectricityEngine {
     private final MeterReadingRepository readingRepository;
     private final MeterRoomCoverageRepository coverageRepository;
     private final TariffVersionRepository tariffRepository;
+    private final com.renterp.domain.meter.repository.InfrastructureMeterScopeRepository scopeRepository;
 
     public ElectricityEngine(MeterRepository meterRepository,
                              MeterReadingRepository readingRepository,
                              MeterRoomCoverageRepository coverageRepository,
-                             TariffVersionRepository tariffRepository) {
+                             TariffVersionRepository tariffRepository,
+                             com.renterp.domain.meter.repository.InfrastructureMeterScopeRepository scopeRepository) {
+        this.scopeRepository = scopeRepository;
         this.meterRepository = meterRepository;
         this.readingRepository = readingRepository;
         this.coverageRepository = coverageRepository;
@@ -76,6 +79,16 @@ public class ElectricityEngine {
     public record OverageOutcome(BigDecimal mainUnits, BigDecimal subUnitsTotal, BigDecimal commonUnits,
                                  BigDecimal thresholdPercent, boolean overThreshold) {}
 
+    /**
+     * One billable tenancy as the engine needs it (M1 / M2): when it started
+     * in the period, its day window, split weight, room count and floors.
+     */
+    public record MemberInfo(UUID membershipId, String occStartBs, int startDay, int endDay, int daysOccupied,
+                             BigDecimal weight, int rooms, java.util.Set<UUID> floorIds) {}
+
+    /** M2: MAIN_METER_ONLY total from the main meter (and the NEA snapshot when blended). */
+    public record MainMeterTotal(BigDecimal units, BigDecimal amount, NeaSnapshot nea) {}
+
     public record SubMeteredResult(Map<UUID, BigDecimal> amountByMembership,
                                    Map<UUID, String> noteByMembership,
                                    NeaSnapshot nea,
@@ -85,7 +98,10 @@ public class ElectricityEngine {
      * @param roomToMembership roomId → billable membershipId (vacant/absent rooms omitted)
      */
     public SubMeteredResult computeSubMetered(Property property, CreateBillingRunRequest req,
-                                              Map<UUID, UUID> roomToMembership, RoundingMethod method) {
+                                              Map<UUID, UUID> roomToMembership, RoundingMethod method,
+                                              List<MemberInfo> members, int daysInPeriod) {
+        Map<UUID, MemberInfo> memberById = new HashMap<>();
+        for (MemberInfo mi : members) memberById.put(mi.membershipId(), mi);
         String fromBs = req.getPeriodStartBs();
         String toBs = req.getPeriodEndBs();
 
@@ -153,22 +169,66 @@ public class ElectricityEngine {
             for (UUID roomId : payerRooms) {
                 roomsPerMember.merge(roomToMembership.get(roomId), 1, Integer::sum);
             }
-            List<Map.Entry<UUID, Integer>> members = new ArrayList<>(roomsPerMember.entrySet());
-            if (members.size() == 1) {
-                addAmount(amountByMembership, members.get(0).getKey(), amount);
+            List<Map.Entry<UUID, Integer>> payers = new ArrayList<>(roomsPerMember.entrySet());
+            if (payers.size() == 1) {
+                UUID mid = payers.get(0).getKey();
+                MemberInfo mi = memberById.get(mid);
+                if (mi != null && mi.startDay() > 0) {
+                    // M1: the tenant moved in during this period - bill only their own use.
+                    JoinUnits ju = unitsSinceMoveIn(sub.getId(), fromBs, toBs, mi, daysInPeriod, units);
+                    amount = round(ju.units().multiply(rate), method);
+                    noteByMembership.put(mid, ju.note());
+                }
+                addAmount(amountByMembership, mid, amount);
             } else {
-                List<BigDecimal> weights = members.stream()
-                        .map(e -> BigDecimal.valueOf(e.getValue())).toList();
+                // Several tenancies on one meter: by covered rooms x days present (M1).
+                List<BigDecimal> weights = payers.stream()
+                        .map(e -> {
+                            MemberInfo mi = memberById.get(e.getKey());
+                            int days = mi == null ? daysInPeriod : mi.daysOccupied();
+                            return BigDecimal.valueOf((long) e.getValue() * days);
+                        }).toList();
                 BillingMath.SplitResult sr = BillingMath.split(amount, weights, method,
                         property.getRoundingRemainderTo());
-                for (int i = 0; i < members.size(); i++) {
-                    addAmount(amountByMembership, members.get(i).getKey(), sr.shares().get(i));
+                for (int i = 0; i < payers.size(); i++) {
+                    addAmount(amountByMembership, payers.get(i).getKey(), sr.shares().get(i));
                 }
             }
             if (!hasReading) {
-                for (Map.Entry<UUID, Integer> e : members) {
+                for (Map.Entry<UUID, Integer> e : payers) {
                     noteByMembership.put(e.getKey(), "electricity reading pending (B3)");
                 }
+            }
+        }
+
+        // M2: infrastructure meters (pump, stairs, common lights). Their units are
+        // shared by the tenancies they serve - every tenancy (GLOBAL) or those
+        // with a room on a scoped floor (SCOPED) - by days present and weight
+        // (the meter's split rule, else the property's). With nobody in scope the
+        // owner absorbs them. They count with the sub-meters in the M17 check, so
+        // "common units" below are what no meter explains.
+        for (Meter infra : elec.stream().filter(m -> m.getMeterType() == MeterType.INFRASTRUCTURE).toList()) {
+            BigDecimal units = unitsInWindow(infra.getId(), fromBs, toBs);
+            subUnitsTotal = subUnitsTotal.add(units);
+            if (units.signum() <= 0) {
+                continue;
+            }
+            List<MemberInfo> scope = infraScope(infra, members);
+            if (scope.isEmpty()) {
+                continue;
+            }
+            BigDecimal cost = round(units.multiply(rate), method);
+            List<SegmentEngine.MemberWindow> windows = new ArrayList<>(scope.size());
+            for (MemberInfo mi : scope) {
+                windows.add(new SegmentEngine.MemberWindow(mi.membershipId(), mi.startDay(), mi.endDay(),
+                        infraWeight(infra, mi)));
+            }
+            BillingMath.SplitResult sr = SegmentEngine.splitShared(cost, daysInPeriod, windows, method,
+                    property.getRoundingRemainderTo());
+            for (int i = 0; i < scope.size(); i++) {
+                UUID mid = scope.get(i).membershipId();
+                addAmount(amountByMembership, mid, sr.shares().get(i));
+                noteByMembership.merge(mid, "incl. shared meter " + infra.getLabel(), (a, b) -> a + "; " + b);
             }
         }
 
@@ -196,19 +256,97 @@ public class ElectricityEngine {
             if (nea != null && property.isCommonUnitsChargedToTenants()
                     && commonUnits.compareTo(BigDecimal.ZERO) > 0 && !amountByMembership.isEmpty()) {
                 BigDecimal commonCost = round(commonUnits.multiply(rate), method);
-                List<UUID> members = new ArrayList<>(amountByMembership.keySet());
-                List<BigDecimal> ones = members.stream().map(m -> BigDecimal.ONE).toList();
+                List<UUID> owing = new ArrayList<>(amountByMembership.keySet());
+                List<BigDecimal> ones = owing.stream().map(m -> BigDecimal.ONE).toList();
                 BillingMath.SplitResult sr = BillingMath.split(commonCost, ones, method,
                         property.getRoundingRemainderTo());
-                for (int i = 0; i < members.size(); i++) {
-                    addAmount(amountByMembership, members.get(i), sr.shares().get(i));
-                    noteByMembership.merge(members.get(i), "incl. common-area units",
+                for (int i = 0; i < owing.size(); i++) {
+                    addAmount(amountByMembership, owing.get(i), sr.shares().get(i));
+                    noteByMembership.merge(owing.get(i), "incl. common-area units",
                             (a, b) -> a + "; " + b);
                 }
             }
         }
 
         return new SubMeteredResult(amountByMembership, noteByMembership, nea, overage);
+    }
+
+    // ── M1: tenant moved in during the period ──────────────────────────────────
+
+    record JoinUnits(BigDecimal units, String note) {}
+
+    /**
+     * Units a tenant who moved in on {@code mi.occStartBs()} used on this meter.
+     * With a reading taken on or before the move-in day (and inside the period,
+     * normally the TENANT_JOIN reading) only the units after it are theirs; the
+     * earlier units stay with the owner (spec M14). Without one, the period's
+     * units are prorated by the days they lived there and the bill says so.
+     */
+    private JoinUnits unitsSinceMoveIn(UUID meterId, String fromBs, String toBs, MemberInfo mi,
+                                       int daysInPeriod, BigDecimal periodUnits) {
+        List<MeterReading> anchor = readingRepository.findLatestConfirmedOnOrBefore(meterId, mi.occStartBs(),
+                PageRequest.of(0, 1));
+        if (!anchor.isEmpty() && anchor.get(0).getReadingDateBs().compareTo(fromBs) >= 0) {
+            String from = anchor.get(0).getReadingDateBs();
+            return new JoinUnits(unitsInWindow(meterId, from, toBs), "units since move-in reading " + from);
+        }
+        BigDecimal prorated = periodUnits.multiply(BigDecimal.valueOf(mi.daysOccupied()))
+                .divide(BigDecimal.valueOf(daysInPeriod), 2, RoundingMode.HALF_UP);
+        return new JoinUnits(prorated, "estimated: no move-in reading, " + mi.daysOccupied() + "/" + daysInPeriod + " days");
+    }
+
+    // ── M2: infrastructure meters ──────────────────────────────────────────────
+
+    private List<MemberInfo> infraScope(Meter infra, List<MemberInfo> members) {
+        if (infra.getInfrastructureScopeType() != Meter.InfrastructureScopeType.SCOPED) {
+            return members;
+        }
+        java.util.Set<UUID> floors = new java.util.HashSet<>();
+        scopeRepository.findByMeterIdOrderByCreatedAtAsc(infra.getId()).forEach(s -> {
+            if (s.getFloorId() != null) floors.add(s.getFloorId());
+        });
+        return members.stream().filter(mi -> mi.floorIds().stream().anyMatch(floors::contains)).toList();
+    }
+
+    private static BigDecimal infraWeight(Meter infra, MemberInfo mi) {
+        if (infra.getSplitRuleOverride() == null) {
+            return mi.weight();
+        }
+        return switch (infra.getSplitRuleOverride()) {
+            case EQUAL -> BigDecimal.ONE;
+            case ROOM_WEIGHTED -> BigDecimal.valueOf(Math.max(1, mi.rooms()));
+            case CUSTOM -> mi.weight();
+        };
+    }
+
+    // ── M2: MAIN_METER_ONLY from the main meter ────────────────────────────────
+
+    /**
+     * The property's electricity cost for the period from its MAIN meter's
+     * confirmed readings: the NEA bill for those units (BLENDED_RATE) or units x
+     * {@code electricityRatePerUnit} (FLAT_RATE). Used when the owner does not
+     * type the total.
+     */
+    public MainMeterTotal mainMeterTotal(Property property, CreateBillingRunRequest req, RoundingMethod method) {
+        Meter main = meterRepository.findByPropertyIdAndMeterPurposeAndActiveTrue(
+                        property.getId(), Meter.MeterPurpose.ELECTRICITY).stream()
+                .filter(m -> m.getMeterType() == MeterType.MAIN).findFirst()
+                .orElseThrow(() -> new InvalidOperationException("ELECTRICITY_TOTAL_REQUIRED",
+                        "electricityTotalAmount is required for MAIN_METER_ONLY electricity "
+                                + "(or add a main meter and record its readings)"));
+        BigDecimal units = unitsInWindow(main.getId(), req.getPeriodStartBs(), req.getPeriodEndBs());
+        if (units.signum() <= 0) {
+            throw new InvalidOperationException("ELECTRICITY_TOTAL_REQUIRED",
+                    "No confirmed main-meter reading in this period - enter the electricity total, "
+                            + "or record and confirm the main meter reading first");
+        }
+        if (property.getNeaTariffMode() == NeaTariffMode.BLENDED_RATE) {
+            NeaSnapshot nea = blended(req.getPeriodEndBs(), units);
+            return new MainMeterTotal(units, nea.totalBill(), nea);
+        }
+        BigDecimal rate = require(req.getElectricityRatePerUnit(),
+                "electricityRatePerUnit (or electricityTotalAmount) is required for MAIN_METER_ONLY electricity");
+        return new MainMeterTotal(units, round(units.multiply(rate), method), null);
     }
 
     // ── NEA blended rate ───────────────────────────────────────────────────────

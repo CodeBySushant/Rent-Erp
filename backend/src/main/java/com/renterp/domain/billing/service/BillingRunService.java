@@ -78,6 +78,7 @@ public class BillingRunService {
     private final BillingRunProgressRepository progressRepository;
     private final ElectricityEngine electricityEngine;
     private final BillingAsyncService asyncService;
+    private final com.renterp.domain.structure.repository.RoomRepository roomRepository;
 
     public BillingRunService(PropertyRepository propertyRepository,
                              BillingRunRepository billingRunRepository,
@@ -92,7 +93,9 @@ public class BillingRunService {
                              BillingRunProgressRepository progressRepository,
                              ElectricityEngine electricityEngine,
                              BillingAsyncService asyncService,
-                             NotificationService notifier) {
+                             NotificationService notifier,
+                             com.renterp.domain.structure.repository.RoomRepository roomRepository) {
+        this.roomRepository = roomRepository;
         this.propertyRepository = propertyRepository;
         this.billingRunRepository = billingRunRepository;
         this.tenantBillRepository = tenantBillRepository;
@@ -141,12 +144,20 @@ public class BillingRunService {
             }
         }
 
+        // M8: a closed property is not billed any more.
+        if (!property.isActive()) {
+            throw new InvalidOperationException("PROPERTY_INACTIVE", "This property has been closed.");
+        }
+
         // One live run per period (B10 backstop; the unique index is the hard guarantee).
         billingRunRepository
                 .findByPropertyIdAndBillingMonthBsAndStatusNot(propertyId, req.getBillingMonthBs(), Status.CANCELLED)
                 .ifPresent(r -> {
                     throw new DuplicateResourceException("BillingRun", "billingMonthBs", req.getBillingMonthBs());
                 });
+
+        // C6: the period must make sense and must not overlap any live run.
+        validatePeriod(propertyId, req);
 
         int daysInPeriod = (int) BsCalendar.inclusiveDays(req.getPeriodStartBs(), req.getPeriodEndBs());
 
@@ -235,13 +246,21 @@ public class BillingRunService {
         Map<UUID, BigDecimal> elecByMember = new HashMap<>();
         Map<UUID, String> elecNote = new HashMap<>();
         if (elecMode == ElectricityBillingMode.MAIN_METER_ONLY) {
-            BigDecimal total = require(req.getElectricityTotalAmount(),
-                    "electricityTotalAmount is required for MAIN_METER_ONLY electricity");
+            // M2: the total typed by the owner (the NEA bill) when given; otherwise
+            // it comes from the main meter's confirmed readings for the period.
+            BigDecimal total;
+            if (req.getElectricityTotalAmount() != null) {
+                total = req.getElectricityTotalAmount();
+            } else {
+                ElectricityEngine.MainMeterTotal mt = electricityEngine.mainMeterTotal(property, req, method);
+                total = mt.amount();
+                if (mt.nea() != null) applyNea(run, mt.nea());
+            }
             BillingMath.SplitResult sr = SegmentEngine.splitShared(total, daysInPeriod, windows, method, remainderTo);
             for (int i = 0; i < n; i++) elecByMember.put(windows.get(i).membershipId(), sr.shares().get(i));
         } else if (elecMode == ElectricityBillingMode.SUB_METERED) {
-            ElectricityEngine.SubMeteredResult r =
-                    electricityEngine.computeSubMetered(property, req, roomToMembership, method);
+            ElectricityEngine.SubMeteredResult r = electricityEngine.computeSubMetered(
+                    property, req, roomToMembership, method, memberInfos(billable), daysInPeriod);
             elecByMember.putAll(r.amountByMembership());
             elecNote.putAll(r.noteByMembership());
             if (r.nea() != null) applyNea(run, r.nea());
@@ -270,14 +289,22 @@ public class BillingRunService {
 
         // ── Charge templates ──────────────────────────────────────────────────────
         // Active charges only: SHARED split segment-aware; FIXED_PER_TENANT prorated per bill.
-        // B7 (deactivated charges): an inactive charge is not billed here; a THIS_CYCLE_PRORATED
-        // deactivation is realised as a one-time P9 adjustment at deactivation time, which the
-        // engine consumes below — so proration lands without the engine over-billing forever.
-        List<ChargeTemplate> charges = chargeRepository.findByPropertyIdAndActiveTrue(propertyId);
+        // B7 / H14 (deactivated charges): a charge stopped on or after this period's first
+        // day is still billed here - NEXT_CYCLE in full, THIS_CYCLE_PRORATED up to the day
+        // it stopped (chargeLastDay). VOID charges, and later periods, are never billed.
+        List<ChargeTemplate> charges = chargeRepository.findBillableInPeriod(propertyId, req.getPeriodStartBs(),
+                java.util.EnumSet.of(ChargeTemplate.DeactivationMode.THIS_CYCLE_PRORATED,
+                        ChargeTemplate.DeactivationMode.NEXT_CYCLE));
         Map<UUID, Map<UUID, BigDecimal>> sharedChargeByMember = new LinkedHashMap<>();
         for (ChargeTemplate c : charges) {
             if (c.getSplitBasis() == ChargeTemplate.SplitBasis.SHARED) {
-                BillingMath.SplitResult sr = SegmentEngine.splitShared(c.getAmount(), daysInPeriod, windows, method, remainderTo);
+                int lastDay = chargeLastDay(c, req, daysInPeriod);
+                List<SegmentEngine.MemberWindow> clipped = new ArrayList<>(n);
+                for (SegmentEngine.MemberWindow w : windows) {
+                    clipped.add(new SegmentEngine.MemberWindow(w.membershipId(), w.startDay(),
+                            Math.min(w.endDay(), lastDay), w.weight()));
+                }
+                BillingMath.SplitResult sr = SegmentEngine.splitShared(c.getAmount(), daysInPeriod, clipped, method, remainderTo);
                 Map<UUID, BigDecimal> byMember = new HashMap<>();
                 for (int i = 0; i < n; i++) byMember.put(windows.get(i).membershipId(), sr.shares().get(i));
                 sharedChargeByMember.put(c.getId(), byMember);
@@ -344,8 +371,14 @@ public class BillingRunService {
                     amt = sharedChargeByMember.get(c.getId()).getOrDefault(mid, BillingMath.zero2());
                     note = "shared split";
                 } else {
-                    amt = BillingMath.prorate(c.getAmount(), ctx.daysOccupied(), daysInPeriod);
-                    note = prorated ? "prorated " + ctx.daysOccupied() + "/" + daysInPeriod : null;
+                    // H14: days the tenant was here AND the charge was still on.
+                    int lastDay = chargeLastDay(c, req, daysInPeriod);
+                    int chargedDays = Math.max(0, Math.min(ctx.endDay(), lastDay) - ctx.startDay() + 1);
+                    if (chargedDays == 0) {
+                        continue;
+                    }
+                    amt = BillingMath.prorate(c.getAmount(), chargedDays, daysInPeriod);
+                    note = chargedDays < daysInPeriod ? "prorated " + chargedDays + "/" + daysInPeriod : null;
                 }
                 chargesAmt = chargesAmt.add(amt);
                 items.add(new BillLineItem(c.getName(), "CHARGE", null, null, amt, note));
@@ -380,6 +413,17 @@ public class BillingRunService {
                         null, null, signed, a.getSource().name()));
             }
 
+            // M4: late fees for this tenant's earlier bills still unpaid past due
+            // date + grace days. Recorded as PENALTY adjustments after the bill is
+            // saved (so the cap and ONE_TIME rule can see what was already charged).
+            List<PenaltyCharge> penalties = penaltiesFor(property, mid, req.getGeneratedAtBs(), method);
+            BigDecimal penaltyAmt = BillingMath.zero2();
+            for (PenaltyCharge pc : penalties) {
+                penaltyAmt = penaltyAmt.add(pc.amount());
+                items.add(new BillLineItem("Late fee (" + pc.forMonthBs() + ")", "PENALTY", null, null,
+                        pc.amount(), pc.note()));
+            }
+
             // TDS deduction (tenant withholds tax on rent).
             BigDecimal tdsAmt = BillingMath.zero2();
             if (property.isTdsEnabled() && property.getTdsRatePercent() != null) {
@@ -402,6 +446,7 @@ public class BillingRunService {
             // is baked into each share by the split), so it is NOT re-added here.
             BigDecimal totalDue = subtotal
                     .subtract(tdsAmt)
+                    .add(penaltyAmt)
                     .add(previousBalance)
                     .add(adjNet)
                     .subtract(advanceApplied)
@@ -423,7 +468,7 @@ public class BillingRunService {
                     .electricityAmount(elecAmt)
                     .waterAmount(waterAmt)
                     .chargesAmount(chargesAmt)
-                    .penaltyAmount(BillingMath.zero2())
+                    .penaltyAmount(penaltyAmt)
                     .adjustmentsAmount(adjNet)
                     .advanceAppliedAmount(advanceApplied)
                     .previousBalance(previousBalance)
@@ -447,6 +492,20 @@ public class BillingRunService {
                 a.setStatus(TenantBillAdjustment.Status.APPLIED);
                 a.setAppliedBillId(bill.getId());
                 adjustmentRepository.save(a);
+            }
+            // M4: the late fees on this bill, one row per overdue bill.
+            for (PenaltyCharge pc : penalties) {
+                adjustmentRepository.save(TenantBillAdjustment.builder()
+                        .membershipId(mid)
+                        .propertyId(propertyId)
+                        .adjustmentType(TenantBillAdjustment.AdjustmentType.CHARGE)
+                        .source(TenantBillAdjustment.Source.PENALTY)
+                        .amount(pc.amount())
+                        .reason("Late fee (" + pc.forMonthBs() + ")")
+                        .originBillId(pc.overdueBillId())
+                        .appliedBillId(bill.getId())
+                        .status(TenantBillAdjustment.Status.APPLIED)
+                        .build());
             }
 
             totalBilled = totalBilled.add(totalDue);
@@ -522,6 +581,11 @@ public class BillingRunService {
     @Transactional
     public void buildAsync(UUID runId, UUID propertyId, CreateBillingRunRequest req) {
         BillingRun run = requireRun(runId);
+        // M7: the run may have been cancelled while the job waited - build nothing.
+        if (run.getStatus() != Status.DRAFT) {
+            throw new InvalidOperationException("RUN_NOT_DRAFT",
+                    "Billing run " + runId + " is " + run.getStatus() + "; nothing to build");
+        }
         Property property = propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Property", "id", propertyId));
         BillingRunProgress progress = progressRepository.findByBillingRunId(runId)
@@ -557,6 +621,44 @@ public class BillingRunService {
         run.setNeaBlendedRate(nea.blendedRate());
     }
 
+    /**
+     * C6: before C6 the month label, the period and the generation date all came
+     * from the client unchecked, so two runs with different labels could bill
+     * the same days twice. Now:
+     * <ul>
+     *   <li>billingMonthBs is a real month and is the month the period starts in;</li>
+     *   <li>the period is at most one BS month long (32 days);</li>
+     *   <li>the generation date is not before the period starts and not in the future;</li>
+     *   <li>no live (DRAFT or CONFIRMED) run of the property covers any of the same days.</li>
+     * </ul>
+     */
+    private void validatePeriod(UUID propertyId, CreateBillingRunRequest req) {
+        String month = req.getBillingMonthBs();
+        int m = Integer.parseInt(month.substring(5, 7));
+        if (m < 1 || m > 12) {
+            throw new InvalidOperationException("INVALID_PERIOD", "billingMonthBs " + month + " is not a real month.");
+        }
+        if (!req.getPeriodStartBs().startsWith(month + "-")) {
+            throw new InvalidOperationException("INVALID_PERIOD",
+                    "The period must start in the billing month " + month + " (period starts " + req.getPeriodStartBs() + ").");
+        }
+        if (BsCalendar.inclusiveDays(req.getPeriodStartBs(), req.getPeriodEndBs()) > 32) {
+            throw new InvalidOperationException("INVALID_PERIOD", "A billing period can be at most one month (32 days).");
+        }
+        if (req.getGeneratedAtBs().compareTo(req.getPeriodStartBs()) < 0) {
+            throw new InvalidOperationException("INVALID_PERIOD", "Bills cannot be generated before the period starts.");
+        }
+        if (req.getGeneratedAtBs().compareTo(BsCalendar.today()) > 0) {
+            throw new InvalidOperationException("INVALID_PERIOD", "The generation date cannot be in the future.");
+        }
+        billingRunRepository.findOverlapping(propertyId, req.getPeriodStartBs(), req.getPeriodEndBs(), Status.CANCELLED)
+                .stream().findFirst().ifPresent(r -> {
+                    throw new InvalidOperationException("PERIOD_OVERLAP",
+                            "These days are already billed in the " + r.getBillingMonthBs() + " run ("
+                                    + r.getPeriodStartBs() + " to " + r.getPeriodEndBs() + ").");
+                });
+    }
+
     // ── Confirm ──────────────────────────────────────────────────────────────
 
     @Transactional
@@ -571,9 +673,10 @@ public class BillingRunService {
         // An async run still being built cannot be confirmed until its worker finishes (B15).
         if (run.isAsync()) {
             BillingRunProgress p = progressRepository.findByBillingRunId(runId).orElse(null);
-            if (p != null && p.getStatus() != BillingRunProgress.Status.COMPLETED) {
+            // M7: no progress row (or no total yet) also means "not built".
+            if (p == null || p.getStatus() != BillingRunProgress.Status.COMPLETED || run.getTotalBilled() == null) {
                 throw new InvalidOperationException(
-                        "Billing run " + runId + " is still generating (" + (p.getStatus()) + "); cannot confirm yet");
+                        "Billing run " + runId + " is still generating (" + (p == null ? "NOT_STARTED" : p.getStatus()) + "); cannot confirm yet");
             }
         }
 
@@ -633,8 +736,13 @@ public class BillingRunService {
             // Release any adjustments this bill consumed, back to PENDING for the next run.
             for (TenantBillAdjustment a : adjustmentRepository.findByAppliedBillId(b.getId())) {
                 if (a.getStatus() == TenantBillAdjustment.Status.APPLIED) {
-                    a.setStatus(TenantBillAdjustment.Status.PENDING);
-                    a.setAppliedBillId(null);
+                    if (a.getSource() == TenantBillAdjustment.Source.PENALTY) {
+                        // M4: a late fee is recomputed by the next run, not carried.
+                        a.setStatus(TenantBillAdjustment.Status.VOID);
+                    } else {
+                        a.setStatus(TenantBillAdjustment.Status.PENDING);
+                        a.setAppliedBillId(null);
+                    }
                     adjustmentRepository.save(a);
                 }
             }
@@ -691,6 +799,125 @@ public class BillingRunService {
                 .map(TenantBill::getAdvanceAppliedAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return held.subtract(alreadyApplied);
+    }
+
+    // ── H14: charges stopped during the period ───────────────────────────────
+
+    /**
+     * Last day index (0-based) of this period on which the charge is billed:
+     * the stop day for THIS_CYCLE_PRORATED inside the period, otherwise the last
+     * day of the period.
+     */
+    private static int chargeLastDay(ChargeTemplate c, CreateBillingRunRequest req, int daysInPeriod) {
+        if (!c.isActive() && c.getDeactivationMode() == ChargeTemplate.DeactivationMode.THIS_CYCLE_PRORATED
+                && c.getDeactivatedAtBs() != null
+                && c.getDeactivatedAtBs().compareTo(req.getPeriodEndBs()) <= 0) {
+            return (int) BsCalendar.daysBetween(req.getPeriodStartBs(), c.getDeactivatedAtBs());
+        }
+        return daysInPeriod - 1;
+    }
+
+    // ── M4: late fees ────────────────────────────────────────────────────────
+
+    /** One late fee: for which earlier bill, how much, and why. */
+    record PenaltyCharge(UUID overdueBillId, String forMonthBs, BigDecimal amount, String note) {}
+
+    /**
+     * Late fees for a tenancy at generation date {@code onBs}. Each issued,
+     * unpaid bill whose due date + {@code penaltyGraceDays} has passed is
+     * charged according to the property:
+     * <ul>
+     *   <li>FIXED: {@code penaltyAmount} rupees;</li>
+     *   <li>PERCENTAGE: {@code penaltyAmount} percent of the bill's unpaid balance;</li>
+     *   <li>PER_DAY: {@code penaltyAmount} rupees per day late (since the last fee);</li>
+     * </ul>
+     * Frequency ONE_TIME charges a bill once; PER_MONTH once per bill run while
+     * it stays unpaid; PER_DAY multiplies FIXED / PERCENTAGE by the days since the
+     * last fee. {@code penaltyCapAmount} caps the total fees on one bill.
+     * Nothing is charged when the type is NONE or the amount is empty / zero.
+     */
+    private List<PenaltyCharge> penaltiesFor(Property property, UUID membershipId, String onBs, RoundingMethod method) {
+        BigDecimal value = property.getPenaltyAmount();
+        PenaltyType type = property.getPenaltyType();
+        if (type == null || type == PenaltyType.NONE || value == null || value.signum() <= 0) {
+            return List.of();
+        }
+        PenaltyFrequency frequency = property.getPenaltyFrequency() == null
+                ? PenaltyFrequency.PER_MONTH : property.getPenaltyFrequency();
+        List<PenaltyCharge> out = new ArrayList<>();
+        for (TenantBill b : tenantBillRepository.findByMembershipIdAndStatusNot(membershipId, TenantBill.Status.CANCELLED)) {
+            if (b.getStatus() != TenantBill.Status.ISSUED || b.getSupersededByBillId() != null
+                    || b.getBalanceDue().signum() <= 0 || b.getDueDateBs() == null) {
+                continue;
+            }
+            String lateFrom = BsCalendar.addDays(b.getDueDateBs(), property.getPenaltyGraceDays());
+            if (BsCalendar.daysBetween(lateFrom, onBs) <= 0) {
+                continue;
+            }
+            List<TenantBillAdjustment> earlier = adjustmentRepository.findByOriginBillIdAndSourceAndStatus(
+                    b.getId(), TenantBillAdjustment.Source.PENALTY, TenantBillAdjustment.Status.APPLIED);
+            BigDecimal charged = earlier.stream().map(TenantBillAdjustment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (frequency == PenaltyFrequency.ONE_TIME && !earlier.isEmpty()) {
+                continue;
+            }
+            // Days since the later of "became late" and "last fee charged".
+            String since = lateFrom;
+            for (TenantBillAdjustment a : earlier) {
+                String at = a.getAppliedBillId() == null ? null : tenantBillRepository.findById(a.getAppliedBillId())
+                        .map(TenantBill::getGeneratedAtBs).orElse(null);
+                if (at != null && at.compareTo(since) > 0) {
+                    since = at;
+                }
+            }
+            long days = Math.max(0, BsCalendar.daysBetween(since, onBs));
+            BigDecimal base = switch (type) {
+                case FIXED -> value;
+                case PERCENTAGE -> b.getBalanceDue().multiply(value).divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+                case PER_DAY -> value.multiply(BigDecimal.valueOf(days));
+                case NONE -> BigDecimal.ZERO;
+            };
+            if (type != PenaltyType.PER_DAY && frequency == PenaltyFrequency.PER_DAY) {
+                base = base.multiply(BigDecimal.valueOf(days));
+            }
+            BigDecimal amount = BillingMath.round(base, method);
+            if (property.getPenaltyCapAmount() != null) {
+                amount = amount.min(property.getPenaltyCapAmount().subtract(charged)).setScale(2, RoundingMode.HALF_UP);
+            }
+            if (amount.signum() <= 0) {
+                continue;
+            }
+            String note = switch (type) {
+                case FIXED -> "late since " + lateFrom;
+                case PERCENTAGE -> value.stripTrailingZeros().toPlainString() + "% of " + b.getBalanceDue().toPlainString();
+                case PER_DAY -> days + " day(s) late";
+                case NONE -> null;
+            };
+            out.add(new PenaltyCharge(b.getId(), b.getBillingMonthBs(), amount, note));
+        }
+        return out;
+    }
+
+    // ── M1 / M2: what the electricity engine needs to know per tenancy ─────────
+
+    private List<ElectricityEngine.MemberInfo> memberInfos(List<BillContext> billable) {
+        java.util.Set<UUID> roomIds = new java.util.HashSet<>();
+        billable.forEach(ctx -> roomIds.addAll(ctx.roomIds()));
+        Map<UUID, UUID> floorOfRoom = new HashMap<>();
+        for (com.renterp.domain.structure.entity.Room r : roomRepository.findAllById(roomIds)) {
+            floorOfRoom.put(r.getId(), r.getFloorId());
+        }
+        List<ElectricityEngine.MemberInfo> out = new ArrayList<>(billable.size());
+        for (BillContext ctx : billable) {
+            java.util.Set<UUID> floors = new java.util.HashSet<>();
+            for (UUID roomId : ctx.roomIds()) {
+                UUID f = floorOfRoom.get(roomId);
+                if (f != null) floors.add(f);
+            }
+            out.add(new ElectricityEngine.MemberInfo(ctx.membership().getId(), ctx.occStart(), ctx.startDay(),
+                    ctx.endDay(), ctx.daysOccupied(), ctx.splitWeight(), ctx.roomWeight(), floors));
+        }
+        return out;
     }
 
     private static String laterOf(String a, String b) {

@@ -1,5 +1,6 @@
 package com.renterp.domain.billing.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -35,14 +36,17 @@ public class CreateBillingRunRequest implements Serializable {
 
     @NotBlank
     @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "periodStartBs must be a BS date YYYY-MM-DD")
+    @BsDate
     private String periodStartBs;
 
     @NotBlank
     @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "periodEndBs must be a BS date YYYY-MM-DD")
+    @BsDate
     private String periodEndBs;
 
     @NotBlank
     @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "generatedAtBs must be a BS date YYYY-MM-DD")
+    @BsDate
     private String generatedAtBs;
 
     // B10 layer 1 — optional client idempotency key; a retry with the same key returns the

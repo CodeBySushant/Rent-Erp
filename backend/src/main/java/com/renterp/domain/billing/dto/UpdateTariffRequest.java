@@ -1,5 +1,6 @@
 package com.renterp.domain.billing.dto;
 
+import com.renterp.common.validation.BsDate;
 import com.renterp.domain.billing.dto.CreateTariffRequest.SlabInput;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -23,9 +24,11 @@ public class UpdateTariffRequest {
 
     @NotBlank
     @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "effectiveFromBs must be a BS date YYYY-MM-DD")
+    @BsDate
     private String effectiveFromBs;
 
     @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "effectiveToBs must be a BS date YYYY-MM-DD")
+    @BsDate
     private String effectiveToBs;
 
     @Valid

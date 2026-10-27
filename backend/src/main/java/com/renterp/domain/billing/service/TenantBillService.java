@@ -41,7 +41,12 @@ public class TenantBillService {
     }
 
     @Transactional(readOnly = true)
-    public Page<TenantBillResponse> listByMembership(UUID membershipId, Pageable pageable) {
-        return tenantBillRepository.findByMembershipId(membershipId, pageable).map(TenantBillResponse::from);
+    /** C7: {@code includeDrafts} false (a tenant) hides DRAFT bills - they are not sent yet. */
+    public Page<TenantBillResponse> listByMembership(UUID membershipId, boolean includeDrafts, Pageable pageable) {
+        Page<com.renterp.domain.billing.entity.TenantBill> page = includeDrafts
+                ? tenantBillRepository.findByMembershipId(membershipId, pageable)
+                : tenantBillRepository.findByMembershipIdAndStatusNot(membershipId,
+                        com.renterp.domain.billing.entity.TenantBill.Status.DRAFT, pageable);
+        return page.map(TenantBillResponse::from);
     }
 }

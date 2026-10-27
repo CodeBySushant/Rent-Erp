@@ -31,8 +31,13 @@ public class TenantOpeningBalanceService {
     // One-shot per membership. No update/delete surface — see DEVLOG for rationale.
     @Transactional
     public OpeningBalanceResponse create(UUID membershipId, CreateOpeningBalanceRequest req) {
-        if (!membershipRepository.existsById(membershipId)) {
-            throw new ResourceNotFoundException("TenantPropertyMembership", "id", membershipId);
+        com.renterp.domain.tenancy.entity.TenantPropertyMembership m = membershipRepository.findById(membershipId)
+                .orElseThrow(() -> new ResourceNotFoundException("TenantPropertyMembership", "id", membershipId));
+        // M11: an opening balance only appears on a tenancy's first bill; an
+        // ended tenancy gets no more bills, so it would never be collected.
+        if (m.getStatus() != com.renterp.domain.tenancy.entity.TenantPropertyMembership.MembershipStatus.ACTIVE) {
+            throw new com.renterp.common.exception.InvalidOperationException("TENANCY_ENDED",
+                    "This tenancy has ended. An opening balance can only be added to an active tenancy.");
         }
         if (openingRepository.existsByMembershipId(membershipId)) {
             throw new DuplicateResourceException("TenantOpeningBalance", "membershipId", membershipId);

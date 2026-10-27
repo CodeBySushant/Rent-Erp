@@ -21,6 +21,8 @@ public interface TenantBillRepository extends JpaRepository<TenantBill, UUID> {
     // bill history.
     List<TenantBill> findByMembershipIdAndStatusNot(UUID membershipId, Status status);
 
+    Page<TenantBill> findByMembershipIdAndStatusNot(UUID membershipId, Status status, Pageable pageable);
+
     long countByMembershipIdAndStatusNot(UUID membershipId, Status status);
 
     /** The bill, locked for the rest of the transaction (applying a payment). */

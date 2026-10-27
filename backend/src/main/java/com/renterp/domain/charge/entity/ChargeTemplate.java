@@ -45,6 +45,13 @@ public class ChargeTemplate extends BaseAuditEntity {
     @Column(name = "deactivation_mode", length = 50)
     private DeactivationMode deactivationMode;
 
+    // H14 (V25): the BS date the charge stopped. The billing engine uses it with
+    // deactivationMode: THIS_CYCLE_PRORATED bills the period it falls in up to
+    // this day; NEXT_CYCLE bills that period in full and stops after it; VOID
+    // stops at once. Null on charges deactivated before V25 (treated as VOID).
+    @Column(name = "deactivated_at_bs", length = 10)
+    private String deactivatedAtBs;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;

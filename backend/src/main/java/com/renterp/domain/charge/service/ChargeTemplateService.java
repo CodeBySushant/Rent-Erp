@@ -28,8 +28,12 @@ public class ChargeTemplateService {
     private final ChargeTemplateRepository chargeTemplateRepository;
     private final PropertyRepository propertyRepository;
 
+    private final com.renterp.common.guard.PropertyGuard propertyGuard;
+
     public ChargeTemplateService(ChargeTemplateRepository chargeTemplateRepository,
-                                  PropertyRepository propertyRepository) {
+                                  PropertyRepository propertyRepository,
+                                  com.renterp.common.guard.PropertyGuard propertyGuard) {
+        this.propertyGuard = propertyGuard;
         this.chargeTemplateRepository = chargeTemplateRepository;
         this.propertyRepository = propertyRepository;
     }
@@ -45,6 +49,7 @@ public class ChargeTemplateService {
             log.warn("Charge template creation failed — property not found: {}", request.getPropertyId());
             throw new ResourceNotFoundException("Property", "id", request.getPropertyId());
         }
+        propertyGuard.requireActive(request.getPropertyId());   // M8
         if (chargeTemplateRepository.existsByPropertyIdAndName(request.getPropertyId(), request.getName())) {
             log.warn("Charge template creation failed — name '{}' already exists for property {}",
                     request.getName(), request.getPropertyId());
@@ -146,7 +151,7 @@ public class ChargeTemplateService {
     // yet built) should treat the charge on the next run: prorated this cycle, applied
     // normally through next cycle then stopping, or voided entirely from this point.
     @Transactional
-    public void deactivateChargeTemplate(UUID id, DeactivationMode deactivationMode) {
+    public void deactivateChargeTemplate(UUID id, DeactivationMode deactivationMode, String effectiveDateBs) {
         log.debug("Deactivating charge template — id: {}, mode: {}", id, deactivationMode);
 
         ChargeTemplate template = chargeTemplateRepository.findById(id)
@@ -160,8 +165,16 @@ public class ChargeTemplateService {
             return;
         }
 
+        // H14: record when it stopped, so the next run can bill this period
+        // according to the chosen mode (default: today).
+        String stopDate = effectiveDateBs == null || effectiveDateBs.isBlank()
+                ? com.renterp.common.util.BsCalendar.today() : effectiveDateBs;
+        if (!com.renterp.common.util.BsCalendar.isValid(stopDate)) {
+            throw new InvalidOperationException("INVALID_DATE", "effectiveDateBs is not a valid BS date.");
+        }
         template.setActive(false);
         template.setDeactivationMode(deactivationMode);
+        template.setDeactivatedAtBs(stopDate);
         chargeTemplateRepository.saveAndFlush(template);
         log.info("Charge template deactivated — id: {}, mode: {}", id, deactivationMode);
     }

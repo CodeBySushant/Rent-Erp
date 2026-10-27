@@ -1,5 +1,6 @@
 package com.renterp.domain.tenantfinance.dto;
 
+import com.renterp.common.validation.BsDate;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,11 +20,13 @@ public class CreateAdvanceRentRequest {
     @NotBlank
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
     @Size(max = 20)
+    @BsDate
     private String coveredFromBs;
 
     @NotBlank
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
     @Size(max = 20)
+    @BsDate
     private String coveredToBs;
 
     private String notes;

@@ -96,11 +96,13 @@ public class ChargeTemplateController {
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deactivateChargeTemplate(
             @PathVariable UUID id,
-            @RequestParam(required = false, defaultValue = "NEXT_CYCLE") DeactivationMode deactivationMode) {
+            @RequestParam(required = false, defaultValue = "NEXT_CYCLE") DeactivationMode deactivationMode,
+            // H14: the day the charge stops (BS); default today.
+            @RequestParam(required = false) String effectiveDateBs) {
         access.chargeTemplate(id, ResourceAccess.Level.WRITE);
 
         log.debug("DELETE /api/v1/charge-templates/{} — mode: {}", id, deactivationMode);
-        chargeTemplateService.deactivateChargeTemplate(id, deactivationMode);
+        chargeTemplateService.deactivateChargeTemplate(id, deactivationMode, effectiveDateBs);
         return ResponseEntity.ok(ApiResponse.success("Charge template deactivated successfully"));
     }
 }

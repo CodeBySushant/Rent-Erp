@@ -7,6 +7,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.Serializable;
 import java.time.Instant;
@@ -31,9 +33,6 @@ public class BillingAsyncService {
     private static final Logger log = LogManager.getLogger(BillingAsyncService.class);
 
     public static final String TASK_NAME = "billing-run-generate";
-    // Small delay so the request transaction (run + progress rows) is committed before a
-    // worker picks the task up — db-scheduler schedules on its own connection, not this tx.
-    private static final int ENQUEUE_DELAY_SECONDS = 2;
 
     private final SchedulerClient scheduler;
     private final BillingRunService billingRunService;
@@ -50,10 +49,25 @@ public class BillingAsyncService {
         private static final long serialVersionUID = 1L;
     }
 
+    /**
+     * M7: the job is scheduled only after the request transaction has
+     * committed (the run and progress rows exist for the worker), and never if
+     * it rolled back. Before M7 a fixed 2-second delay was used, which a slow
+     * commit could outrun and a rollback left as an orphan job.
+     */
     public void enqueue(UUID runId, UUID propertyId, CreateBillingRunRequest req) {
         BillingRunTaskData data = new BillingRunTaskData(runId, propertyId, req);
         TaskInstance<BillingRunTaskData> instance = new TaskInstance<>(TASK_NAME, runId.toString(), data);
-        scheduler.schedule(instance, Instant.now().plusSeconds(ENQUEUE_DELAY_SECONDS));
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    scheduler.schedule(instance, Instant.now());
+                }
+            });
+        } else {
+            scheduler.schedule(instance, Instant.now());
+        }
     }
 
     /** Invoked by the db-scheduler task handler on a worker thread. */
