@@ -37,6 +37,19 @@
             </exclusions>
         </dependency>
 
+        <!-- ── Email (SMTP): login / reset codes, support inbox ─────── -->
+        <!-- Used only when MAIL_HOST is set; see common/mail/MailGateway. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- ── Log4j2 (replaces Logback) ─────────────────────────── -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

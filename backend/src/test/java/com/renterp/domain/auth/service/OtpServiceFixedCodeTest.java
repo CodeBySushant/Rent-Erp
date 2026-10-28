@@ -1,5 +1,6 @@
 package com.renterp.domain.auth.service;
 
+import com.renterp.common.mail.MailGateway;
 import com.renterp.domain.auth.entity.OtpAttempt;
 import com.renterp.domain.auth.otp.OtpSender;
 import com.renterp.domain.auth.repository.OtpAttemptRepository;
@@ -22,10 +23,11 @@ class OtpServiceFixedCodeTest {
     private final OtpAttemptRepository repository = mock(OtpAttemptRepository.class);
     private final PasswordEncoder encoder = mock(PasswordEncoder.class);
     private final OtpSender sender = mock(OtpSender.class);
+    private final MailGateway mail = mock(MailGateway.class);
 
     private OtpService service(String env, String fixed) {
         when(repository.save(any(OtpAttempt.class))).thenAnswer(i -> i.getArgument(0));
-        return new OtpService(repository, encoder, sender, 300, 45, 5, 5, 15, env, fixed);
+        return new OtpService(repository, encoder, sender, mail, 300, 45, 5, 5, 15, env, fixed);
     }
 
     private String sentCode(OtpService s) {

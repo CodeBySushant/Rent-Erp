@@ -37,6 +37,8 @@
 | POST | `/register` | public | `{name, phone, email, password, role, preferredLanguage, verificationToken}` → 201 `AuthResponse` |
 | POST | `/login` | public | `{verificationId, code}` → `AuthResponse` |
 | POST | `/login/password` | public | `{email, password}` → `AuthResponse` |
+| POST | `/password/forgot` | public | `{email}` or `{phone}` → `{verificationId, expiresInSeconds, resendAfterSeconds}` (V28, see DEVLOG_PASSWORD_RESET) |
+| POST | `/password/reset` | public | `{verificationId, code, newPassword}` → `AuthResponse`; every other session ended |
 | POST | `/refresh` | public | `{refreshToken}` → `AuthResponse` (rotated) |
 | POST | `/logout` | token | → ends this session |
 | GET | `/me` | token | → `UserResponse` |
@@ -49,6 +51,8 @@
 **Tokens.** Access token: HS256 JWT `{sub, sid, role, iat, exp}`, 15 minutes, signed with `JWT_SECRET` (≥ 32 chars, startup fails otherwise). Refresh token: 32 random bytes, stored as SHA-256 in `user_sessions.token_hash`, 30 days, **rotated on every refresh** under a row lock — the old one stops working immediately. The filter checks the session on every request, so logout/revocation is immediate rather than waiting for the JWT to expire.
 
 **OTP.** 6 digits, BCrypt-hashed, 5-minute life. Per phone + purpose: one new code per 45 s, five per hour. Five wrong tries burn the code. Checking runs in its own transaction (`REQUIRES_NEW`, no rollback on rejection) so wrong-try counts persist even though the request fails. Codes are never valid across purposes. Sign-up returns a single-use verification token (15 minutes) that `/register` spends inside its transaction — a failed registration leaves it unspent.
+
+**Email (2026-10-28).** With `MAIL_HOST` set, codes for an email address (email change, password reset) are emailed by `MailGateway`; see [DEVLOG_PASSWORD_RESET.md](DEVLOG_PASSWORD_RESET.md).
 
 **SMS.** No provider yet. `APP_ENV=local`: the code is written to the backend log (`DEV OTP for <phone> (<purpose>): <code>`). Any other environment: `/otp/request` answers 503 `SMS_NOT_CONFIGURED`. Codes are never returned by the API and never logged outside local.
 

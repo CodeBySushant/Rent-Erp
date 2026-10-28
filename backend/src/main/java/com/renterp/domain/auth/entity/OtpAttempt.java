@@ -57,7 +57,8 @@ public class OtpAttempt {
 
     private Instant tokenUsedAt;
 
-    // The account a CHANGE_PHONE code was requested by.
+    // The account a CHANGE_PHONE / CHANGE_EMAIL code was requested by, or the
+    // account a RESET_PASSWORD code resets (V28).
     @Column(name = "user_id", columnDefinition = "uuid")
     private UUID userId;
 
@@ -66,6 +67,6 @@ public class OtpAttempt {
     private Instant createdAt;
 
     public enum Purpose {
-        SIGNUP, LOGIN, CHANGE_PHONE, CHANGE_EMAIL
+        SIGNUP, LOGIN, CHANGE_PHONE, CHANGE_EMAIL, RESET_PASSWORD
     }
 }

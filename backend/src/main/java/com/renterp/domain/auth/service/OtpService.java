@@ -1,6 +1,7 @@
 package com.renterp.domain.auth.service;
 
 import com.renterp.common.exception.ApiException;
+import com.renterp.common.mail.MailGateway;
 import com.renterp.domain.auth.dto.OtpChallengeResponse;
 import com.renterp.domain.auth.dto.VerificationTokenResponse;
 import com.renterp.domain.auth.entity.OtpAttempt;
@@ -27,7 +28,8 @@ import java.util.UUID;
  * for the same phone + purpose can be requested after 45 seconds; at most 5
  * codes per phone + purpose per hour; 5 wrong tries burn the code. Codes are
  * stored as BCrypt hashes and only ever leave the server through the
- * {@link OtpSender}.
+ * {@link OtpSender}, or by email ({@link MailGateway}) when the destination is
+ * an email address and MAIL_HOST is set.
  */
 @Service
 public class OtpService {
@@ -38,6 +40,7 @@ public class OtpService {
     private final OtpAttemptRepository repository;
     private final PasswordEncoder encoder;
     private final OtpSender sender;
+    private final MailGateway mail;
     private final Duration ttl;
     private final Duration resendAfter;
     private final int maxSendsPerHour;
@@ -46,7 +49,7 @@ public class OtpService {
     /** Non-null only in local development; see the constructor. */
     private final String devFixedCode;
 
-    public OtpService(OtpAttemptRepository repository, PasswordEncoder encoder, OtpSender sender,
+    public OtpService(OtpAttemptRepository repository, PasswordEncoder encoder, OtpSender sender, MailGateway mail,
                       @Value("${app.auth.otp.ttl-seconds:300}") long ttlSeconds,
                       @Value("${app.auth.otp.resend-after-seconds:45}") long resendAfterSeconds,
                       @Value("${app.auth.otp.max-sends-per-hour:5}") int maxSendsPerHour,
@@ -57,6 +60,7 @@ public class OtpService {
         this.repository = repository;
         this.encoder = encoder;
         this.sender = sender;
+        this.mail = mail;
         this.ttl = Duration.ofSeconds(ttlSeconds);
         this.resendAfter = Duration.ofSeconds(resendAfterSeconds);
         this.maxSendsPerHour = maxSendsPerHour;
@@ -113,9 +117,62 @@ public class OtpService {
                 .purpose(purpose)
                 .userId(userId)
                 .build());
-        sender.send(phone, code, purpose);
+        deliver(phone, code, purpose);
         log.info("OTP issued - purpose: {}, challenge: {}", purpose, attempt.getId());
         return new OtpChallengeResponse(attempt.getId(), ttl.toSeconds(), resendAfter.toSeconds());
+    }
+
+    /**
+     * True when a code to {@code destination} (phone or email) can be sent
+     * right now. Lets a caller refuse up front, before it looks anything up.
+     */
+    public boolean canDeliver(String destination) {
+        if (isEmail(destination) && mail.isConfigured()) {
+            return true;
+        }
+        return sender.available();
+    }
+
+    /**
+     * A challenge shaped exactly like a real one but tied to no code, for a
+     * request about an account that does not exist: the reply does not reveal
+     * whether the account exists, and any code typed for it is "expired".
+     */
+    public OtpChallengeResponse decoyChallenge() {
+        return new OtpChallengeResponse(UUID.randomUUID(), ttl.toSeconds(), resendAfter.toSeconds());
+    }
+
+    /** Email addresses go by email when it is configured; everything else to the OtpSender. */
+    private void deliver(String destination, String code, OtpAttempt.Purpose purpose) {
+        if (isEmail(destination) && mail.isConfigured()) {
+            mail.send(destination, emailSubject(purpose), emailBody(code, purpose));
+            return;
+        }
+        sender.send(destination, code, purpose);
+    }
+
+    private String emailSubject(OtpAttempt.Purpose purpose) {
+        return switch (purpose) {
+            case RESET_PASSWORD -> "Your Rentlo password reset code";
+            case CHANGE_EMAIL -> "Confirm your new Rentlo email";
+            default -> "Your Rentlo code";
+        };
+    }
+
+    private String emailBody(String code, OtpAttempt.Purpose purpose) {
+        String why = switch (purpose) {
+            case RESET_PASSWORD -> "Use this code in the Rentlo app to set a new password:";
+            case CHANGE_EMAIL -> "Use this code in the Rentlo app to confirm this email address:";
+            default -> "Your Rentlo code:";
+        };
+        return why + "\n\n    " + code + "\n\n"
+                + "It expires in " + Math.max(1, ttl.toMinutes()) + " minutes. Never share it with anyone.\n"
+                + "If you did not ask for this, ignore this email - nothing changes.\n\n"
+                + "- Rentlo";
+    }
+
+    private static boolean isEmail(String destination) {
+        return destination != null && destination.indexOf('@') >= 0;
     }
 
     /**

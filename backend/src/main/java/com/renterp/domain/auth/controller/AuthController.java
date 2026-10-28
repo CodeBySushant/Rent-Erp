@@ -4,6 +4,7 @@ import com.renterp.common.response.ApiResponse;
 import com.renterp.domain.auth.dto.AuthResponse;
 import com.renterp.domain.auth.dto.OtpChallengeResponse;
 import com.renterp.domain.auth.dto.PasswordLoginRequest;
+import com.renterp.domain.auth.dto.PasswordResetRequests;
 import com.renterp.domain.auth.dto.RefreshRequest;
 import com.renterp.domain.auth.dto.RegisterRequest;
 import com.renterp.domain.auth.dto.RequestOtpRequest;
@@ -12,6 +13,7 @@ import com.renterp.domain.auth.dto.VerificationTokenResponse;
 import com.renterp.domain.auth.dto.VerifyOtpRequest;
 import com.renterp.domain.auth.security.AccessGuard;
 import com.renterp.domain.auth.service.AuthService;
+import com.renterp.domain.auth.service.PasswordResetService;
 import com.renterp.domain.tenancy.service.TenantProfileLinker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,8 +28,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * /api/v1/auth - sign-up, login, token refresh, logout, current user.
- * Everything here is public except logout and me (see SecurityConfig).
+ * /api/v1/auth - sign-up, login, forgotten password, token refresh, logout,
+ * current user. Everything here is public except logout and me (see SecurityConfig).
  * The request and response shapes match the app's AuthService.
  */
 @RestController
@@ -39,11 +41,14 @@ public class AuthController {
     private final AuthService authService;
     private final AccessGuard accessGuard;
     private final TenantProfileLinker profileLinker;
+    private final PasswordResetService passwordReset;
 
-    public AuthController(AuthService authService, AccessGuard accessGuard, TenantProfileLinker profileLinker) {
+    public AuthController(AuthService authService, AccessGuard accessGuard, TenantProfileLinker profileLinker,
+                          PasswordResetService passwordReset) {
         this.authService = authService;
         this.accessGuard = accessGuard;
         this.profileLinker = profileLinker;
+        this.passwordReset = passwordReset;
     }
 
     /**
@@ -93,6 +98,23 @@ public class AuthController {
             @RequestHeader(value = "User-Agent", required = false) String userAgent) {
         return ResponseEntity.ok(ApiResponse.success("Logged in",
                 linked(authService.loginWithPassword(request, userAgent))));
+    }
+
+    /** Forgotten password, step 1: a code to the account's email or phone. */
+    @PostMapping("/password/forgot")
+    public ResponseEntity<ApiResponse<OtpChallengeResponse>> forgotPassword(
+            @Valid @RequestBody PasswordResetRequests.Forgot request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "If an account uses this address, a code was sent to it", passwordReset.requestCode(request)));
+    }
+
+    /** Forgotten password, step 2: code + new password; signs out every device and logs this one in. */
+    @PostMapping("/password/reset")
+    public ResponseEntity<ApiResponse<AuthResponse>> resetPassword(
+            @Valid @RequestBody PasswordResetRequests.Reset request,
+            @RequestHeader(value = "User-Agent", required = false) String userAgent) {
+        return ResponseEntity.ok(ApiResponse.success("Password reset",
+                linked(passwordReset.reset(request, userAgent))));
     }
 
     @PostMapping("/refresh")

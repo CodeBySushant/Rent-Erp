@@ -644,6 +644,10 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 `users.location` (VARCHAR 120). `PUT /api/v1/users/{id}` (self or admin) also takes `location` (blank clears it) and now refuses a blank `name` (400 `NAME_REQUIRED`) and trims it; `UserResponse` returns `location`. The app's Edit Profile "Save Changes" uses it. Record: [docs/devlog/DEVLOG_PROFILE_PHOTO.md](docs/devlog/DEVLOG_PROFILE_PHOTO.md) → "Edit Profile save".
 
+### [2026-10-28] Forgotten password + email — V28
+
+`POST /api/v1/auth/password/forgot {email|phone}` and `/password/reset {verificationId, code, newPassword}` (public; purpose `RESET_PASSWORD`; decoy for unknown addresses; all sessions ended, new one opened). `MailGateway`: optional SMTP (`MAIL_HOST`, `MAIL_FROM`, …) for codes sent to email addresses. Full record: [docs/devlog/DEVLOG_PASSWORD_RESET.md](docs/devlog/DEVLOG_PASSWORD_RESET.md).
+
 ### [2026-10-28] Profile photos — V26
 
 `users.photo_file_id`; `PUT /api/v1/me/photo {fileId}` (caller's own `PROFILE_PHOTO` upload) and `DELETE /api/v1/me/photo`; `photoUrl` on `UserResponse`, `TenantRowResponse` and `TenantProfileResponse`; `FileService` lets owners/managers read the current photo of their tenants and join applicants. Full record: [docs/devlog/DEVLOG_PROFILE_PHOTO.md](docs/devlog/DEVLOG_PROFILE_PHOTO.md).

@@ -84,6 +84,19 @@ app:
     max-uploads-per-day: ${FILES_MAX_UPLOADS_PER_DAY:100}     # M21: per user, rolling 24 h
     max-total-mb-per-user: ${FILES_MAX_TOTAL_MB_PER_USER:500} # M21: kept per user (deleted files excluded)
 
+  # ── Email (SMTP) ─────────────────────────────────────────────────────────────
+  # Empty MAIL_HOST = no email: codes to an email address go to the OTP sender
+  # (the backend log in local, a 503 elsewhere) and support tickets are only
+  # stored. See common/mail/MailGateway and docs/devlog/DEVLOG_PASSWORD_RESET.md.
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    from: ${MAIL_FROM:}               # e.g. Rentlo <no-reply@rentlo.app>
+    starttls: ${MAIL_STARTTLS:true}   # port 587
+    ssl: ${MAIL_SSL:false}            # true for port 465
+
   # ── Request limits (H11) ──────────────────────────────────────────────────────
   # Counted in PostgreSQL (rate_limit_counters), shared by all instances.
   # RATE_LIMIT_ENABLED=false only on a developer machine running the live scripts.
