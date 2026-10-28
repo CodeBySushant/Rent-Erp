@@ -62,3 +62,25 @@ Invoke-RestMethod -Method Put -Uri "$base/api/v1/me/photo" -Headers $h -ContentT
 (Invoke-RestMethod -Uri "$base/api/v1/auth/me" -Headers $h).data.photoUrl
 ```
 (`-Form` needs PowerShell 7.)
+
+---
+
+## Edit Profile save (V27)
+
+**Why.** The app's Edit Profile "Save Changes" button only showed "Profile
+changes are saved once the user API is wired (Phase 2)". The name could
+already be saved (`PUT /api/v1/users/{id}`, self or admin), but the app never
+called it, and the screen's Location field had no column at all.
+
+**Change.**
+
+| Piece | Change |
+|---|---|
+| Schema | `V27__user_location.sql`: `users.location VARCHAR(120)` (nullable) |
+| `User` | `location` |
+| `UpdateUserRequest` | `location` (max 120); blank clears it |
+| `UserService.updateUser` | `name` is trimmed; a blank name is refused with 400 `NAME_REQUIRED` (it used to be stored as empty); `location` trimmed, blank → null |
+| `UserResponse` | `location` |
+
+Phone and email are not edited here: they stay on the verified change flow
+(`/me/phone`, `/me/email`, one-time code).

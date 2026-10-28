@@ -82,7 +82,16 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
 
         if (request.getName() != null) {
-            user.setName(request.getName());
+            String name = request.getName().trim();
+            if (name.isEmpty()) {
+                throw com.renterp.common.exception.ApiException.badRequest(
+                        "NAME_REQUIRED", "Enter your name.");
+            }
+            user.setName(name);
+        }
+        if (request.getLocation() != null) {
+            String place = request.getLocation().trim();
+            user.setLocation(place.isEmpty() ? null : place);
         }
         if (request.getPreferredLanguage() != null) {
             user.setPreferredLanguage(request.getPreferredLanguage());

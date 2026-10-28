@@ -22,6 +22,8 @@ public class UserResponse {
 
     /** {@code /api/v1/files/{id}/content} of the current photo, or null. */
     private final String photoUrl;
+
+    private final String location;
     private final Instant createdAt;
     private final Instant updatedAt;
 
@@ -35,6 +37,7 @@ public class UserResponse {
         this.active = user.isActive();
         this.preferredLanguage = user.getPreferredLanguage();
         this.photoUrl = photoUrl(user.getPhotoFileId());
+        this.location = user.getLocation();
         this.createdAt = user.getCreatedAt();
         this.updatedAt = user.getUpdatedAt();
     }

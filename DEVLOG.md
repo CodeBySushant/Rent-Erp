@@ -640,6 +640,10 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 ## Hardening (pre-deployment audit)
 
+### [2026-10-28] Edit Profile save — V27
+
+`users.location` (VARCHAR 120). `PUT /api/v1/users/{id}` (self or admin) also takes `location` (blank clears it) and now refuses a blank `name` (400 `NAME_REQUIRED`) and trims it; `UserResponse` returns `location`. The app's Edit Profile "Save Changes" uses it. Record: [docs/devlog/DEVLOG_PROFILE_PHOTO.md](docs/devlog/DEVLOG_PROFILE_PHOTO.md) → "Edit Profile save".
+
 ### [2026-10-28] Profile photos — V26
 
 `users.photo_file_id`; `PUT /api/v1/me/photo {fileId}` (caller's own `PROFILE_PHOTO` upload) and `DELETE /api/v1/me/photo`; `photoUrl` on `UserResponse`, `TenantRowResponse` and `TenantProfileResponse`; `FileService` lets owners/managers read the current photo of their tenants and join applicants. Full record: [docs/devlog/DEVLOG_PROFILE_PHOTO.md](docs/devlog/DEVLOG_PROFILE_PHOTO.md).

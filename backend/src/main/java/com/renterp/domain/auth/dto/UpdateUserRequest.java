@@ -15,6 +15,10 @@ public class UpdateUserRequest {
     @Pattern(regexp = "^(en|hi|ne)$", message = "Language must be 'en', 'hi' or 'ne'")
     private String preferredLanguage;
 
+    /** Free text; blank clears it. */
+    @Size(max = 120, message = "Location must not exceed 120 characters")
+    private String location;
+
     // Deprecated and ignored (M12): push tokens are registered per device with
     // POST /api/v1/me/devices. Kept so older app builds do not get a 400.
     @Size(max = 512, message = "FCM token must not exceed 512 characters")

@@ -82,6 +82,10 @@ public class User extends BaseAuditEntity {
     @Column(name = "photo_file_id", columnDefinition = "uuid")
     private UUID photoFileId;
 
+    /** Free-text place the user gives on Edit Profile, or null. */
+    @Column(length = 120)
+    private String location;
+
     // createdAt / updatedAt are inherited from BaseAuditEntity and set by JPA auditing
 
     public enum UserRole {
