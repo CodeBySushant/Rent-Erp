@@ -39,7 +39,9 @@ final class NotificationText {
             Map.entry(Type.MOVE_OUT_SETTLED, new String[]{"Move-out settled", "कमरा छोड़ने का हिसाब पूरा",
                     "कोठा छोड्ने हिसाब मिलान भयो"}),
             Map.entry(Type.SUPPORT_TICKET_RESOLVED, new String[]{"Support replied", "सहायता टीम ने जवाब दिया",
-                    "सहायता टोलीले जवाफ दियो"}));
+                    "सहायता टोलीले जवाफ दियो"}),
+            Map.entry(Type.AGREEMENT_ADDED, new String[]{"Agreement added", "किराया अनुबंध जोड़ा गया",
+                    "भाडा सम्झौता थपियो"}));
 
     // Whole parts.
     private static final Map<String, String[]> WORDS = Map.ofEntries(

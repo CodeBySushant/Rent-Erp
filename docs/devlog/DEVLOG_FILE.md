@@ -35,7 +35,7 @@ Other endpoints store the returned `url` where they take a photo / document refe
 ## Rules
 
 * **Who uploads:** any signed-in user; the uploader owns the file. A file tied to a property needs access to that property, or a membership / join request there (tenants sending proofs or KYC). A `PAYMENT_QR` needs owner/manager rights on the property.
-* **Who reads:** the uploader; an admin; anyone with access to the file's property; and, for a `PAYMENT_QR` only, the property's active tenants (they scan it to pay). Files without a property are private to the uploader. Nothing is public; every read needs the bearer token.
+* **Who reads:** the uploader; an admin; anyone with access to the file's property; and, for a `PAYMENT_QR` only, the property's active tenants (they scan it to pay); for an `AGREEMENT` set on a tenancy (V30), that tenancy's tenant. Files without a property are private to the uploader. Nothing is public; every read needs the bearer token.
 * **Type:** from the first bytes, never the name or `Content-Type`. Anything else → 400 `FILE_TYPE_NOT_ALLOWED`.
 * **Size:** 5 MB (`app.files.max-bytes`, `spring.servlet.multipart`). Larger → 413 `FILE_TOO_LARGE`.
 * **Names and paths:** the storage key is `yyyy/MM/<uuid>`, generated server-side. The client's file name is kept for display only, without folders or control characters. `LocalFileStorage` refuses any key that resolves outside its folder.

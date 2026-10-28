@@ -7,7 +7,7 @@
 
 `{todayBs, stays: [...], pendingRequests: [...]}`
 
-Each stay: membership id and status, start/end dates, property (name, address, city, join code), landlord name, landlord phone (**only while the tenancy is active**), current rooms with floor names and rent, monthly rent total, deposit (amount, status, date), notice period, billing day, grace period, current bill (month, status, payment status, total, paid, balance, due date), amount owed (issued, unsuperseded bills) and an overdue flag. Active tenancies come first.
+Each stay: membership id and status, start/end dates, property (name, address, city, join code), landlord name, landlord phone (**only while the tenancy is active**), current rooms with floor names and rent, monthly rent total, deposit (amount, status, date), notice period, billing day, grace period, current bill (month, status, payment status, total, paid, balance, due date), amount owed (issued, unsuperseded bills), an overdue flag, and the signed agreement if the owner added one (`agreement`, V30 — see DEVLOG_AGREEMENT). Active tenancies come first.
 
 Each pending request: join request id, property name and join code, requested at.
 

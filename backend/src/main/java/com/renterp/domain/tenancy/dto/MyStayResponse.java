@@ -16,12 +16,14 @@ public record MyStayResponse(String todayBs, List<Stay> stays, List<PendingJoin>
      * @param landlordPhone shared only while the tenancy is active
      * @param amountOwed    everything still owed on issued bills of this tenancy
      * @param overdue       an issued bill is unpaid past its due date
+     * @param agreement     the signed agreement the owner added (V30), or null
      */
     public record Stay(UUID membershipId, String status, String startedAtBs, String endedAtBs,
                        PropertyRef property, String landlordName, String landlordPhone,
                        List<RoomRef> rooms, BigDecimal monthlyRent, DepositRef deposit,
                        int noticePeriodDays, int billingDay, int gracePeriodDays,
-                       BillRef currentBill, BigDecimal amountOwed, boolean overdue) {
+                       BillRef currentBill, BigDecimal amountOwed, boolean overdue,
+                       AgreementResponse agreement) {
     }
 
     public record PropertyRef(UUID id, String name, String address, String city, String joinCode) {

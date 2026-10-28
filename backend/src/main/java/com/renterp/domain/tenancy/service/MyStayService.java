@@ -56,12 +56,14 @@ public class MyStayService {
     private final FloorRepository floors;
     private final TenantDepositRepository deposits;
     private final DashboardQueries q;
+    private final TenancyAgreementService agreements;
 
     public MyStayService(AccessGuard guard, TenantProfileRepository profiles,
                          TenantPropertyMembershipRepository memberships, JoinRequestRepository joinRequests,
                          PropertyRepository properties, UserRepository users, RoomAssignmentRepository assignments,
                          RoomRepository rooms, FloorRepository floors, TenantDepositRepository deposits,
-                         DashboardQueries q) {
+                         DashboardQueries q, TenancyAgreementService agreements) {
+        this.agreements = agreements;
         this.guard = guard;
         this.profiles = profiles;
         this.memberships = memberships;
@@ -156,7 +158,8 @@ public class MyStayService {
                     owner == null ? null : owner.getName(),
                     active && owner != null ? owner.getPhone() : null,
                     refs, rent, deposit, p.getVacancyNoticePeriodDays(), p.getBillingDay(), p.getGracePeriodDays(),
-                    bill, owed.getOrDefault(m.getId(), BigDecimal.ZERO), overdue.contains(m.getId())));
+                    bill, owed.getOrDefault(m.getId(), BigDecimal.ZERO), overdue.contains(m.getId()),
+                    agreements.describe(m)));
         }
 
         List<PendingJoin> waiting = pending.stream().map(j -> {

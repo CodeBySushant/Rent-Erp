@@ -16,6 +16,9 @@ import java.util.UUID;
 @Repository
 public interface TenantPropertyMembershipRepository extends JpaRepository<TenantPropertyMembership, UUID> {
 
+    /** V30: is [fileId] the agreement of one of this tenant profile's tenancies? */
+    boolean existsByAgreementFileIdAndTenantProfileId(UUID agreementFileId, UUID tenantProfileId);
+
     Optional<TenantPropertyMembership> findByTenantProfileIdAndPropertyIdAndStatus(
             UUID tenantProfileId, UUID propertyId, MembershipStatus status);
 

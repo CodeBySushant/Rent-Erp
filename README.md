@@ -29,7 +29,7 @@ BS (Bikram Sambat) calendar throughout. NPR only.
 | Framework | Spring Boot 4.1.0 |
 | Build | Maven 3.9+ (no wrapper — Maven must be installed) |
 | Database | PostgreSQL 13+ (developed against 17) |
-| Migrations | Flyway (V1 → V29) |
+| Migrations | Flyway (V1 → V30) |
 | ORM | Hibernate / Spring Data JPA, `ddl-auto: validate` |
 | Job queue | db-scheduler 15.0.0 (Postgres-backed, no Kafka) |
 | Connection pool | HikariCP (max 20) |
@@ -356,7 +356,7 @@ Rent-Erp/
 │       └── resources/
 │           ├── application.yml
 │           ├── log4j2.xml
-│           └── db/migration/     V1 → V29
+│           └── db/migration/     V1 → V30
 ├── scripts/
 │   └── update_branch_log.ps1     regenerates docs/BRANCH_COMMITS.md
 └── docs/
@@ -481,6 +481,8 @@ SQL statements and bind parameters go to `backend/logs/rent-erp-sql.log` — use
 **Forgotten password (2026-10-28, V28):** `POST /api/v1/auth/password/forgot` (code to the account's email or phone) and `/password/reset` (new password, every device signed out, this one logged in). Optional SMTP email (`MAIL_HOST` …) delivers codes to email addresses. [docs/devlog/DEVLOG_PASSWORD_RESET.md](docs/devlog/DEVLOG_PASSWORD_RESET.md).
 
 **Support tickets (2026-10-28, V29):** Contact Support messages — `POST/GET /api/v1/support/tickets` (topic, message, optional `SUPPORT_ATTACHMENT` upload), admin queue and resolve under `/api/v1/admin/support/tickets` with an in-app "Support replied" notification; emailed to `SUPPORT_INBOX` when email is configured. [docs/devlog/DEVLOG_SUPPORT.md](docs/devlog/DEVLOG_SUPPORT.md).
+
+**Rental agreement (2026-10-28, V30):** owners attach the signed agreement (PDF or photo) to a tenancy — `GET/PUT/DELETE /api/v1/memberships/{id}/agreement`; `/me/stay` returns it and the tenant may download it. [docs/devlog/DEVLOG_AGREEMENT.md](docs/devlog/DEVLOG_AGREEMENT.md).
 
 **`main`:** Phase 5 complete: billing engine, meters and readings, tenancy, tenant finance, and property structure are all implemented and tested.
 

@@ -644,6 +644,10 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 `users.location` (VARCHAR 120). `PUT /api/v1/users/{id}` (self or admin) also takes `location` (blank clears it) and now refuses a blank `name` (400 `NAME_REQUIRED`) and trims it; `UserResponse` returns `location`. The app's Edit Profile "Save Changes" uses it. Record: [docs/devlog/DEVLOG_PROFILE_PHOTO.md](docs/devlog/DEVLOG_PROFILE_PHOTO.md) → "Edit Profile save".
 
+### [2026-10-28] Rental agreement document — V30
+
+`tenant_property_memberships.agreement_file_id` (+ uploaded at / by); `GET/PUT/DELETE /api/v1/memberships/{id}/agreement` (owner/manager writes, tenant reads); `agreement` on each `/me/stay` stay; tenants may read their tenancy's `AGREEMENT` file; replaced files deleted after commit; `AGREEMENT_ADDED` notification. Full record: [docs/devlog/DEVLOG_AGREEMENT.md](docs/devlog/DEVLOG_AGREEMENT.md).
+
 ### [2026-10-28] Support tickets — V29
 
 `support_tickets`; `POST/GET /api/v1/support/tickets` (topic, message, optional `SUPPORT_ATTACHMENT` upload; 5 an hour); admin `GET /api/v1/admin/support/tickets` and `POST …/{id}/resolve {note?}` → in-app `SUPPORT_TICKET_RESOLVED`; new tickets emailed to `SUPPORT_INBOX` with Reply-To the user when email is configured. Full record: [docs/devlog/DEVLOG_SUPPORT.md](docs/devlog/DEVLOG_SUPPORT.md).

@@ -191,6 +191,31 @@ public class FileService {
     }
 
     /**
+     * Deletes a file that the system itself replaced (an agreement swapped for
+     * a new one), whoever uploaded it: marked deleted now, bytes removed once
+     * the transaction commits, so a rolled-back change keeps its file.
+     */
+    public void discard(UUID id) {
+        files.findByIdAndDeletedAtIsNull(id).ifPresent(f -> {
+            f.setDeletedAt(Instant.now());
+            files.save(f);
+            String key = f.getStorageKey();
+            if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override
+                            public void afterCommit() {
+                                deleteQuietly(key);
+                            }
+                        });
+            } else {
+                deleteQuietly(key);
+            }
+            log.info("File discarded — id: {}", id);
+        });
+    }
+
+    /**
      * M21: per-user limits so one account cannot fill the disk - at most
      * {@code app.files.max-uploads-per-day} uploads in 24 hours and
      * {@code app.files.max-total-mb-per-user} MB kept in total. Admins are not
@@ -246,6 +271,10 @@ public class FileService {
         if (f.getPurpose() == FilePurpose.PROFILE_PHOTO) {
             return canSeeProfilePhoto(f);
         }
+        // V30: the tenant of a tenancy may open that tenancy's agreement.
+        if (f.getPurpose() == FilePurpose.AGREEMENT && isAgreementTenant(user, f)) {
+            return true;
+        }
         if (f.getPropertyId() == null) {
             return false;
         }
@@ -291,6 +320,13 @@ public class FileService {
             return;
         }
         throw ApiException.forbidden("You do not have access to this property.");
+    }
+
+    /** V30: [f] is the agreement of a tenancy of the caller's tenant profile. */
+    private boolean isAgreementTenant(AuthUser user, StoredFile f) {
+        return profiles.findByUserId(user.userId())
+                .map(p -> memberships.existsByAgreementFileIdAndTenantProfileId(f.getId(), p.getId()))
+                .orElse(false);
     }
 
     /** A membership (any status) or a join request at this property. */

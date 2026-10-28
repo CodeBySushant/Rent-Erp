@@ -53,6 +53,16 @@ public class TenantPropertyMembership extends BaseAuditEntity {
     @Builder.Default
     private boolean active = true;
 
+    // ── V30: the signed rental agreement (an AGREEMENT upload) ─────────────
+    @Column(name = "agreement_file_id", columnDefinition = "uuid")
+    private UUID agreementFileId;
+
+    @Column(name = "agreement_uploaded_at")
+    private java.time.Instant agreementUploadedAt;
+
+    @Column(name = "agreement_uploaded_by", columnDefinition = "uuid")
+    private UUID agreementUploadedBy;
+
     public enum MembershipStatus { ACTIVE, TERMINATED }
 
     // Kept separate from Property.PaymentModel to avoid a compile-time cross-domain
