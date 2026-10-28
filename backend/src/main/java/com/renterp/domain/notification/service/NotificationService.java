@@ -43,12 +43,15 @@ public class NotificationService {
     private final EntityManager em;
     private final com.renterp.domain.auth.repository.UserRepository users;
     private final com.renterp.domain.notification.push.PushSender push;
+    private final NotificationPreferenceService preferences;
 
     public NotificationService(NotificationRepository notifications, DeviceTokenRepository devices,
                                TenantPropertyMembershipRepository memberships, TenantProfileRepository profiles,
                                AccessGuard guard, EntityManager em,
                                com.renterp.domain.auth.repository.UserRepository users,
-                               com.renterp.domain.notification.push.PushSender push) {
+                               com.renterp.domain.notification.push.PushSender push,
+                               NotificationPreferenceService preferences) {
+        this.preferences = preferences;
         this.users = users;
         this.push = push;
         this.notifications = notifications;
@@ -115,7 +118,10 @@ public class NotificationService {
                 .entityType(entityType)
                 .entityId(entityId)
                 .build());
-        pushAfterCommit(userId, title, stored, saved, entityType, entityId);
+        // V31: the bell always gets it; the phone only if the user wants this kind.
+        if (preferences.pushAllowed(userId, type)) {
+            pushAfterCommit(userId, title, stored, saved, entityType, entityId);
+        }
     }
 
     /**

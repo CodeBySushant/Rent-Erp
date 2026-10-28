@@ -34,3 +34,9 @@
 ## App
 
 Bell on the owner and tenant home screens shows an unread badge (refreshed every minute). Notifications screen (live): newest first, unread marked, tap → marks read and opens the bill / request / join requests / readings / move-out; "Mark all as read". Titles in English, Hindi, Nepali.
+
+## Preferences (V31)
+
+Push is sent only when the user's matching Notification Setting toggle is on;
+the in-app list always gets the notification. Mapping and API:
+[DEVLOG_NOTIFICATION_PREFS.md](DEVLOG_NOTIFICATION_PREFS.md).
