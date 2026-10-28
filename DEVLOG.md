@@ -640,6 +640,10 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 ## Hardening (pre-deployment audit)
 
+### [2026-10-28] Profile photos — V26
+
+`users.photo_file_id`; `PUT /api/v1/me/photo {fileId}` (caller's own `PROFILE_PHOTO` upload) and `DELETE /api/v1/me/photo`; `photoUrl` on `UserResponse`, `TenantRowResponse` and `TenantProfileResponse`; `FileService` lets owners/managers read the current photo of their tenants and join applicants. Full record: [docs/devlog/DEVLOG_PROFILE_PHOTO.md](docs/devlog/DEVLOG_PROFILE_PHOTO.md).
+
 ### [2026-10-28] Backend hardening — V25
 
 Fixes from the backend audit before deployment: C2 C6 C7 C8 C10, H1–H6 H11–H17, M1 M2 M4–M8 M10–M18 M20 M21, L2–L4. Migration V25 (version columns, rate-limit counters, KYC file ids, active-only floor/room uniqueness, charge stop date, penalty amount, device-token session). Full record — problem, fix, files, API changes, test notes, items still open: [docs/devlog/DEVLOG_HARDENING.md](docs/devlog/DEVLOG_HARDENING.md).

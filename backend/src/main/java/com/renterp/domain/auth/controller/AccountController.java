@@ -6,6 +6,7 @@ import com.renterp.domain.auth.dto.OtpChallengeResponse;
 import com.renterp.domain.auth.dto.SessionResponse;
 import com.renterp.domain.auth.dto.UserResponse;
 import com.renterp.domain.auth.service.AccountService;
+import com.renterp.domain.auth.service.ProfilePhotoService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,15 +15,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** The signed-in user's own account: password, phone, email, devices, delete. */
+/** The signed-in user's own account: password, phone, email, photo, devices, delete. */
 @RestController
 @RequestMapping("/api/v1/me")
 public class AccountController {
 
     private final AccountService service;
+    private final ProfilePhotoService photos;
 
-    public AccountController(AccountService service) {
+    public AccountController(AccountService service, ProfilePhotoService photos) {
         this.service = service;
+        this.photos = photos;
     }
 
     @PostMapping("/password")
@@ -50,6 +53,18 @@ public class AccountController {
     @PostMapping("/email")
     public ResponseEntity<ApiResponse<UserResponse>> confirmEmail(@Valid @RequestBody AccountRequests.ConfirmCode req) {
         return ResponseEntity.ok(ApiResponse.success("Email changed", service.confirmEmailChange(req)));
+    }
+
+    // ── PUT /api/v1/me/photo {fileId} — a PROFILE_PHOTO upload of the caller ──
+    @PutMapping("/photo")
+    public ResponseEntity<ApiResponse<UserResponse>> setPhoto(@Valid @RequestBody AccountRequests.SetPhoto req) {
+        return ResponseEntity.ok(ApiResponse.success("Profile photo updated", photos.setMine(req.getFileId())));
+    }
+
+    // ── DELETE /api/v1/me/photo ────────────────────────────────────────────
+    @DeleteMapping("/photo")
+    public ResponseEntity<ApiResponse<UserResponse>> removePhoto() {
+        return ResponseEntity.ok(ApiResponse.success("Profile photo removed", photos.removeMine()));
     }
 
     @GetMapping("/sessions")

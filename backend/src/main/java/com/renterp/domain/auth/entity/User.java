@@ -74,6 +74,14 @@ public class User extends BaseAuditEntity {
     @Column(name = "login_locked_until")
     private Instant loginLockedUntil;
 
+    /**
+     * The current profile photo: an upload with purpose PROFILE_PHOTO owned by
+     * this user, or null. Shown to the user and to the owners/managers of a
+     * property where they are a tenant or asked to join (FileService).
+     */
+    @Column(name = "photo_file_id", columnDefinition = "uuid")
+    private UUID photoFileId;
+
     // createdAt / updatedAt are inherited from BaseAuditEntity and set by JPA auditing
 
     public enum UserRole {

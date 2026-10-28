@@ -1,5 +1,6 @@
 package com.renterp.domain.tenancy.service;
 
+import com.renterp.domain.auth.dto.UserResponse;
 import java.util.Optional;
 import java.util.List;
 import com.renterp.domain.auth.security.AuthUser;
@@ -95,7 +96,7 @@ public class TenantProfileService {
 
     @Transactional(readOnly = true)
     public TenantProfileResponse getProfileById(UUID id) {
-        return TenantProfileResponse.from(requireProfile(id));
+        return withPhoto(requireProfile(id));
     }
 
     @Transactional(readOnly = true)
@@ -105,13 +106,21 @@ public class TenantProfileService {
         // tenants (members or join requests).
         Optional<List<UUID>> visible = guard.visiblePropertyIds();
         if (visible.isEmpty()) {
-            return profileRepository.findAll(pageable).map(TenantProfileResponse::from);
+            return profileRepository.findAll(pageable).map(this::withPhoto);
         }
         List<UUID> propertyIds = visible.get().isEmpty()
                 ? List.of(NO_PROPERTY) : visible.get();
         UUID callerId = guard.requireUser().userId();
         return profileRepository.findVisible(callerId, propertyIds, pageable)
-                .map(TenantProfileResponse::from);
+                .map(this::withPhoto);
+    }
+
+    /** The profile with its linked account's photo URL (join requests show it). */
+    private TenantProfileResponse withPhoto(TenantProfile p) {
+        String url = p.getUserId() == null ? null : userRepository.findById(p.getUserId())
+                .map(u -> UserResponse.photoUrl(u.getPhotoFileId()))
+                .orElse(null);
+        return TenantProfileResponse.from(p, url);
     }
 
     /** Placeholder for an empty IN list (no property has this id). */
@@ -127,7 +136,7 @@ public class TenantProfileService {
         if (req.getNumOccupants() != null) p.setNumOccupants(req.getNumOccupants());
         if (req.getEmergencyContactName() != null) p.setEmergencyContactName(req.getEmergencyContactName());
         if (req.getEmergencyContactPhone() != null) p.setEmergencyContactPhone(req.getEmergencyContactPhone());
-        return TenantProfileResponse.from(profileRepository.saveAndFlush(p));
+        return withPhoto(profileRepository.saveAndFlush(p));
     }
 
     @Transactional

@@ -19,6 +19,9 @@ public class UserResponse {
     private final KycStatus kycStatus;
     private final boolean active;
     private final String preferredLanguage;
+
+    /** {@code /api/v1/files/{id}/content} of the current photo, or null. */
+    private final String photoUrl;
     private final Instant createdAt;
     private final Instant updatedAt;
 
@@ -31,11 +34,17 @@ public class UserResponse {
         this.kycStatus = user.getKycStatus();
         this.active = user.isActive();
         this.preferredLanguage = user.getPreferredLanguage();
+        this.photoUrl = photoUrl(user.getPhotoFileId());
         this.createdAt = user.getCreatedAt();
         this.updatedAt = user.getUpdatedAt();
     }
 
     public static UserResponse from(User user) {
         return new UserResponse(user);
+    }
+
+    /** The download path the app shows a profile photo from. */
+    public static String photoUrl(UUID fileId) {
+        return fileId == null ? null : "/api/v1/files/" + fileId + "/content";
     }
 }

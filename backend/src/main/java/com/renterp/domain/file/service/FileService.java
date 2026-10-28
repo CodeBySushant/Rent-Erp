@@ -1,6 +1,7 @@
 package com.renterp.domain.file.service;
 
 import com.renterp.common.exception.ApiException;
+import com.renterp.domain.auth.repository.UserRepository;
 import com.renterp.domain.auth.security.AccessGuard;
 import com.renterp.domain.auth.security.AuthUser;
 import com.renterp.domain.file.dto.FileResponse;
@@ -44,7 +45,10 @@ import java.util.UUID;
  *       needs owner/manager rights.</li>
  *   <li>Readers: the uploader, an admin, anyone with access to the file's
  *       property, and - for a payment QR only - the property's active tenants.
- *       Everything else is 403; files are never public.</li>
+ *       A profile photo that is its owner's current photo may also be read by
+ *       the owners and managers of any property where that person has a
+ *       tenancy or a join request. Everything else is 403; files are never
+ *       public.</li>
  * </ul>
  */
 @Service
@@ -58,6 +62,7 @@ public class FileService {
     private final TenantProfileRepository profiles;
     private final TenantPropertyMembershipRepository memberships;
     private final JoinRequestRepository joinRequests;
+    private final UserRepository users;
     private final long maxBytes;
     private final int maxUploadsPerDay;
     private final long maxTotalBytesPerUser;
@@ -66,6 +71,7 @@ public class FileService {
                        TenantProfileRepository profiles,
                        TenantPropertyMembershipRepository memberships,
                        JoinRequestRepository joinRequests,
+                       UserRepository users,
                        @Value("${app.files.max-bytes:5242880}") long maxBytes,
                        @Value("${app.files.max-uploads-per-day:100}") int maxUploadsPerDay,
                        @Value("${app.files.max-total-mb-per-user:500}") long maxTotalMbPerUser) {
@@ -77,6 +83,7 @@ public class FileService {
         this.profiles = profiles;
         this.memberships = memberships;
         this.joinRequests = joinRequests;
+        this.users = users;
         this.maxBytes = maxBytes;
     }
 
@@ -167,6 +174,15 @@ public class FileService {
         }
         f.setDeletedAt(Instant.now());
         files.save(f);
+        // A deleted photo is no longer anyone's profile photo.
+        if (f.getPurpose() == FilePurpose.PROFILE_PHOTO) {
+            users.findById(f.getOwnerUserId())
+                    .filter(u -> f.getId().equals(u.getPhotoFileId()))
+                    .ifPresent(u -> {
+                        u.setPhotoFileId(null);
+                        users.save(u);
+                    });
+        }
         deleteQuietly(f.getStorageKey());
         log.info("File deleted — id: {}", id);
     }
@@ -227,6 +243,9 @@ public class FileService {
         if (user.isAdmin() || user.userId().equals(f.getOwnerUserId())) {
             return true;
         }
+        if (f.getPurpose() == FilePurpose.PROFILE_PHOTO) {
+            return canSeeProfilePhoto(f);
+        }
         if (f.getPropertyId() == null) {
             return false;
         }
@@ -235,6 +254,29 @@ public class FileService {
         }
         // Tenants pay by scanning the owner's QR, so they may see that one file type.
         return f.getPurpose() == FilePurpose.PAYMENT_QR && isActiveTenant(user, f.getPropertyId());
+    }
+
+    /**
+     * A tenant's current profile photo: visible to whoever can see a property
+     * where that person has a tenancy (any status) or a join request — the
+     * places the app shows them to an owner (tenant list, tenant detail, join
+     * requests). An old or replaced photo is visible to nobody but its owner.
+     */
+    private boolean canSeeProfilePhoto(StoredFile f) {
+        boolean current = users.findById(f.getOwnerUserId())
+                .map(u -> f.getId().equals(u.getPhotoFileId()))
+                .orElse(false);
+        if (!current) {
+            return false;
+        }
+        return profiles.findByUserId(f.getOwnerUserId())
+                .map(p -> {
+                    java.util.Set<UUID> props = new java.util.HashSet<>(
+                            memberships.findPropertyIdsByTenantProfileId(p.getId()));
+                    props.addAll(joinRequests.findPropertyIdsByTenantProfileId(p.getId()));
+                    return props.stream().anyMatch(id -> guard.hasPropertyAccess(id, AccessRole.VIEW_ONLY));
+                })
+                .orElse(false);
     }
 
     private void requireCanAttach(AuthUser user, FilePurpose purpose, UUID propertyId) {

@@ -1,5 +1,8 @@
 package com.renterp.domain.dashboard.service;
 
+import com.renterp.domain.auth.dto.UserResponse;
+import com.renterp.domain.auth.entity.User;
+import com.renterp.domain.auth.repository.UserRepository;
 import com.renterp.common.exception.ResourceNotFoundException;
 import com.renterp.common.util.BsCalendar;
 import com.renterp.domain.auth.security.AccessGuard;
@@ -48,11 +51,14 @@ public class DashboardService {
     private final TenantProfileRepository profiles;
     private final RoomAssignmentRepository assignments;
     private final RoomRepository rooms;
+    private final UserRepository users;
     private final FloorRepository floors;
 
     public DashboardService(DashboardQueries q, AccessGuard guard, PropertyRepository properties,
                             TenantPropertyMembershipRepository memberships, TenantProfileRepository profiles,
-                            RoomAssignmentRepository assignments, RoomRepository rooms, FloorRepository floors) {
+                            RoomAssignmentRepository assignments, RoomRepository rooms, FloorRepository floors,
+                            UserRepository users) {
+        this.users = users;
         this.q = q;
         this.guard = guard;
         this.properties = properties;
@@ -165,6 +171,14 @@ public class DashboardService {
         Map<UUID, TenantProfile> profileById = byId(profiles.findAllById(
                 ms.stream().map(TenantPropertyMembership::getTenantProfileId).collect(Collectors.toSet())),
                 TenantProfile::getId);
+        // Profile photos of tenants who have an app account.
+        Map<UUID, String> photoByUser = new HashMap<>();
+        for (User u : users.findAllById(profileById.values().stream()
+                .map(TenantProfile::getUserId).filter(Objects::nonNull).collect(Collectors.toSet()))) {
+            if (u.getPhotoFileId() != null) {
+                photoByUser.put(u.getId(), UserResponse.photoUrl(u.getPhotoFileId()));
+            }
+        }
         Map<UUID, List<RoomAssignment>> currentByMembership = assignments
                 .findByMembershipIdInAndEffectiveToBsIsNull(membershipIds).stream()
                 .collect(Collectors.groupingBy(RoomAssignment::getMembershipId));
@@ -206,7 +220,8 @@ public class DashboardService {
                     p == null ? null : p.getFullName(), p == null ? null : p.getPhone(),
                     p != null && p.getUserId() != null, m.getStatus().name(), m.getStartedAtBs(),
                     m.getEndedAtBs(), refs, rent, latestBill, owed.getOrDefault(m.getId(), BigDecimal.ZERO),
-                    overdue.contains(m.getId())));
+                    overdue.contains(m.getId()),
+                    p == null || p.getUserId() == null ? null : photoByUser.get(p.getUserId())));
         }
         rows.sort(Comparator.comparing(r -> r.name() == null ? "" : r.name(), String.CASE_INSENSITIVE_ORDER));
         return rows;

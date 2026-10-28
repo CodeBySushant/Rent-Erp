@@ -37,6 +37,7 @@ app's screens need, and fixes found while integrating. Existing behaviour on
 | Account | change password (other devices signed out), phone / email with a code to the new one, devices, delete account | V22 | `account_test.ps1` |
 | Notifications | in-app inbox; created with bills, payments, readings, requests, joins, move-out; device tokens for push later | V23 | `notifications_test.ps1` |
 | Hardening (2026-10-28) | Audit fixes C2 C6 C7 C8 C10, H1–H6 H11–H17, M1 M2 M4–M8 M10–M18 M20 M21, L2–L4 — see `docs/devlog/DEVLOG_HARDENING.md` (API changes in its section 3) | V24–V25 | new unit tests; live scripts updated (MyStay, BillingFlow) |
+| Profile photos (2026-10-28) | `PUT/DELETE /me/photo`, `photoUrl` in user, tenant-row and tenant-profile responses, owner read access to tenants' current photos — `docs/devlog/DEVLOG_PROFILE_PHOTO.md` | V26 | `ProfilePhotoServiceTest` |
 
 ## Breaking changes / migration notes
 

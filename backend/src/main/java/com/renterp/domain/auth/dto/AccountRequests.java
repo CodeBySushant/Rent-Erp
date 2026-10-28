@@ -22,6 +22,14 @@ public final class AccountRequests {
         private String newPassword;
     }
 
+    /** PUT /me/photo: a PROFILE_PHOTO upload of the caller. */
+    @Getter
+    @Setter
+    public static class SetPhoto {
+        @NotNull(message = "fileId is required")
+        private UUID fileId;
+    }
+
     @Getter
     @Setter
     public static class NewPhone {

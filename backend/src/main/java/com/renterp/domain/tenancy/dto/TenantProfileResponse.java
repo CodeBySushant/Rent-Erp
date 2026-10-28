@@ -22,10 +22,14 @@ public class TenantProfileResponse {
     private final String emergencyContactName;
     private final String emergencyContactPhone;
     private final boolean active;
+
+    /** The linked account's profile photo, or null (none, or no account). */
+    private final String photoUrl;
     private final Instant createdAt;
     private final Instant updatedAt;
 
-    private TenantProfileResponse(TenantProfile t) {
+    private TenantProfileResponse(TenantProfile t, String photoUrl) {
+        this.photoUrl = photoUrl;
         this.id = t.getId();
         this.userId = t.getUserId();
         this.linked = t.getUserId() != null;
@@ -42,5 +46,9 @@ public class TenantProfileResponse {
         this.updatedAt = t.getUpdatedAt();
     }
 
-    public static TenantProfileResponse from(TenantProfile t) { return new TenantProfileResponse(t); }
+    public static TenantProfileResponse from(TenantProfile t) { return new TenantProfileResponse(t, null); }
+
+    public static TenantProfileResponse from(TenantProfile t, String photoUrl) {
+        return new TenantProfileResponse(t, photoUrl);
+    }
 }

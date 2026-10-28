@@ -12,6 +12,8 @@ import java.util.UUID;
  * @param latestBill  newest live bill, or null
  * @param amountOwed  everything still owed on issued bills
  * @param overdue     an issued bill is unpaid past its due date
+ * @param photoUrl    the tenant's profile photo ({@code /api/v1/files/{id}/content}),
+ *                    or null when they have none or no app account
  */
 public record TenantRowResponse(
         UUID membershipId,
@@ -27,7 +29,8 @@ public record TenantRowResponse(
         BigDecimal monthlyRent,
         LatestBill latestBill,
         BigDecimal amountOwed,
-        boolean overdue) {
+        boolean overdue,
+        String photoUrl) {
 
     public record RoomRef(UUID assignmentId, UUID roomId, String roomName, String floorName,
                           String effectiveFromBs, BigDecimal monthlyRent) {

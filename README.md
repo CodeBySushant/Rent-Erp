@@ -29,7 +29,7 @@ BS (Bikram Sambat) calendar throughout. NPR only.
 | Framework | Spring Boot 4.1.0 |
 | Build | Maven 3.9+ (no wrapper — Maven must be installed) |
 | Database | PostgreSQL 13+ (developed against 17) |
-| Migrations | Flyway (V1 → V25) |
+| Migrations | Flyway (V1 → V26) |
 | ORM | Hibernate / Spring Data JPA, `ddl-auto: validate` |
 | Job queue | db-scheduler 15.0.0 (Postgres-backed, no Kafka) |
 | Connection pool | HikariCP (max 20) |
@@ -356,7 +356,7 @@ Rent-Erp/
 │       └── resources/
 │           ├── application.yml
 │           ├── log4j2.xml
-│           └── db/migration/     V1 → V25
+│           └── db/migration/     V1 → V26
 ├── scripts/
 │   └── update_branch_log.ps1     regenerates docs/BRANCH_COMMITS.md
 └── docs/
@@ -475,6 +475,8 @@ SQL statements and bind parameters go to `backend/logs/rent-erp-sql.log` — use
 ## Current state
 
 **Hardening (2026-10-28, V25):** fixes from the pre-deployment backend audit — reading-chain integrity, billing-period overlap, draft bills hidden from tenants, one tenant profile per person, safe logging, admin-only KYC decisions, rate limits, penalties, infrastructure meters, notification languages, optimistic locking and more. Every change, API difference and new error code: [docs/devlog/DEVLOG_HARDENING.md](docs/devlog/DEVLOG_HARDENING.md).
+
+**Profile photos (2026-10-28, V26):** `users.photo_file_id`, `PUT/DELETE /api/v1/me/photo`, `photoUrl` in user, tenant-list and tenant-profile responses; owners can see photos of their own tenants and applicants only. [docs/devlog/DEVLOG_PROFILE_PHOTO.md](docs/devlog/DEVLOG_PROFILE_PHOTO.md).
 
 **`main`:** Phase 5 complete: billing engine, meters and readings, tenancy, tenant finance, and property structure are all implemented and tested.
 
