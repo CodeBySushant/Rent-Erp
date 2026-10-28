@@ -97,6 +97,12 @@ app:
     starttls: ${MAIL_STARTTLS:true}   # port 587
     ssl: ${MAIL_SSL:false}            # true for port 465
 
+  # ── Support (Contact Support tickets, V29) ────────────────────────────────────
+  # New tickets are emailed here when email is configured; empty = stored only
+  # (read them with GET /api/v1/admin/support/tickets).
+  support:
+    inbox: ${SUPPORT_INBOX:}
+
   # ── Request limits (H11) ──────────────────────────────────────────────────────
   # Counted in PostgreSQL (rate_limit_counters), shared by all instances.
   # RATE_LIMIT_ENABLED=false only on a developer machine running the live scripts.

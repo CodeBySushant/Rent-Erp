@@ -37,7 +37,9 @@ final class NotificationText {
                     "सामेल हुने अनुरोध अस्वीकार भयो"}),
             Map.entry(Type.MOVE_OUT_NOTICE, new String[]{"Move-out notice", "कमरा छोड़ने की सूचना", "कोठा छोड्ने सूचना"}),
             Map.entry(Type.MOVE_OUT_SETTLED, new String[]{"Move-out settled", "कमरा छोड़ने का हिसाब पूरा",
-                    "कोठा छोड्ने हिसाब मिलान भयो"}));
+                    "कोठा छोड्ने हिसाब मिलान भयो"}),
+            Map.entry(Type.SUPPORT_TICKET_RESOLVED, new String[]{"Support replied", "सहायता टीम ने जवाब दिया",
+                    "सहायता टोलीले जवाफ दियो"}));
 
     // Whole parts.
     private static final Map<String, String[]> WORDS = Map.ofEntries(

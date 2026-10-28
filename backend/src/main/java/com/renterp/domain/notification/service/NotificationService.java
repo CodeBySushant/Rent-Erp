@@ -90,6 +90,12 @@ public class NotificationService {
                 .ifPresent(u -> save(u, type, body, propertyId, entityType, entityId));
     }
 
+    /** One account directly (not through a property), e.g. a support reply. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void toUser(UUID userId, Type type, String body, String entityType, UUID entityId) {
+        save(userId, type, body, null, entityType, entityId);
+    }
+
     private void save(UUID userId, Type type, String body, UUID propertyId, String entityType, UUID entityId) {
         UUID actor = guard.current().map(AuthUser::userId).orElse(null);
         if (userId.equals(actor)) {

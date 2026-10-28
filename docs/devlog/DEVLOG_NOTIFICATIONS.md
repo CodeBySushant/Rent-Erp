@@ -19,6 +19,7 @@
 | Join request accepted / rejected | tenant | JOIN_ACCEPTED / JOIN_REJECTED | membership / join request |
 | Move-out notice (`MoveOutService.giveNotice`) | staff (by tenant) or tenant (by owner) | MOVE_OUT_NOTICE | move-out |
 | Move-out settled | tenant | MOVE_OUT_SETTLED (refund, still owed) | move-out |
+| Support replied | the ticket's author (owner or tenant) | SUPPORT_TICKET_RESOLVED (`T-xxxxxxxx · note`, entity `SUPPORT_TICKET`) | admin resolves a support ticket (V29, DEVLOG_SUPPORT) |
 
 "Property staff" = active `property_access` users of the property (owner and managers). A tenant is reached through their linked account; unlinked tenants get nothing. The person who made the change is never notified of it.
 

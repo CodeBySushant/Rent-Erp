@@ -62,7 +62,8 @@ public class Notification extends BaseAuditEntity {
         JOIN_ACCEPTED("Join request accepted"),
         JOIN_REJECTED("Join request rejected"),
         MOVE_OUT_NOTICE("Move-out notice"),
-        MOVE_OUT_SETTLED("Move-out settled");
+        MOVE_OUT_SETTLED("Move-out settled"),
+        SUPPORT_TICKET_RESOLVED("Support replied");
 
         public final String title;
 

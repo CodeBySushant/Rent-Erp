@@ -57,7 +57,9 @@ public class StoredFile {
 
     public enum FilePurpose {
         KYC_ID_FRONT, KYC_ID_BACK, KYC_SELFIE, METER_PHOTO, PAYMENT_PROOF,
-        PAYMENT_QR, PROFILE_PHOTO, AGREEMENT, REQUEST_PHOTO, OTHER;
+        PAYMENT_QR, PROFILE_PHOTO, AGREEMENT, REQUEST_PHOTO, OTHER,
+        /** Contact Support attachment (V29): photo or PDF, readable by its owner and admins only. */
+        SUPPORT_ATTACHMENT;
 
         /** Photos only: no PDF where the app shows the file as an image. */
         public boolean imagesOnly() {

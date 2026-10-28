@@ -83,12 +83,20 @@ public class MailGateway {
      * 503 EMAIL_NOT_SENT when the SMTP server refuses or cannot be reached.
      */
     public void send(String to, String subject, String text) {
+        send(to, null, subject, text);
+    }
+
+    /** {@link #send(String, String, String)} with a Reply-To address (null for none). */
+    public void send(String to, String replyTo, String subject, String text) {
         if (sender == null) {
             throw ApiException.unavailable("EMAIL_NOT_CONFIGURED", "Emails cannot be sent yet.");
         }
         SimpleMailMessage m = new SimpleMailMessage();
         m.setFrom(from);
         m.setTo(to);
+        if (replyTo != null && !replyTo.isBlank()) {
+            m.setReplyTo(replyTo);
+        }
         m.setSubject(subject);
         m.setText(text);
         try {
@@ -102,11 +110,16 @@ public class MailGateway {
 
     /** Like {@link #send}, but never throws: false when it was not sent. */
     public boolean sendQuietly(String to, String subject, String text) {
+        return sendQuietly(to, null, subject, text);
+    }
+
+    /** Like {@link #send(String, String, String, String)}, but never throws. */
+    public boolean sendQuietly(String to, String replyTo, String subject, String text) {
         if (sender == null || to == null || to.isBlank()) {
             return false;
         }
         try {
-            send(to, subject, text);
+            send(to, replyTo, subject, text);
             return true;
         } catch (RuntimeException e) {
             return false;

@@ -28,7 +28,7 @@
 | GET | `/files/{id}/content` | — | the bytes (`Cache-Control: no-store, private`, `X-Content-Type-Options: nosniff`) |
 | DELETE | `/files/{id}` | — | soft delete, bytes removed |
 
-`purpose`: `KYC_ID_FRONT`, `KYC_ID_BACK`, `KYC_SELFIE`, `METER_PHOTO`, `PAYMENT_PROOF`, `PAYMENT_QR`, `PROFILE_PHOTO`, `AGREEMENT`, `REQUEST_PHOTO`, `OTHER`. Selfie, meter photo, QR, profile and request photos must be images.
+`purpose`: `KYC_ID_FRONT`, `KYC_ID_BACK`, `KYC_SELFIE`, `METER_PHOTO`, `PAYMENT_PROOF`, `PAYMENT_QR`, `PROFILE_PHOTO`, `AGREEMENT`, `REQUEST_PHOTO`, `OTHER`, `SUPPORT_ATTACHMENT` (V29, Contact Support; photo or PDF). Selfie, meter photo, QR, profile and request photos must be images.
 
 Other endpoints store the returned `url` where they take a photo / document reference (KYC `photo*Url`, reading `photoUrl`, and the payment / request flows that follow).
 
