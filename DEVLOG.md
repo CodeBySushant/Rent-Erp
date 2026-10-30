@@ -640,6 +640,10 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 ## Hardening (pre-deployment audit)
 
+### [2026-10-30] Sign-up without phone OTP (branch `temp/signup-no-otp` only)
+
+No SMS provider yet, so on this branch `POST /auth/register` no longer needs `verificationToken` (it is optional and ignored) and does not consume a phone verification. New accounts get `phone_verified_at = null`. All other register checks are unchanged, there is no migration, and phone login still uses OTP. Full record: [docs/devlog/DEVLOG_SIGNUP_NO_OTP.md](docs/devlog/DEVLOG_SIGNUP_NO_OTP.md).
+
 ### [2026-10-28] Edit Profile save — V27
 
 `users.location` (VARCHAR 120). `PUT /api/v1/users/{id}` (self or admin) also takes `location` (blank clears it) and now refuses a blank `name` (400 `NAME_REQUIRED`) and trims it; `UserResponse` returns `location`. The app's Edit Profile "Save Changes" uses it. Record: [docs/devlog/DEVLOG_PROFILE_PHOTO.md](docs/devlog/DEVLOG_PROFILE_PHOTO.md) → "Edit Profile save".

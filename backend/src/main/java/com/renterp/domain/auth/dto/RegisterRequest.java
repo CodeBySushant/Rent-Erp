@@ -39,6 +39,10 @@ public class RegisterRequest {
     @Pattern(regexp = "^(en|hi|ne)$", message = "Language must be 'en', 'hi' or 'ne'")
     private String preferredLanguage = "en";
 
-    @NotBlank(message = "verificationToken is required - verify the phone number first")
+    /**
+     * Phone verification is switched off on this branch (no SMS provider yet),
+     * so this is optional and ignored. Kept so older app builds and the
+     * api-tests scripts, which still send it, are not rejected.
+     */
     private String verificationToken;
 }

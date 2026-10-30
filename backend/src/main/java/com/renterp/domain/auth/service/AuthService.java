@@ -29,7 +29,10 @@ import java.util.Locale;
 /**
  * Sign-up and login, as the app's auth screens use them:
  *
- *   sign-up : otp/request (SIGNUP) -> otp/verify -> register   (tokens returned)
+ *   sign-up : register                                          (tokens returned)
+ *             The phone is NOT verified on this branch: there is no SMS
+ *             provider yet, so sign-up skips otp/request + otp/verify and
+ *             the account starts with phone_verified_at = null.
  *   login   : otp/request (LOGIN)  -> login                     (tokens returned)
  *             or login/password (email + password)
  *   session : refresh (rotates the refresh token), logout, me
@@ -95,9 +98,9 @@ public class AuthService {
     // ── Register ───────────────────────────────────────────────────────────────
 
     /**
-     * Creates the account and logs it in. Everything (spending the phone
-     * verification, creating the user, opening the session) is one
-     * transaction: a failure leaves no account and an unspent verification.
+     * Creates the account and logs it in, in one transaction: a failure
+     * leaves no account. No phone OTP is required (see the class comment);
+     * any verificationToken in the request is ignored.
      */
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent) {
@@ -117,7 +120,6 @@ public class AuthService {
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw ApiException.conflict("EMAIL_TAKEN", "An account with this email already exists.");
         }
-        otpService.consumeSignupToken(request.getVerificationToken(), request.getPhone());
 
         User user = userRepository.saveAndFlush(User.builder()
                 .phone(request.getPhone())
@@ -126,8 +128,7 @@ public class AuthService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .role(request.getRole())
                 .preferredLanguage(request.getPreferredLanguage() == null ? "en" : request.getPreferredLanguage())
-                .phoneVerifiedAt(Instant.now())
-                .build());
+                .build()); // phoneVerifiedAt stays null: the number was not verified
         log.info("Account registered - id: {}, role: {}", user.getId(), user.getRole());
         return tokenService.openSession(user, userAgent);
     }
