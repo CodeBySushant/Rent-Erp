@@ -67,10 +67,9 @@ class PasswordResetServiceTest {
         when(otp.canDeliver(anyString())).thenReturn(true);
     }
 
-    private static PasswordResetRequests.Forgot forgot(String email, String phone) {
+    private static PasswordResetRequests.Forgot forgot(String email) {
         PasswordResetRequests.Forgot f = new PasswordResetRequests.Forgot();
         f.setEmail(email);
-        f.setPhone(phone);
         return f;
     }
 
@@ -93,14 +92,16 @@ class PasswordResetServiceTest {
         when(users.findByEmailIgnoreCase("sita@example.com")).thenReturn(Optional.of(user));
         OtpChallengeResponse real = new OtpChallengeResponse(UUID.randomUUID(), 300, 45);
         when(otp.issue("sita@example.com", OtpAttempt.Purpose.RESET_PASSWORD, userId)).thenReturn(real);
-        assertSame(real, service.requestCode(forgot(" Sita@Example.com ", null)));
+        assertSame(real, service.requestCode(forgot(" Sita@Example.com ")));
     }
 
     @Test
-    void knownPhoneGetsARealCode() {
-        when(users.findByPhoneAndActiveTrue("9800000001")).thenReturn(Optional.of(user));
-        service.requestCode(forgot(null, "9800000001"));
-        verify(otp).issue("9800000001", OtpAttempt.Purpose.RESET_PASSWORD, userId);
+    void phoneNumbersAreNeverLookedUp() {
+        // Email only on branch temp/signup-no-otp: no phone reset, no SMS.
+        when(otp.canDeliver("9800000001")).thenReturn(false);
+        assertThrows(ApiException.class, () -> service.requestCode(forgot("9800000001")));
+        verify(users, never()).findByPhoneAndActiveTrue(anyString());
+        verify(otp, never()).issue(anyString(), any(), any());
     }
 
     @Test
@@ -108,27 +109,24 @@ class PasswordResetServiceTest {
         OtpChallengeResponse decoy = new OtpChallengeResponse(UUID.randomUUID(), 300, 45);
         when(otp.decoyChallenge()).thenReturn(decoy);
         when(users.findByEmailIgnoreCase("nobody@example.com")).thenReturn(Optional.empty());
-        assertSame(decoy, service.requestCode(forgot("nobody@example.com", null)));
+        assertSame(decoy, service.requestCode(forgot("nobody@example.com")));
 
         user.setActive(false);
         when(users.findByEmailIgnoreCase("sita@example.com")).thenReturn(Optional.of(user));
-        assertSame(decoy, service.requestCode(forgot("sita@example.com", null)));
+        assertSame(decoy, service.requestCode(forgot("sita@example.com")));
         verify(otp, never()).issue(anyString(), any(), any());
     }
 
     @Test
-    void exactlyOneAddressIsRequired() {
-        ApiException none = assertThrows(ApiException.class, () -> service.requestCode(forgot(null, " ")));
+    void anEmailIsRequired() {
+        ApiException none = assertThrows(ApiException.class, () -> service.requestCode(forgot(" ")));
         assertEquals("IDENTIFIER_REQUIRED", none.getCode());
-        ApiException both = assertThrows(ApiException.class,
-                () -> service.requestCode(forgot("sita@example.com", "9800000001")));
-        assertEquals("IDENTIFIER_REQUIRED", both.getCode());
     }
 
     @Test
     void undeliverableIsRefusedBeforeAnyLookup() {
         when(otp.canDeliver("sita@example.com")).thenReturn(false);
-        ApiException e = assertThrows(ApiException.class, () -> service.requestCode(forgot("sita@example.com", null)));
+        ApiException e = assertThrows(ApiException.class, () -> service.requestCode(forgot("sita@example.com")));
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, e.getStatus());
         assertEquals("EMAIL_NOT_CONFIGURED", e.getCode());
         verify(users, never()).findByEmailIgnoreCase(anyString());

@@ -17,8 +17,9 @@ import java.util.Properties;
  *
  * Configured with MAIL_HOST / MAIL_PORT / MAIL_USERNAME / MAIL_PASSWORD /
  * MAIL_FROM (application.yml, app.mail.*). With no MAIL_HOST nothing is
- * created and {@link #isConfigured()} is false: callers fall back (codes go
- * to the OtpSender, ticket emails are skipped). The sender is built here
+ * created and {@link #isConfigured()} is false: callers fall back (reset codes
+ * go to the backend log with APP_ENV=local, a 503 elsewhere; ticket emails are
+ * skipped). The sender is built here
  * rather than by Spring Boot's mail auto-configuration, so an unconfigured
  * server has no mail bean and no mail health check that could mark it DOWN.
  */
@@ -43,7 +44,7 @@ public class MailGateway {
         this.from = from == null ? "" : from.trim();
         if (h.isEmpty()) {
             this.sender = null;
-            log.info("Email is not configured (MAIL_HOST empty): codes to email addresses use the OTP sender, "
+            log.info("Email is not configured (MAIL_HOST empty): reset codes go to the log (local only), "
                     + "support tickets are not emailed.");
             return;
         }

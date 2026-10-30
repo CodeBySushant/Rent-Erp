@@ -375,7 +375,7 @@ Each domain package follows the same layout: `entity/` → `repository/` → `se
 
 All routes are under `/api/v1`. **On `feature/app-integration`, every route needs `Authorization: Bearer <accessToken>`** except `/api/v1/auth/*` (sign-up, login, refresh) and `/actuator/health`. Get a token from `/api/v1/auth/register`, `/auth/login` or `/auth/login/password`; see [docs/devlog/DEVLOG_AUTH.md](docs/devlog/DEVLOG_AUTH.md). For local runs of the older Postman collections, set `AUTH_ENFORCED=false` in `backend/.env`. With `APP_ENV=local`, OTP codes are written to `backend/logs/rent-erp.log`.
 
-> **Branch `temp/signup-no-otp`:** sign-up does not verify the phone (no SMS provider yet). `/auth/register` works without `verificationToken`. See [docs/devlog/DEVLOG_SIGNUP_NO_OTP.md](docs/devlog/DEVLOG_SIGNUP_NO_OTP.md).
+> **Branch `temp/signup-no-otp`:** no phone OTP at all (no SMS provider yet). Email + password only: `/auth/register` (no code), `/auth/login/password`, and Forgot Password by email. `/auth/otp/*`, `/auth/login` and the `/me/phone*` and `/me/email*` change endpoints do not exist here. See [docs/devlog/DEVLOG_SIGNUP_NO_OTP.md](docs/devlog/DEVLOG_SIGNUP_NO_OTP.md).
 
 | Base path | Controller |
 |---|---|

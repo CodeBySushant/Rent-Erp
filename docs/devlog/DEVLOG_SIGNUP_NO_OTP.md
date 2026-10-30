@@ -1,29 +1,45 @@
-# Sign-up without phone OTP (temporary, branch `temp/signup-no-otp`)
+# No phone OTP (temporary, branch `temp/signup-no-otp`)
 
-**Date:** 2026-10-30
-**Branch:** `temp/signup-no-otp`, cut from `feature/app-integration`. Not to be merged into `feature/app-integration` or `main`.
-**Why:** the company is not registered with an SMS provider yet, so sign-up codes cannot be texted. For client testing, sign-up creates the account straight away.
+**Date:** 2026-10-30, extended 2026-10-31
+**Branch:** `temp/signup-no-otp`, cut from `feature/app-integration`. Not to be merged. `feature/app-integration` keeps the full OTP flow.
+**Why:** the company is not registered with an SMS provider yet. For client testing, this branch has no phone OTP anywhere: accounts are email + password.
 
-## What changed
+## What this branch has
 
-| File | Change |
+| Flow | Endpoint(s) | Notes |
+|---|---|---|
+| Sign up | `POST /auth/register {name, phone, email, password, role, preferredLanguage}` | No code, no `verificationToken`. The phone is stored but never verified (`phone_verified_at = null`). Phone and email must still be unique. |
+| Log in | `POST /auth/login/password {email, password}` | The only login. |
+| Forgot password | `POST /auth/password/forgot {email}` → `POST /auth/password/reset` | **Email only.** The code is emailed (MAIL_* set). With `APP_ENV=local` and no MAIL_HOST it is written to the backend log as `DEV email code for …`; elsewhere 503 `EMAIL_NOT_CONFIGURED`. |
+| Account | `/me/password`, `/me/photo`, `/me/sessions…`, `DELETE /me` | Unchanged. |
+
+## Removed
+
+| Removed | Was |
 |---|---|
-| `domain/auth/dto/RegisterRequest.java` | `verificationToken` is no longer `@NotBlank`. It is optional and ignored. The field stays so older app builds and the `docs/api-tests/*` scripts, which still send it, are not rejected. |
-| `domain/auth/service/AuthService.java` | `register` no longer calls `otpService.consumeSignupToken(...)`. The new user is saved with `phone_verified_at = null`, because the number was not verified. |
-| `src/test/.../AuthServiceRegisterTest.java` | 4 tests: register works with no token, a stale token is ignored, and a taken phone or email is still refused (409 `PHONE_TAKEN` / `EMAIL_TAKEN`). |
+| `POST /auth/otp/request`, `POST /auth/otp/verify` | sign-up / login codes by SMS |
+| `POST /auth/login` | phone + OTP login |
+| `POST /me/phone/otp`, `/me/phone`, `/me/email/otp`, `/me/email` | change phone / email with a code |
+| `{phone}` in `/auth/password/forgot` | reset code by SMS |
+| `domain/auth/otp/*` (`OtpSender`, `LocalLogOtpSender`, `UnconfiguredOtpSender`) | the SMS sender seam |
+| `RequestOtpRequest`, `VerifyOtpRequest`, `VerificationTokenResponse`, `RegisterRequest.verificationToken`, `AccountRequests.NewPhone/NewEmail/ConfirmCode` | their DTOs |
+| `OtpService.issueVerificationToken` / `consumeSignupToken`, `app.auth.otp.verification-token-minutes` | the sign-up proof token |
 
-## What did not change
+`OtpService` now only issues Forgot Password's email code. Phone numbers get no code: `issue` rejects them, and `canDeliver` returns false for them.
 
-- Every other `/auth/register` rule still applies: name/phone/email format, password policy, LANDLORD or TENANT role, the 10-per-hour-per-IP limit, unique phone and unique email.
-- `/auth/otp/request` and `/auth/otp/verify` still exist. The app's sign-up no longer calls them. Phone **login** still uses OTP and still needs SMS. Owners and tenants sign in with email + password, which needs no SMS.
-- No migration and no schema change. `phone_verified_at` was already nullable. A later phone login or phone password reset sets it.
+## Kept on purpose
 
-## API now
+- **No migration and no schema change.** `otp_attempts` and its columns, and every `OtpAttempt.Purpose` value, stay. That way this branch and `feature/app-integration` can share one local database: rows written by the OTP branch still load here.
+- The housekeeping job still prunes `otp_attempts`.
+- `docs/api-tests/AuthController/auth_test.ps1` and `Account/account_test.ps1` test the removed endpoints. Each is marked at the top to run on `feature/app-integration`. Every other script's `Register` helper now calls `/auth/register` directly.
 
-`POST /api/v1/auth/register`
-`{name, phone, email, password, role, preferredLanguage}` → 201 `AuthResponse` (logged in).
-A `verificationToken` in the body is accepted and ignored.
+## Tests
+
+- `AuthServiceRegisterTest` (3): register with no verification at all, taken phone, taken email.
+- `OtpServiceDeliveryTest` (6): email only, local log fallback, 503 in production without mail, phones refused.
+- `OtpServiceFixedCodeTest` (4): the dev fixed code.
+- `PasswordResetServiceTest` (8): email only, phones never looked up.
 
 ## Turning OTP back on
 
-Use `feature/app-integration`, which never had this change, or revert this branch's commit. Accounts created on this branch keep `phone_verified_at = null` until the user verifies by phone login or phone reset.
+Use `feature/app-integration`. Accounts made here keep `phone_verified_at = null` until the user verifies by phone there.

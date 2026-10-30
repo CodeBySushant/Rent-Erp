@@ -2,7 +2,6 @@ package com.renterp.domain.auth.controller;
 
 import com.renterp.common.response.ApiResponse;
 import com.renterp.domain.auth.dto.AccountRequests;
-import com.renterp.domain.auth.dto.OtpChallengeResponse;
 import com.renterp.domain.auth.dto.SessionResponse;
 import com.renterp.domain.auth.dto.UserResponse;
 import com.renterp.domain.auth.service.AccountService;
@@ -15,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** The signed-in user's own account: password, phone, email, photo, devices, delete. */
+/** The signed-in user's own account: password, photo, devices, delete. */
 @RestController
 @RequestMapping("/api/v1/me")
 public class AccountController {
@@ -33,26 +32,6 @@ public class AccountController {
             @Valid @RequestBody AccountRequests.ChangePassword req) {
         int ended = service.changePassword(req);
         return ResponseEntity.ok(ApiResponse.success("Password changed", Map.of("otherDevicesSignedOut", ended)));
-    }
-
-    @PostMapping("/phone/otp")
-    public ResponseEntity<ApiResponse<OtpChallengeResponse>> requestPhone(@Valid @RequestBody AccountRequests.NewPhone req) {
-        return ResponseEntity.ok(ApiResponse.success("Code sent to the new number", service.requestPhoneChange(req)));
-    }
-
-    @PostMapping("/phone")
-    public ResponseEntity<ApiResponse<UserResponse>> confirmPhone(@Valid @RequestBody AccountRequests.ConfirmCode req) {
-        return ResponseEntity.ok(ApiResponse.success("Phone number changed", service.confirmPhoneChange(req)));
-    }
-
-    @PostMapping("/email/otp")
-    public ResponseEntity<ApiResponse<OtpChallengeResponse>> requestEmail(@Valid @RequestBody AccountRequests.NewEmail req) {
-        return ResponseEntity.ok(ApiResponse.success("Code sent to the new email", service.requestEmailChange(req)));
-    }
-
-    @PostMapping("/email")
-    public ResponseEntity<ApiResponse<UserResponse>> confirmEmail(@Valid @RequestBody AccountRequests.ConfirmCode req) {
-        return ResponseEntity.ok(ApiResponse.success("Email changed", service.confirmEmailChange(req)));
     }
 
     // ── PUT /api/v1/me/photo {fileId} — a PROFILE_PHOTO upload of the caller ──

@@ -4,14 +4,9 @@ import com.renterp.common.exception.ApiException;
 import com.renterp.common.ratelimit.RateLimiter;
 import com.renterp.common.web.ClientIp;
 import com.renterp.domain.auth.dto.AuthResponse;
-import com.renterp.domain.auth.dto.OtpChallengeResponse;
 import com.renterp.domain.auth.dto.PasswordLoginRequest;
 import com.renterp.domain.auth.dto.RegisterRequest;
-import com.renterp.domain.auth.dto.RequestOtpRequest;
 import com.renterp.domain.auth.dto.UserResponse;
-import com.renterp.domain.auth.dto.VerificationTokenResponse;
-import com.renterp.domain.auth.dto.VerifyOtpRequest;
-import com.renterp.domain.auth.entity.OtpAttempt;
 import com.renterp.domain.auth.entity.User;
 import com.renterp.domain.auth.entity.User.UserRole;
 import com.renterp.domain.auth.repository.UserRepository;
@@ -29,13 +24,12 @@ import java.util.Locale;
 /**
  * Sign-up and login, as the app's auth screens use them:
  *
- *   sign-up : register                                          (tokens returned)
- *             The phone is NOT verified on this branch: there is no SMS
- *             provider yet, so sign-up skips otp/request + otp/verify and
- *             the account starts with phone_verified_at = null.
- *   login   : otp/request (LOGIN)  -> login                     (tokens returned)
- *             or login/password (email + password)
+ *   sign-up : register                     (tokens returned)
+ *   login   : login/password (email + password, tokens returned)
  *   session : refresh (rotates the refresh token), logout, me
+ *
+ * Branch temp/signup-no-otp has no phone OTP at all (no SMS provider yet):
+ * the phone is stored but never verified (phone_verified_at stays null).
  *
  * The role an account gets comes from sign-up (LANDLORD or TENANT) and is
  * returned with the user, which is what the app uses to open the owner or
@@ -48,7 +42,6 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final OtpService otpService;
     private final AuthTokenService tokenService;
     private final LoginAttemptService loginAttempts;
     private final RateLimiter rateLimiter;
@@ -57,50 +50,21 @@ public class AuthService {
     // long as a wrong password and the response time does not reveal accounts.
     private final String dummyHash;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, OtpService otpService,
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        AuthTokenService tokenService, LoginAttemptService loginAttempts, RateLimiter rateLimiter) {
         this.rateLimiter = rateLimiter;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.otpService = otpService;
         this.tokenService = tokenService;
         this.loginAttempts = loginAttempts;
         this.dummyHash = passwordEncoder.encode("not-a-real-password-0");
-    }
-
-    // ── OTP ────────────────────────────────────────────────────────────────────
-
-    public OtpChallengeResponse requestOtp(RequestOtpRequest request) {
-        // Per caller address, on top of the per-phone limits in OtpService (H11):
-        // stops one client from sending codes to many numbers (SMS pumping).
-        rateLimiter.hit("otp-ip:" + ClientIp.current(), 20, Duration.ofHours(1),
-                "OTP_RATE_LIMITED", "Too many codes requested from this device. Try again later.");
-        String phone = request.getPhone();
-        if (request.getPurpose() == RequestOtpRequest.Purpose.SIGNUP) {
-            if (userRepository.existsByPhone(phone)) {
-                throw ApiException.conflict("PHONE_TAKEN", "This number is already registered. Log in instead.");
-            }
-            return otpService.issue(phone, OtpAttempt.Purpose.SIGNUP, null);
-        }
-        if (userRepository.findByPhoneAndActiveTrue(phone).isEmpty()) {
-            throw ApiException.notFound("ACCOUNT_NOT_FOUND", "No account with this number. Sign up instead.");
-        }
-        return otpService.issue(phone, OtpAttempt.Purpose.LOGIN, null);
-    }
-
-    public VerificationTokenResponse verifySignupOtp(VerifyOtpRequest request) {
-        limitCodeChecks();
-        OtpAttempt checked = otpService.check(request.getVerificationId(), request.getCode(),
-                OtpAttempt.Purpose.SIGNUP);
-        return otpService.issueVerificationToken(checked.getId());
     }
 
     // ── Register ───────────────────────────────────────────────────────────────
 
     /**
      * Creates the account and logs it in, in one transaction: a failure
-     * leaves no account. No phone OTP is required (see the class comment);
-     * any verificationToken in the request is ignored.
+     * leaves no account. No phone verification (see the class comment).
      */
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent) {
@@ -135,17 +99,6 @@ public class AuthService {
 
     // ── Login ──────────────────────────────────────────────────────────────────
 
-    public AuthResponse loginWithOtp(VerifyOtpRequest request, String userAgent) {
-        limitCodeChecks();
-        OtpAttempt checked = otpService.check(request.getVerificationId(), request.getCode(),
-                OtpAttempt.Purpose.LOGIN);
-        User user = userRepository.findByPhoneAndActiveTrue(checked.getPhone())
-                .orElseThrow(() -> ApiException.notFound("ACCOUNT_NOT_FOUND",
-                        "No account with this number. Sign up instead."));
-        loginAttempts.recordSuccess(user.getId());
-        return tokenService.openSession(user, userAgent);
-    }
-
     public AuthResponse loginWithPassword(PasswordLoginRequest request, String userAgent) {
         String email = normaliseEmail(request.getEmail());
         // H11: per address and per email, before any password is checked, so
@@ -168,7 +121,7 @@ public class AuthService {
             long minutes = Math.max(1, Duration.between(Instant.now(), lockedUntil).toMinutes() + 1);
             throw ApiException.tooManyRequests("LOGIN_LOCKED",
                     "Too many wrong passwords. Try again in " + minutes
-                            + " minutes, or log in with your phone number.");
+                            + " minutes, or reset your password.");
         }
         if (user.getPasswordHash() == null
                 || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
@@ -196,12 +149,6 @@ public class AuthService {
                 .orElseThrow(() -> ApiException.unauthorized("ACCOUNT_DISABLED",
                         "This account is no longer active."));
         return UserResponse.from(user);
-    }
-
-    /** H11: wrong-code guessing across many challenges from one address. */
-    private void limitCodeChecks() {
-        rateLimiter.hit("otp-check-ip:" + ClientIp.current(), 30, Duration.ofMinutes(15),
-                "OTP_RATE_LIMITED", "Too many code attempts. Try again in a few minutes.");
     }
 
     private static String normaliseEmail(String email) {

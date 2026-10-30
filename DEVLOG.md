@@ -640,9 +640,9 @@ Draft → replay → duplicate refusal → send → owed / summary → discard a
 
 ## Hardening (pre-deployment audit)
 
-### [2026-10-30] Sign-up without phone OTP (branch `temp/signup-no-otp` only)
+### [2026-10-30] No phone OTP (branch `temp/signup-no-otp` only)
 
-No SMS provider yet, so on this branch `POST /auth/register` no longer needs `verificationToken` (it is optional and ignored) and does not consume a phone verification. New accounts get `phone_verified_at = null`. All other register checks are unchanged, there is no migration, and phone login still uses OTP. Full record: [docs/devlog/DEVLOG_SIGNUP_NO_OTP.md](docs/devlog/DEVLOG_SIGNUP_NO_OTP.md).
+No SMS provider yet, so this branch has no phone OTP anywhere. Accounts are email + password: register needs no code, login is `/auth/login/password` only, and Forgot Password is by email only. Removed: `/auth/otp/*`, `/auth/login`, the `/me/phone*` and `/me/email*` change endpoints, and the SMS sender (`domain/auth/otp`). There is no migration; `otp_attempts` stays so the database can be shared with `feature/app-integration`. Full record: [docs/devlog/DEVLOG_SIGNUP_NO_OTP.md](docs/devlog/DEVLOG_SIGNUP_NO_OTP.md).
 
 ### [2026-10-28] Edit Profile save — V27
 

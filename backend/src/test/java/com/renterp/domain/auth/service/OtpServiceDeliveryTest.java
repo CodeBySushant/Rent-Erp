@@ -1,9 +1,9 @@
 package com.renterp.domain.auth.service;
 
+import com.renterp.common.exception.ApiException;
 import com.renterp.common.mail.MailGateway;
 import com.renterp.domain.auth.dto.OtpChallengeResponse;
 import com.renterp.domain.auth.entity.OtpAttempt;
-import com.renterp.domain.auth.otp.OtpSender;
 import com.renterp.domain.auth.repository.OtpAttemptRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -22,59 +23,65 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** Where a code goes: email addresses by email when it is configured, the rest to the OtpSender. */
+/** Codes go by email only (no SMS on branch temp/signup-no-otp); the log stands in locally. */
 class OtpServiceDeliveryTest {
 
     private final OtpAttemptRepository repository = mock(OtpAttemptRepository.class);
-    private final OtpSender sender = mock(OtpSender.class);
     private final MailGateway mail = mock(MailGateway.class);
+
+    private OtpService service(String env) {
+        when(repository.save(any(OtpAttempt.class))).thenAnswer(i -> i.getArgument(0));
+        return new OtpService(repository, mock(PasswordEncoder.class), mail, 300, 45, 5, 5, env, "");
+    }
+
     private OtpService service;
 
     @BeforeEach
     void setUp() {
-        when(repository.save(any(OtpAttempt.class))).thenAnswer(i -> i.getArgument(0));
-        service = new OtpService(repository, mock(PasswordEncoder.class), sender, mail,
-                300, 45, 5, 5, 15, "local", "");
+        service = service("local");
     }
 
     @Test
-    void emailCodeGoesByEmailWhenConfigured() {
+    void codeGoesByEmailWhenConfigured() {
         when(mail.isConfigured()).thenReturn(true);
         service.issue("sita@example.com", OtpAttempt.Purpose.RESET_PASSWORD, null);
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(mail).send(eq("sita@example.com"), eq("Your Rentlo password reset code"), body.capture());
         assertTrue(body.getValue().contains("set a new password"));
         assertTrue(body.getValue().contains("5 minutes"));
-        verify(sender, never()).send(anyString(), anyString(), any());
     }
 
     @Test
-    void emailCodeFallsBackToSenderWithoutMail() {
+    void withoutMailLocalLogsInsteadOfSending() {
         when(mail.isConfigured()).thenReturn(false);
-        service.issue("sita@example.com", OtpAttempt.Purpose.CHANGE_EMAIL, null);
-        verify(sender).send(eq("sita@example.com"), anyString(), eq(OtpAttempt.Purpose.CHANGE_EMAIL));
+        service.issue("sita@example.com", OtpAttempt.Purpose.RESET_PASSWORD, null);
         verify(mail, never()).send(anyString(), anyString(), anyString());
     }
 
     @Test
-    void phoneCodeNeverGoesByEmail() {
-        when(mail.isConfigured()).thenReturn(true);
-        service.issue("9800000000", OtpAttempt.Purpose.RESET_PASSWORD, null);
-        verify(sender).send(eq("9800000000"), anyString(), eq(OtpAttempt.Purpose.RESET_PASSWORD));
-        verify(mail, never()).send(anyString(), anyString(), anyString());
+    void withoutMailProductionRefuses() {
+        when(mail.isConfigured()).thenReturn(false);
+        ApiException e = assertThrows(ApiException.class, () -> service("production")
+                .issue("sita@example.com", OtpAttempt.Purpose.RESET_PASSWORD, null));
+        assertEquals("EMAIL_NOT_CONFIGURED", e.getCode());
     }
 
     @Test
-    void canDeliverFollowsMailAndSender() {
-        when(sender.available()).thenReturn(false);
+    void phoneNumbersGetNoCode() {
         when(mail.isConfigured()).thenReturn(true);
-        assertTrue(service.canDeliver("a@b.co"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.issue("9800000000", OtpAttempt.Purpose.RESET_PASSWORD, null));
         assertFalse(service.canDeliver("9800000000"));
+        verify(mail, never()).send(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void canDeliverFollowsMailOrLocal() {
+        when(mail.isConfigured()).thenReturn(true);
+        assertTrue(service("production").canDeliver("a@b.co"));
         when(mail.isConfigured()).thenReturn(false);
-        assertFalse(service.canDeliver("a@b.co"));
-        when(sender.available()).thenReturn(true);
-        assertTrue(service.canDeliver("a@b.co"));
-        assertTrue(service.canDeliver("9800000000"));
+        assertFalse(service("production").canDeliver("a@b.co"));
+        assertTrue(service("local").canDeliver("a@b.co"));
     }
 
     @Test

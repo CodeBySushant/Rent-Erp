@@ -34,7 +34,7 @@
 |---|---|---|---|
 | POST | `/otp/request` | public | `{phone, purpose: SIGNUP\|LOGIN}` → `{verificationId, expiresInSeconds, resendAfterSeconds}` |
 | POST | `/otp/verify` | public | `{verificationId, code}` → `{verificationToken, expiresInSeconds}` (sign-up) |
-| POST | `/register` | public | `{name, phone, email, password, role, preferredLanguage, verificationToken}` → 201 `AuthResponse`. On branch `temp/signup-no-otp`, `verificationToken` is optional and ignored (see DEVLOG_SIGNUP_NO_OTP) |
+| POST | `/register` | public | `{name, phone, email, password, role, preferredLanguage, verificationToken}` → 201 `AuthResponse`. Branch `temp/signup-no-otp` has no OTP endpoints and no `verificationToken` (see DEVLOG_SIGNUP_NO_OTP) |
 | POST | `/login` | public | `{verificationId, code}` → `AuthResponse` |
 | POST | `/login/password` | public | `{email, password}` → `AuthResponse` |
 | POST | `/password/forgot` | public | `{email}` or `{phone}` → `{verificationId, expiresInSeconds, resendAfterSeconds}` (V28, see DEVLOG_PASSWORD_RESET) |

@@ -67,10 +67,10 @@ app:
     otp:
       ttl-seconds: 300                # a code lives 5 minutes
       resend-after-seconds: 45        # wait before asking for another code
-      max-sends-per-hour: 5           # per phone + purpose
+      max-sends-per-hour: 5           # per address + purpose
       max-attempts: 5                 # wrong tries before the code is burned
-      verification-token-minutes: 15  # sign-up proof lifetime
-      # DEV ONLY: when set (6 digits), every OTP is this code. Honoured only with
+      # (temp/signup-no-otp: the only code is Forgot Password's, by email)
+      # DEV ONLY: when set (6 digits), every code is this value. Honoured only with
       # APP_ENV=local; startup fails if it is set in any other environment.
       dev-fixed-code: ${OTP_DEV_FIXED_CODE:}
     password:
@@ -85,8 +85,8 @@ app:
     max-total-mb-per-user: ${FILES_MAX_TOTAL_MB_PER_USER:500} # M21: kept per user (deleted files excluded)
 
   # ── Email (SMTP) ─────────────────────────────────────────────────────────────
-  # Empty MAIL_HOST = no email: codes to an email address go to the OTP sender
-  # (the backend log in local, a 503 elsewhere) and support tickets are only
+  # Empty MAIL_HOST = no email: password-reset codes go to the backend
+  # log in local, a 503 elsewhere, and support tickets are only
   # stored. See common/mail/MailGateway and docs/devlog/DEVLOG_PASSWORD_RESET.md.
   mail:
     host: ${MAIL_HOST:}

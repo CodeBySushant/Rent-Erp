@@ -16,19 +16,14 @@ public final class PasswordResetRequests {
     private PasswordResetRequests() {
     }
 
-    /**
-     * POST /auth/password/forgot - exactly one of {@code email} or {@code phone}:
-     * where the account's reset code is sent.
-     */
+    /** POST /auth/password/forgot - the account's email; the reset code is sent there. */
     @Getter
     @Setter
     public static class Forgot {
+        @NotBlank(message = "Enter your email address")
         @Email(message = "Enter a valid email address")
         @Size(max = 254)
         private String email;
-
-        @Pattern(regexp = "^$|^(97|98)\\d{8}$", message = "Phone must be a valid 10-digit Nepal number starting with 97 or 98")
-        private String phone;
     }
 
     /** POST /auth/password/reset - the code from /forgot and the new password. */

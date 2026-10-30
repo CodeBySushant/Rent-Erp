@@ -1,3 +1,6 @@
+# NOTE (branch temp/signup-no-otp): this script exercises the phone-OTP
+# endpoints (/auth/otp/*, /auth/login, /me/phone*, /me/email*), which do not
+# exist on this branch. Run it on feature/app-integration.
 # =============================================================================
 # AuthController + authorization - live API test (PowerShell 5.1+)
 #
@@ -66,11 +69,8 @@ function OtpFromLog([string]$phone, [string]$purpose) {
 }
 
 function Register([string]$phone, [string]$email, [string]$role) {
-    $c = Call POST '/auth/otp/request' @{ phone = $phone; purpose = 'SIGNUP' }
-    $code = OtpFromLog $phone 'SIGNUP'
-    $v = Call POST '/auth/otp/verify' @{ verificationId = $c.Body.data.verificationId; code = $code }
     return Call POST '/auth/register' @{ name = 'Test ' + $role; phone = $phone; email = $email; password = 'rentlo123';
-        role = $role; preferredLanguage = 'en'; verificationToken = $v.Body.data.verificationToken }
+        role = $role; preferredLanguage = 'en' }
 }
 
 if (-not (Test-Path $LogFile)) { throw ('Log file not found: ' + $LogFile) }

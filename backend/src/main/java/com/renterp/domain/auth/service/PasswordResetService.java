@@ -23,10 +23,11 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Forgotten password, for someone who cannot log in:
+ * Forgotten password, for someone who cannot log in. Email only: branch
+ * temp/signup-no-otp has no phone OTP.
  *
  * <pre>
- *   POST /auth/password/forgot {email | phone}  -> a 6-digit code to that address
+ *   POST /auth/password/forgot {email}          -> a 6-digit code by email
  *   POST /auth/password/reset  {verificationId, code, newPassword}
  *                                              -> new password, every device signed
  *                                                 out, this device signed in
@@ -71,32 +72,25 @@ public class PasswordResetService {
     }
 
     /**
-     * Sends a reset code to the account with this email or phone. 400
-     * IDENTIFIER_REQUIRED unless exactly one is given; 503 EMAIL_NOT_CONFIGURED
-     * / SMS_NOT_CONFIGURED when codes cannot be sent to that kind of address
-     * (said before any lookup, so it reveals nothing); 429 from the limits.
+     * Emails a reset code to the account with this email. 503
+     * EMAIL_NOT_CONFIGURED when email cannot be sent (said before any lookup,
+     * so it reveals nothing); 429 from the limits.
      */
     public OtpChallengeResponse requestCode(PasswordResetRequests.Forgot req) {
         rateLimiter.hit("reset-ip:" + ClientIp.current(), 10, Duration.ofHours(1),
                 "OTP_RATE_LIMITED", "Too many reset codes requested from this device. Try again later.");
         String email = blankToNull(req.getEmail());
-        String phone = blankToNull(req.getPhone());
-        if ((email == null) == (phone == null)) {
-            throw ApiException.badRequest("IDENTIFIER_REQUIRED", "Enter your email address or your phone number.");
+        if (email == null) {
+            throw ApiException.badRequest("IDENTIFIER_REQUIRED", "Enter your email address.");
         }
-        String destination = email != null ? email.toLowerCase(Locale.ROOT) : phone;
+        String destination = email.toLowerCase(Locale.ROOT);
         if (!otp.canDeliver(destination)) {
-            throw email != null
-                    ? ApiException.unavailable("EMAIL_NOT_CONFIGURED",
-                            "Reset codes cannot be emailed yet. Try your phone number, or contact support.")
-                    : ApiException.unavailable("SMS_NOT_CONFIGURED",
-                            "Reset codes cannot be texted yet. Try your email address, or contact support.");
+            throw ApiException.unavailable("EMAIL_NOT_CONFIGURED",
+                    "Reset codes cannot be emailed yet. Contact support.");
         }
-        Optional<User> account = email != null
-                ? users.findByEmailIgnoreCase(destination).filter(User::isActive)
-                : users.findByPhoneAndActiveTrue(destination);
+        Optional<User> account = users.findByEmailIgnoreCase(destination).filter(User::isActive);
         if (account.isEmpty()) {
-            log.info("Password reset asked for an unknown {} - decoy returned", email != null ? "email" : "phone");
+            log.info("Password reset asked for an unknown email - decoy returned");
             return otp.decoyChallenge();
         }
         return otp.issue(destination, OtpAttempt.Purpose.RESET_PASSWORD, account.get().getId());
@@ -127,32 +121,20 @@ public class PasswordResetService {
         user.setPasswordHash(encoder.encode(req.getNewPassword()));
         user.setFailedLoginAttempts(0);
         user.setLoginLockedUntil(null);
-        // The code reached this address, so it is proven to be theirs.
-        if (isEmail(code.getPhone())) {
-            if (user.getEmailVerifiedAt() == null) {
-                user.setEmailVerifiedAt(now);
-            }
-        } else if (user.getPhoneVerifiedAt() == null) {
-            user.setPhoneVerifiedAt(now);
+        // The code reached this email, so it is proven to be theirs.
+        if (user.getEmailVerifiedAt() == null) {
+            user.setEmailVerifiedAt(now);
         }
         users.saveAndFlush(user);
         int ended = sessions.revokeAllByUserId(user.getId(), now);
         deviceTokens.deleteByUserId(user.getId());
-        log.info("Password reset - user: {}, via: {}, sessions ended: {}",
-                user.getId(), isEmail(code.getPhone()) ? "email" : "phone", ended);
+        log.info("Password reset - user: {}, via: email, sessions ended: {}", user.getId(), ended);
         return tokens.openSession(user, userAgent);
     }
 
-    /** The code's address is still this account's email or phone. */
+    /** The code's email is still this account's email. */
     private static boolean stillTheirs(User u, String destination) {
-        if (isEmail(destination)) {
-            return u.getEmail() != null && u.getEmail().equalsIgnoreCase(destination);
-        }
-        return destination.equals(u.getPhone());
-    }
-
-    private static boolean isEmail(String destination) {
-        return destination != null && destination.indexOf('@') >= 0;
+        return u.getEmail() != null && destination != null && u.getEmail().equalsIgnoreCase(destination);
     }
 
     private static String blankToNull(String s) {

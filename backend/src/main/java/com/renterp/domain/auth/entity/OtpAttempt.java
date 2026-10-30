@@ -66,6 +66,11 @@ public class OtpAttempt {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    /**
+     * Only RESET_PASSWORD (by email) is issued on branch temp/signup-no-otp.
+     * The others stay so rows written by the OTP branches in a shared
+     * database still load.
+     */
     public enum Purpose {
         SIGNUP, LOGIN, CHANGE_PHONE, CHANGE_EMAIL, RESET_PASSWORD
     }

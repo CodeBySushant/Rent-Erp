@@ -47,10 +47,7 @@ public class SecurityConfig {
     private static final Logger log = LogManager.getLogger(SecurityConfig.class);
 
     private static final String[] PUBLIC_POST = {
-            "/api/v1/auth/otp/request",
-            "/api/v1/auth/otp/verify",
             "/api/v1/auth/register",
-            "/api/v1/auth/login",
             "/api/v1/auth/login/password",
             "/api/v1/auth/password/forgot",
             "/api/v1/auth/password/reset",

@@ -31,8 +31,6 @@ public interface OtpAttemptRepository extends JpaRepository<OtpAttempt, UUID> {
     // The most recent send, for the resend interval.
     Optional<OtpAttempt> findFirstByPhoneAndPurposeOrderByCreatedAtDesc(String phone, OtpAttempt.Purpose purpose);
 
-    Optional<OtpAttempt> findByVerificationTokenHash(String verificationTokenHash);
-
     // Housekeeping (M16): codes that expired before the cut-off. Sign-up codes
     // whose verification token may still be spent are kept by the caller's
     // cut-off (days, while a token lives minutes).

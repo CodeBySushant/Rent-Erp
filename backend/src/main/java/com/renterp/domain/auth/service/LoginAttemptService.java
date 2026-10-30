@@ -14,7 +14,7 @@ import java.util.UUID;
  * Password-login lockout. Each method commits on its own, so a failure is
  * recorded even though the login request itself is rejected.
  * After {@code max-failed-attempts} wrong passwords in a row the password
- * login is locked for {@code lock-minutes}; phone OTP login still works.
+ * login is locked for {@code lock-minutes}; Forgot Password clears it.
  */
 @Service
 public class LoginAttemptService {

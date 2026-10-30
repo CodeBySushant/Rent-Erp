@@ -66,7 +66,7 @@ public class User extends BaseAuditEntity {
     private Instant emailVerifiedAt;
 
     // Consecutive wrong passwords; reset on success. Five in a row locks the
-    // password login until loginLockedUntil (phone OTP still works).
+    // password login until loginLockedUntil (a password reset clears it).
     @Column(name = "failed_login_attempts", nullable = false)
     @Builder.Default
     private int failedLoginAttempts = 0;

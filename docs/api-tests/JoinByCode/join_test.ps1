@@ -66,11 +66,8 @@ function OtpFromLog([string]$phone, [string]$purpose) {
 }
 
 function Register([string]$phone, [string]$email, [string]$role) {
-    $c = Call POST '/auth/otp/request' @{ phone = $phone; purpose = 'SIGNUP' }
-    $code = OtpFromLog $phone 'SIGNUP'
-    $v = Call POST '/auth/otp/verify' @{ verificationId = $c.Body.data.verificationId; code = $code }
     return Call POST '/auth/register' @{ name = 'Test ' + $role; phone = $phone; email = $email; password = 'rentlo123';
-        role = $role; preferredLanguage = 'en'; verificationToken = $v.Body.data.verificationToken }
+        role = $role; preferredLanguage = 'en' }
 }
 
 if (-not (Test-Path $LogFile)) { throw ('Log file not found: ' + $LogFile) }

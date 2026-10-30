@@ -32,33 +32,6 @@ public final class AccountRequests {
 
     @Getter
     @Setter
-    public static class NewPhone {
-        @NotBlank(message = "phone is required")
-        @Pattern(regexp = "^(97|98)\\d{8}$", message = "Phone must be a valid 10-digit Nepal number starting with 97 or 98")
-        private String phone;
-    }
-
-    @Getter
-    @Setter
-    public static class NewEmail {
-        @NotBlank(message = "email is required")
-        @Email(message = "Enter a valid email address")
-        @Size(max = 254)
-        private String email;
-    }
-
-    @Getter
-    @Setter
-    public static class ConfirmCode {
-        @NotNull(message = "verificationId is required")
-        private UUID verificationId;
-
-        @NotBlank(message = "code is required")
-        private String code;
-    }
-
-    @Getter
-    @Setter
     public static class DeleteAccount {
         /** Must be exactly DELETE. */
         @NotBlank(message = "confirm is required")

@@ -3,9 +3,7 @@ package com.renterp.domain.auth.service;
 import com.renterp.common.exception.ApiException;
 import com.renterp.common.mail.MailGateway;
 import com.renterp.domain.auth.dto.OtpChallengeResponse;
-import com.renterp.domain.auth.dto.VerificationTokenResponse;
 import com.renterp.domain.auth.entity.OtpAttempt;
-import com.renterp.domain.auth.otp.OtpSender;
 import com.renterp.domain.auth.repository.OtpAttemptRepository;
 import com.renterp.domain.auth.security.TokenHasher;
 import org.apache.logging.log4j.LogManager;
@@ -21,15 +19,20 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * One-time codes: issue, check, and the single-use verification token that
- * proves a phone was verified before sign-up.
+ * Password-reset codes, sent by email only. Branch temp/signup-no-otp has no
+ * phone OTP: there is no SMS sender, and sign-up, login and account changes
+ * use no codes. The one code left is Forgot Password's, sent to the account's
+ * email.
  *
  * Limits (application.yml, app.auth.otp.*): a code lives 5 minutes; a new code
- * for the same phone + purpose can be requested after 45 seconds; at most 5
- * codes per phone + purpose per hour; 5 wrong tries burn the code. Codes are
- * stored as BCrypt hashes and only ever leave the server through the
- * {@link OtpSender}, or by email ({@link MailGateway}) when the destination is
- * an email address and MAIL_HOST is set.
+ * for the same address + purpose can be requested after 45 seconds; at most 5
+ * codes per address + purpose per hour; 5 wrong tries burn the code. Codes are
+ * stored as BCrypt hashes and leave the server only by email
+ * ({@link MailGateway}, when MAIL_HOST is set). With APP_ENV=local and no
+ * MAIL_HOST, the code is written to the backend log instead, for development.
+ *
+ * The otp_attempts table keeps its name and columns, so this branch and the
+ * OTP branches share one database.
  */
 @Service
 public class OtpService {
@@ -39,63 +42,63 @@ public class OtpService {
 
     private final OtpAttemptRepository repository;
     private final PasswordEncoder encoder;
-    private final OtpSender sender;
     private final MailGateway mail;
+    private final boolean local;
     private final Duration ttl;
     private final Duration resendAfter;
     private final int maxSendsPerHour;
     private final int maxAttempts;
-    private final Duration verificationTokenTtl;
     /** Non-null only in local development; see the constructor. */
     private final String devFixedCode;
 
-    public OtpService(OtpAttemptRepository repository, PasswordEncoder encoder, OtpSender sender, MailGateway mail,
+    public OtpService(OtpAttemptRepository repository, PasswordEncoder encoder, MailGateway mail,
                       @Value("${app.auth.otp.ttl-seconds:300}") long ttlSeconds,
                       @Value("${app.auth.otp.resend-after-seconds:45}") long resendAfterSeconds,
                       @Value("${app.auth.otp.max-sends-per-hour:5}") int maxSendsPerHour,
                       @Value("${app.auth.otp.max-attempts:5}") int maxAttempts,
-                      @Value("${app.auth.otp.verification-token-minutes:15}") long verificationTokenMinutes,
                       @Value("${app.env:production}") String appEnv,
                       @Value("${app.auth.otp.dev-fixed-code:}") String devFixedCode) {
         this.repository = repository;
         this.encoder = encoder;
-        this.sender = sender;
         this.mail = mail;
+        this.local = "local".equals(appEnv);
         this.ttl = Duration.ofSeconds(ttlSeconds);
         this.resendAfter = Duration.ofSeconds(resendAfterSeconds);
         this.maxSendsPerHour = maxSendsPerHour;
         this.maxAttempts = maxAttempts;
-        this.verificationTokenTtl = Duration.ofMinutes(verificationTokenMinutes);
 
-        // Development shortcut while no SMS provider is connected: every code is
-        // this fixed value. It only works with APP_ENV=local, and the app refuses
-        // to start if it is set anywhere else, so it cannot reach staging/production.
+        // Development shortcut: every code is this fixed value. It only works
+        // with APP_ENV=local, and the app refuses to start if it is set
+        // anywhere else, so it cannot reach staging/production.
         String fixed = devFixedCode == null ? "" : devFixedCode.trim();
         if (fixed.isEmpty()) {
             this.devFixedCode = null;
         } else {
-            if (!"local".equals(appEnv)) {
+            if (!local) {
                 throw new IllegalStateException(
                         "OTP_DEV_FIXED_CODE is set but APP_ENV is '" + appEnv
-                                + "'. A fixed login code is only allowed with APP_ENV=local - remove OTP_DEV_FIXED_CODE.");
+                                + "'. A fixed code is only allowed with APP_ENV=local - remove OTP_DEV_FIXED_CODE.");
             }
             if (!fixed.matches("\\d{" + CODE_LENGTH + "}")) {
                 throw new IllegalStateException("OTP_DEV_FIXED_CODE must be exactly " + CODE_LENGTH + " digits.");
             }
             this.devFixedCode = fixed;
-            log.warn("DEV ONLY: every OTP is fixed to {} (OTP_DEV_FIXED_CODE). Never use outside local development.", fixed);
+            log.warn("DEV ONLY: every code is fixed to {} (OTP_DEV_FIXED_CODE). Never use outside local development.", fixed);
         }
     }
 
     /**
-     * Issues and sends a code. If sending fails the transaction rolls back, so
-     * an unsent code never counts against the limits.
+     * Issues and emails a code to {@code email}. If sending fails the
+     * transaction rolls back, so an unsent code never counts against the limits.
      */
     @Transactional
-    public OtpChallengeResponse issue(String phone, OtpAttempt.Purpose purpose, UUID userId) {
+    public OtpChallengeResponse issue(String email, OtpAttempt.Purpose purpose, UUID userId) {
+        if (!isEmail(email)) {
+            throw new IllegalArgumentException("Codes are sent by email only");
+        }
         Instant now = Instant.now();
 
-        repository.findFirstByPhoneAndPurposeOrderByCreatedAtDesc(phone, purpose).ifPresent(last -> {
+        repository.findFirstByPhoneAndPurposeOrderByCreatedAtDesc(email, purpose).ifPresent(last -> {
             Instant allowedAt = last.getCreatedAt().plus(resendAfter);
             if (allowedAt.isAfter(now)) {
                 long wait = Math.max(1, Duration.between(now, allowedAt).toSeconds());
@@ -103,34 +106,32 @@ public class OtpService {
                         "Please wait " + wait + " seconds before requesting a new code.");
             }
         });
-        if (repository.countByPhoneAndPurposeAndCreatedAtAfter(phone, purpose, now.minus(Duration.ofHours(1)))
+        if (repository.countByPhoneAndPurposeAndCreatedAtAfter(email, purpose, now.minus(Duration.ofHours(1)))
                 >= maxSendsPerHour) {
             throw ApiException.tooManyRequests("OTP_RATE_LIMITED",
-                    "Too many codes requested for this number. Try again in an hour.");
+                    "Too many codes requested for this address. Try again in an hour.");
         }
 
         String code = devFixedCode != null ? devFixedCode : TokenHasher.randomDigits(CODE_LENGTH);
+        // otp_attempts.phone holds the destination address (an email here).
         OtpAttempt attempt = repository.save(OtpAttempt.builder()
-                .phone(phone)
+                .phone(email)
                 .codeHash(encoder.encode(code))
                 .expiresAt(now.plus(ttl))
                 .purpose(purpose)
                 .userId(userId)
                 .build());
-        deliver(phone, code, purpose);
-        log.info("OTP issued - purpose: {}, challenge: {}", purpose, attempt.getId());
+        deliver(email, code, purpose);
+        log.info("Code issued - purpose: {}, challenge: {}", purpose, attempt.getId());
         return new OtpChallengeResponse(attempt.getId(), ttl.toSeconds(), resendAfter.toSeconds());
     }
 
     /**
-     * True when a code to {@code destination} (phone or email) can be sent
-     * right now. Lets a caller refuse up front, before it looks anything up.
+     * True when a code to {@code destination} can be sent right now: it is an
+     * email address and email is configured (or this is local development).
      */
     public boolean canDeliver(String destination) {
-        if (isEmail(destination) && mail.isConfigured()) {
-            return true;
-        }
-        return sender.available();
+        return isEmail(destination) && (mail.isConfigured() || local);
     }
 
     /**
@@ -142,29 +143,26 @@ public class OtpService {
         return new OtpChallengeResponse(UUID.randomUUID(), ttl.toSeconds(), resendAfter.toSeconds());
     }
 
-    /** Email addresses go by email when it is configured; everything else to the OtpSender. */
-    private void deliver(String destination, String code, OtpAttempt.Purpose purpose) {
-        if (isEmail(destination) && mail.isConfigured()) {
-            mail.send(destination, emailSubject(purpose), emailBody(code, purpose));
+    private void deliver(String email, String code, OtpAttempt.Purpose purpose) {
+        if (mail.isConfigured()) {
+            mail.send(email, emailSubject(purpose), emailBody(code, purpose));
             return;
         }
-        sender.send(destination, code, purpose);
+        if (local) {
+            log.warn("DEV email code for {} ({}): {}", email, purpose, code);
+            return;
+        }
+        throw ApiException.unavailable("EMAIL_NOT_CONFIGURED", "Codes cannot be emailed yet. Contact support.");
     }
 
     private String emailSubject(OtpAttempt.Purpose purpose) {
-        return switch (purpose) {
-            case RESET_PASSWORD -> "Your Rentlo password reset code";
-            case CHANGE_EMAIL -> "Confirm your new Rentlo email";
-            default -> "Your Rentlo code";
-        };
+        return purpose == OtpAttempt.Purpose.RESET_PASSWORD
+                ? "Your Rentlo password reset code" : "Your Rentlo code";
     }
 
     private String emailBody(String code, OtpAttempt.Purpose purpose) {
-        String why = switch (purpose) {
-            case RESET_PASSWORD -> "Use this code in the Rentlo app to set a new password:";
-            case CHANGE_EMAIL -> "Use this code in the Rentlo app to confirm this email address:";
-            default -> "Your Rentlo code:";
-        };
+        String why = purpose == OtpAttempt.Purpose.RESET_PASSWORD
+                ? "Use this code in the Rentlo app to set a new password:" : "Your Rentlo code:";
         return why + "\n\n    " + code + "\n\n"
                 + "It expires in " + Math.max(1, ttl.toMinutes()) + " minutes. Never share it with anyone.\n"
                 + "If you did not ask for this, ignore this email - nothing changes.\n\n"
@@ -210,46 +208,6 @@ public class OtpService {
         }
         o.setUsed(true);
         return repository.save(o);
-    }
-
-    /**
-     * Sign-up, after {@link #check} passed: attaches a single-use verification
-     * token to the challenge and returns it. Called separately from check (not
-     * from inside it) so check keeps its own transaction.
-     */
-    @Transactional
-    public VerificationTokenResponse issueVerificationToken(UUID verificationId) {
-        OtpAttempt o = repository.findById(verificationId).orElseThrow(OtpService::expired);
-        if (o.getPurpose() != OtpAttempt.Purpose.SIGNUP || !o.isUsed() || o.getVerificationTokenHash() != null) {
-            throw expired();
-        }
-        String token = TokenHasher.randomToken(32);
-        o.setVerifiedAt(Instant.now());
-        o.setVerificationTokenHash(TokenHasher.sha256Hex(token));
-        repository.save(o);
-        return new VerificationTokenResponse(token, verificationTokenTtl.toSeconds());
-    }
-
-    /**
-     * Spends a sign-up verification token for {@code phone}. Must run inside
-     * the registration transaction, so a failed registration does not burn it.
-     */
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void consumeSignupToken(String token, String phone) {
-        OtpAttempt o = repository.findByVerificationTokenHash(TokenHasher.sha256Hex(token))
-                .orElseThrow(() -> ApiException.gone("VERIFICATION_INVALID",
-                        "Your phone verification is not valid. Verify your number again."));
-        if (!o.getPhone().equals(phone)) {
-            throw ApiException.badRequest("VERIFICATION_PHONE_MISMATCH",
-                    "This verification was for a different phone number.");
-        }
-        if (o.getTokenUsedAt() != null || o.getVerifiedAt() == null
-                || o.getVerifiedAt().plus(verificationTokenTtl).isBefore(Instant.now())) {
-            throw ApiException.gone("VERIFICATION_EXPIRED",
-                    "Your verification expired. Verify your number again.");
-        }
-        o.setTokenUsedAt(Instant.now());
-        repository.save(o);
     }
 
     private static ApiException expired() {
