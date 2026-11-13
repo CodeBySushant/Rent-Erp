@@ -116,7 +116,7 @@ app:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:}
 
   tenancy:
-    join-request-ttl-hours: ${JOIN_REQUEST_TTL_HOURS:168}   # H12: 7 days for the owner to answer
+    join-request-ttl-hours: ${JOIN_REQUEST_TTL_HOURS:24}    # 24 h for the owner to answer (7 days before 13 Nov 2026)
 
   # ── Daily clean-up (M16) ──────────────────────────────────────────────────────
   housekeeping:

@@ -63,6 +63,7 @@ public class FileService {
     private final TenantPropertyMembershipRepository memberships;
     private final JoinRequestRepository joinRequests;
     private final UserRepository users;
+    private final com.renterp.domain.property.repository.PropertyRepository properties;
     private final long maxBytes;
     private final int maxUploadsPerDay;
     private final long maxTotalBytesPerUser;
@@ -72,6 +73,7 @@ public class FileService {
                        TenantPropertyMembershipRepository memberships,
                        JoinRequestRepository joinRequests,
                        UserRepository users,
+                       com.renterp.domain.property.repository.PropertyRepository properties,
                        @Value("${app.files.max-bytes:5242880}") long maxBytes,
                        @Value("${app.files.max-uploads-per-day:100}") int maxUploadsPerDay,
                        @Value("${app.files.max-total-mb-per-user:500}") long maxTotalMbPerUser) {
@@ -84,6 +86,7 @@ public class FileService {
         this.memberships = memberships;
         this.joinRequests = joinRequests;
         this.users = users;
+        this.properties = properties;
         this.maxBytes = maxBytes;
     }
 
@@ -290,6 +293,12 @@ public class FileService {
      * where that person has a tenancy (any status) or a join request — the
      * places the app shows them to an owner (tenant list, tenant detail, join
      * requests). An old or replaced photo is visible to nobody but its owner.
+     *
+     * A landlord's current photo (someone who owns an open property) is
+     * visible to any signed-in user: tenants see it on "Property found" when
+     * they look a property up by its code, before they have any tie to it
+     * (owner, 13 Nov). Its URL is only handed out by that lookup and the
+     * tenant's own stay.
      */
     private boolean canSeeProfilePhoto(StoredFile f) {
         boolean current = users.findById(f.getOwnerUserId())
@@ -297,6 +306,9 @@ public class FileService {
                 .orElse(false);
         if (!current) {
             return false;
+        }
+        if (properties.existsByOwnerUserIdAndActiveTrue(f.getOwnerUserId())) {
+            return true;
         }
         return profiles.findByUserId(f.getOwnerUserId())
                 .map(p -> {

@@ -10,7 +10,8 @@ import java.util.UUID;
  * tenancy of the signed-in user (active first, then past), and join requests
  * still waiting for an owner.
  */
-public record MyStayResponse(String todayBs, List<Stay> stays, List<PendingJoin> pendingRequests) {
+public record MyStayResponse(String todayBs, List<Stay> stays, List<PendingJoin> pendingRequests,
+                             List<JoinHistory> joinRequests) {
 
     /**
      * @param landlordPhone shared only while the tenancy is active
@@ -42,5 +43,18 @@ public record MyStayResponse(String todayBs, List<Stay> stays, List<PendingJoin>
 
     public record PendingJoin(UUID joinRequestId, UUID propertyId, String propertyName, String joinCode,
                               Instant requestedAt) {
+    }
+
+    /**
+     * One of the caller's join requests, newest first (the last 30): what the
+     * tenant's Requests tab lists, with Withdraw on the pending ones.
+     *
+     * @param status    PENDING, ACCEPTED, REJECTED, EXPIRED or CANCELLED; a
+     *                  PENDING request past its expiry is already EXPIRED here
+     * @param expiresAt when a pending request lapses (24 h after sending)
+     */
+    public record JoinHistory(UUID joinRequestId, UUID propertyId, String propertyName, String joinCode,
+                              String status, Instant requestedAt, Instant expiresAt, Instant respondedAt,
+                              String responseMessage) {
     }
 }

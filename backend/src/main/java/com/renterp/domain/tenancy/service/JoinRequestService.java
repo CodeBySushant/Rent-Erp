@@ -33,8 +33,9 @@ public class JoinRequestService {
     private static final Logger log = LogManager.getLogger(JoinRequestService.class);
 
     // H12: how long a join request waits for the owner. Spec §14.3 T1 said 5
-    // minutes, which made owners answer within minutes or the tenant had to
-    // resend. Configurable (app.tenancy.join-request-ttl-hours), default 7 days.
+    // minutes; H12 made it 7 days. Since 13 Nov 2026 it is 24 hours (owner):
+    // an unanswered request lapses and the tenant is free to ask elsewhere.
+    // Configurable (app.tenancy.join-request-ttl-hours).
     private final Duration requestTtl;
 
     private final NotificationService notifier;
@@ -50,7 +51,7 @@ public class JoinRequestService {
                                BlockedTenantService blockedService,
                                MembershipService membershipService, NotificationService notifier,
                                @org.springframework.beans.factory.annotation.Value(
-                                       "${app.tenancy.join-request-ttl-hours:168}") long ttlHours) {
+                                       "${app.tenancy.join-request-ttl-hours:24}") long ttlHours) {
         this.requestTtl = Duration.ofHours(Math.max(1, ttlHours));
         this.joinRepository = joinRepository;
         this.profileRepository = profileRepository;
@@ -108,14 +109,14 @@ public class JoinRequestService {
         JoinRequest saved = joinRepository.saveAndFlush(jr);
         notifier.toPropertyStaff(saved.getPropertyId(), Notification.Type.JOIN_REQUESTED,
                 tenant.getFullName() + " · " + tenant.getPhone(), "JOIN_REQUEST", saved.getId());
-        return JoinRequestResponse.from(saved);
+        return JoinRequestResponse.from(saved, requestTtl);
     }
 
     @Transactional
     public JoinRequestResponse getById(UUID id) {
         JoinRequest jr = require(id);
         expireIfStale(jr);
-        return JoinRequestResponse.from(jr);
+        return JoinRequestResponse.from(jr, requestTtl);
     }
 
     @Transactional
@@ -132,7 +133,7 @@ public class JoinRequestService {
         }
         // Lazy-expire — a batch sweep via db-scheduler is noted as a small follow-up.
         page.getContent().forEach(this::expireIfStale);
-        return page.map(JoinRequestResponse::from);
+        return page.map(r -> JoinRequestResponse.from(r, requestTtl));
     }
 
     // Landlord accept — creates a membership atomically. startedAtBs required.
@@ -172,7 +173,7 @@ public class JoinRequestService {
                 propertyName(jr.getPropertyId())
                         + (req.getResponseMessage() == null ? "" : " · " + req.getResponseMessage()),
                 "JOIN_REQUEST", jr.getId());
-        return JoinRequestResponse.from(joinRepository.saveAndFlush(jr));
+        return JoinRequestResponse.from(joinRepository.saveAndFlush(jr), requestTtl);
     }
 
     private String propertyName(UUID propertyId) {
@@ -187,12 +188,36 @@ public class JoinRequestService {
         }
         jr.setStatus(JoinRequestStatus.CANCELLED);
         jr.setRespondedAt(Instant.now());
-        return JoinRequestResponse.from(joinRepository.saveAndFlush(jr));
+        return JoinRequestResponse.from(joinRepository.saveAndFlush(jr), requestTtl);
+    }
+
+    /** The join-request lifetime (for /me/stay, which reports the same expiry). */
+    public Duration requestTtl() {
+        return requestTtl;
+    }
+
+    /**
+     * Every 10 minutes: PENDING requests past their expiry become EXPIRED, so
+     * owner and tenant lists show "Expired" about when the 24 hours run out,
+     * not only when someone opens the request or the nightly housekeeping
+     * runs. Idempotent.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(
+            fixedDelayString = "${app.tenancy.join-request-sweep-ms:600000}", initialDelay = 60_000)
+    @Transactional
+    public int expireStale() {
+        Instant now = Instant.now();
+        int n = joinRepository.expirePending(JoinRequestStatus.PENDING, JoinRequestStatus.EXPIRED,
+                now, now.minus(requestTtl));
+        if (n > 0) {
+            log.info("Join requests expired: {}", n);
+        }
+        return n;
     }
 
     // Returns the request's effective status after applying lazy expiry.
     private JoinRequestStatus expireIfStale(JoinRequest jr) {
-        if (jr.getStatus() == JoinRequestStatus.PENDING && Instant.now().isAfter(jr.getExpiresAt())) {
+        if (jr.isStale(requestTtl, Instant.now())) {
             jr.setStatus(JoinRequestStatus.EXPIRED);
             joinRepository.saveAndFlush(jr);
         }

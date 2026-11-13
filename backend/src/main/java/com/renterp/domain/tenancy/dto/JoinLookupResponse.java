@@ -9,7 +9,9 @@ import java.util.UUID;
  *
  * @param alreadyMember  the caller already lives here (active membership)
  * @param requestPending the caller already has a pending request here
+ * @param landlordPhotoUrl the owner's profile photo (download path), or null
  */
 public record JoinLookupResponse(UUID propertyId, String joinCode, String name, String address, String city,
-                                 String landlordName, boolean alreadyMember, boolean requestPending) {
+                                 String landlordName, boolean alreadyMember, boolean requestPending,
+                                 String landlordPhotoUrl) {
 }

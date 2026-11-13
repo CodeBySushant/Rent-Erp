@@ -80,9 +80,10 @@ public class JoinByCodeService {
                 tp.getId(), p.getId(), MembershipStatus.ACTIVE).isPresent()).orElse(false);
         boolean pending = profile.map(tp -> joinRequests.findByTenantProfileIdAndPropertyIdAndStatus(
                 tp.getId(), p.getId(), JoinRequestStatus.PENDING).isPresent()).orElse(false);
-        String landlord = users.findById(p.getOwnerUserId()).map(User::getName).orElse(null);
+        Optional<User> owner = users.findById(p.getOwnerUserId());
         return new JoinLookupResponse(p.getId(), p.getJoinCode(), p.getName(), p.getAddress(), p.getCity(),
-                landlord, member, pending);
+                owner.map(User::getName).orElse(null), member, pending,
+                owner.map(u -> com.renterp.domain.auth.dto.UserResponse.photoUrl(u.getPhotoFileId())).orElse(null));
     }
 
     @Transactional

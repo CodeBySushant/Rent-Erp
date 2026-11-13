@@ -23,14 +23,14 @@ public class JoinRequestResponse {
     private final Instant createdAt;
     private final Instant updatedAt;
 
-    private JoinRequestResponse(JoinRequest r) {
+    private JoinRequestResponse(JoinRequest r, Instant expiresAt) {
         this.id = r.getId();
         this.tenantProfileId = r.getTenantProfileId();
         this.propertyId = r.getPropertyId();
         this.status = r.getStatus();
         this.message = r.getMessage();
         this.requestedAt = r.getRequestedAt();
-        this.expiresAt = r.getExpiresAt();
+        this.expiresAt = expiresAt;
         this.respondedAt = r.getRespondedAt();
         this.respondedBy = r.getRespondedBy();
         this.responseMessage = r.getResponseMessage();
@@ -38,5 +38,10 @@ public class JoinRequestResponse {
         this.updatedAt = r.getUpdatedAt();
     }
 
-    public static JoinRequestResponse from(JoinRequest r) { return new JoinRequestResponse(r); }
+    public static JoinRequestResponse from(JoinRequest r) { return new JoinRequestResponse(r, r.getExpiresAt()); }
+
+    /** With the expiry the request really has under [ttl] (see JoinRequest.effectiveExpiry). */
+    public static JoinRequestResponse from(JoinRequest r, java.time.Duration ttl) {
+        return new JoinRequestResponse(r, r.effectiveExpiry(ttl));
+    }
 }

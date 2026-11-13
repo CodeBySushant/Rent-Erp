@@ -54,4 +54,20 @@ public class JoinRequest extends BaseAuditEntity {
     private String responseMessage;
 
     public enum JoinRequestStatus { PENDING, ACCEPTED, REJECTED, EXPIRED, CANCELLED }
+
+    /**
+     * When this request stops waiting: its stored expiry, or [ttl] after it
+     * was sent if that is sooner. The second part applies a shorter TTL to
+     * requests made under a longer one (7 days before 13 Nov 2026, 24 hours
+     * since).
+     */
+    public Instant effectiveExpiry(java.time.Duration ttl) {
+        Instant byTtl = requestedAt.plus(ttl);
+        return expiresAt.isBefore(byTtl) ? expiresAt : byTtl;
+    }
+
+    /** Still PENDING in the database but past [effectiveExpiry]. */
+    public boolean isStale(java.time.Duration ttl, Instant now) {
+        return status == JoinRequestStatus.PENDING && now.isAfter(effectiveExpiry(ttl));
+    }
 }
