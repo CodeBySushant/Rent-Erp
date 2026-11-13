@@ -11,6 +11,7 @@ import com.renterp.domain.structure.entity.Floor;
 import com.renterp.domain.structure.entity.Room;
 import com.renterp.domain.structure.repository.FloorRepository;
 import com.renterp.domain.structure.repository.RoomRepository;
+import com.renterp.domain.tenancy.entity.TenantPropertyMembership.MembershipStatus;
 import com.renterp.domain.tenancy.repository.RoomAssignmentRepository;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -20,7 +21,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -91,7 +94,9 @@ public class RoomService {
                     return new ResourceNotFoundException("Room", "id", id);
                 });
 
-        return RoomResponse.from(room);
+        boolean occupied = !roomAssignmentRepository
+                .findOccupiedRoomIds(List.of(room.getId()), MembershipStatus.ACTIVE).isEmpty();
+        return RoomResponse.from(room, occupied);
     }
 
     // ── Read all (paginated, filtered by floor or by property) ─────────────────
@@ -117,7 +122,12 @@ public class RoomService {
             page = roomRepository.findAll(pageable);
         }
 
-        return page.map(RoomResponse::from);
+        // Occupancy for this page in one query (the property screen's Vacant /
+        // Occupied filters; the app used to say it was "not loaded").
+        List<UUID> ids = page.getContent().stream().map(Room::getId).toList();
+        Set<UUID> occupied = ids.isEmpty() ? Set.of()
+                : new HashSet<>(roomAssignmentRepository.findOccupiedRoomIds(ids, MembershipStatus.ACTIVE));
+        return page.map(r -> RoomResponse.from(r, occupied.contains(r.getId())));
     }
 
     // ── Update ─────────────────────────────────────────────────────────────────
