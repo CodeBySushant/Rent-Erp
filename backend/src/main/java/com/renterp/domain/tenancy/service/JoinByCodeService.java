@@ -53,11 +53,14 @@ public class JoinByCodeService {
     private final AccessGuard guard;
     private final RateLimiter rateLimiter;
     private final TenantProfileLinker linker;
+    private final com.renterp.domain.identity.service.VerifiedBadge verifiedBadge;
 
     public JoinByCodeService(PropertyRepository properties, UserRepository users, TenantProfileRepository profiles,
                              TenantPropertyMembershipRepository memberships, JoinRequestRepository joinRequests,
                              TenantProfileService profileService, JoinRequestService joinRequestService,
-                             AccessGuard guard, RateLimiter rateLimiter, TenantProfileLinker linker) {
+                             AccessGuard guard, RateLimiter rateLimiter, TenantProfileLinker linker,
+                             com.renterp.domain.identity.service.VerifiedBadge verifiedBadge) {
+        this.verifiedBadge = verifiedBadge;
         this.rateLimiter = rateLimiter;
         this.linker = linker;
         this.properties = properties;
@@ -81,9 +84,13 @@ public class JoinByCodeService {
         boolean pending = profile.map(tp -> joinRequests.findByTenantProfileIdAndPropertyIdAndStatus(
                 tp.getId(), p.getId(), JoinRequestStatus.PENDING).isPresent()).orElse(false);
         Optional<User> owner = users.findById(p.getOwnerUserId());
+        String elsewhere = profile.flatMap(tp -> joinRequestService.pendingElsewhere(tp.getId(), p.getId()))
+                .flatMap(j -> properties.findById(j.getPropertyId()))
+                .map(Property::getName).orElse(null);
         return new JoinLookupResponse(p.getId(), p.getJoinCode(), p.getName(), p.getAddress(), p.getCity(),
                 owner.map(User::getName).orElse(null), member, pending,
-                owner.map(u -> com.renterp.domain.auth.dto.UserResponse.photoUrl(u.getPhotoFileId())).orElse(null));
+                owner.map(u -> com.renterp.domain.auth.dto.UserResponse.photoUrl(u.getPhotoFileId())).orElse(null),
+                verifiedBadge.isVerified(p.getOwnerUserId()), elsewhere);
     }
 
     @Transactional
