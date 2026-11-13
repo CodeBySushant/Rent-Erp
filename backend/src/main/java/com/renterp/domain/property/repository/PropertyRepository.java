@@ -19,6 +19,9 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
     Page<Property> findByOwnerUserId(UUID ownerUserId, Pageable pageable);
 
+    /** The user owns at least one open property (their photo is a landlord photo). */
+    boolean existsByOwnerUserIdAndActiveTrue(UUID ownerUserId);
+
     // Properties the caller holds an access grant on (authorization-scoped list).
     Page<Property> findByIdIn(Collection<UUID> ids, Pageable pageable);
 

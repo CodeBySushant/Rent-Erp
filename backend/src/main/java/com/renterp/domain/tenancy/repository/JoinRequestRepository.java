@@ -30,4 +30,16 @@ public interface JoinRequestRepository extends JpaRepository<JoinRequest, UUID> 
             "select distinct j.propertyId from JoinRequest j where j.tenantProfileId = :profileId")
     List<UUID> findPropertyIdsByTenantProfileId(
             @Param("profileId") UUID profileId);
+
+    /**
+     * Marks every PENDING request past its expiry, or sent before [cutoff]
+     * (now minus the TTL), as EXPIRED. Returns how many changed.
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("update JoinRequest j set j.status = :expired, j.version = j.version + 1 "
+            + "where j.status = :pending and (j.expiresAt < :now or j.requestedAt < :cutoff)")
+    int expirePending(@Param("pending") JoinRequest.JoinRequestStatus pending,
+                      @Param("expired") JoinRequest.JoinRequestStatus expired,
+                      @Param("now") java.time.Instant now,
+                      @Param("cutoff") java.time.Instant cutoff);
 }

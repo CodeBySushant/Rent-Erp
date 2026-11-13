@@ -57,12 +57,16 @@ public class MyStayService {
     private final TenantDepositRepository deposits;
     private final DashboardQueries q;
     private final TenancyAgreementService agreements;
+    private final java.time.Duration joinTtl;
 
     public MyStayService(AccessGuard guard, TenantProfileRepository profiles,
                          TenantPropertyMembershipRepository memberships, JoinRequestRepository joinRequests,
                          PropertyRepository properties, UserRepository users, RoomAssignmentRepository assignments,
                          RoomRepository rooms, FloorRepository floors, TenantDepositRepository deposits,
-                         DashboardQueries q, TenancyAgreementService agreements) {
+                         DashboardQueries q, TenancyAgreementService agreements,
+                         @org.springframework.beans.factory.annotation.Value(
+                                 "${app.tenancy.join-request-ttl-hours:24}") long joinTtlHours) {
+        this.joinTtl = java.time.Duration.ofHours(Math.max(1, joinTtlHours));
         this.agreements = agreements;
         this.guard = guard;
         this.profiles = profiles;
@@ -82,7 +86,7 @@ public class MyStayService {
         String today = BsCalendar.today();
         Optional<TenantProfile> profile = profiles.findByUserId(user.userId());
         if (profile.isEmpty()) {
-            return new MyStayResponse(today, List.of(), List.of());
+            return new MyStayResponse(today, List.of(), List.of(), List.of());
         }
         UUID profileId = profile.get().getId();
 
@@ -92,12 +96,20 @@ public class MyStayService {
         ms.sort(Comparator.comparing((TenantPropertyMembership m) -> m.getStatus() != MembershipStatus.ACTIVE)
                 .thenComparing(TenantPropertyMembership::getStartedAtBs, Comparator.nullsLast(Comparator.reverseOrder())));
 
-        List<JoinRequest> pending = joinRequests.findByTenantProfileId(profileId, Pageable.unpaged()).getContent()
-                .stream().filter(j -> j.getStatus() == JoinRequestStatus.PENDING).toList();
+        java.time.Instant now = java.time.Instant.now();
+        List<JoinRequest> allJoins = new ArrayList<>(
+                joinRequests.findByTenantProfileId(profileId, Pageable.unpaged()).getContent());
+        allJoins.sort(Comparator.comparing(JoinRequest::getRequestedAt).reversed());
+        // Still waiting: PENDING and not past its expiry (24 h). The 10-minute
+        // sweep marks the rest EXPIRED; until it runs they are reported so.
+        List<JoinRequest> pending = allJoins.stream()
+                .filter(j -> j.getStatus() == JoinRequestStatus.PENDING && !j.isStale(joinTtl, now))
+                .toList();
+        List<JoinRequest> recentJoins = allJoins.stream().limit(30).toList();
 
         Set<UUID> propertyIds = new HashSet<>();
         ms.forEach(m -> propertyIds.add(m.getPropertyId()));
-        pending.forEach(j -> propertyIds.add(j.getPropertyId()));
+        recentJoins.forEach(j -> propertyIds.add(j.getPropertyId()));
         Map<UUID, Property> propertyById = byId(properties.findAllById(propertyIds), Property::getId);
         Map<UUID, User> ownerById = byId(users.findAllById(propertyById.values().stream()
                 .map(Property::getOwnerUserId).collect(Collectors.toSet())), User::getId);
@@ -167,7 +179,14 @@ public class MyStayService {
             return new PendingJoin(j.getId(), j.getPropertyId(), p == null ? null : p.getName(),
                     p == null ? null : p.getJoinCode(), j.getRequestedAt());
         }).toList();
-        return new MyStayResponse(today, stays, waiting);
+        List<JoinHistory> history = recentJoins.stream().map(j -> {
+            Property p = propertyById.get(j.getPropertyId());
+            String status = j.isStale(joinTtl, now) ? JoinRequestStatus.EXPIRED.name() : j.getStatus().name();
+            return new JoinHistory(j.getId(), j.getPropertyId(), p == null ? null : p.getName(),
+                    p == null ? null : p.getJoinCode(), status, j.getRequestedAt(), j.effectiveExpiry(joinTtl),
+                    j.getRespondedAt(), j.getResponseMessage());
+        }).toList();
+        return new MyStayResponse(today, stays, waiting, history);
     }
 
     private static <T> Map<UUID, T> byId(Iterable<T> items, Function<T, UUID> id) {
