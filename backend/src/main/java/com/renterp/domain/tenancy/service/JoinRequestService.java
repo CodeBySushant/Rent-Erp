@@ -96,6 +96,16 @@ public class JoinRequestService {
                     }
                 });
 
+        // One request at a time (owner, 13 Nov): a tenant waiting on another
+        // property must withdraw that request (or be rejected, or let it
+        // expire) before asking here.
+        pendingElsewhere(req.getTenantProfileId(), req.getPropertyId()).ifPresent(other -> {
+            String name = propertyRepository.findById(other.getPropertyId())
+                    .map(com.renterp.domain.property.entity.Property::getName).orElse("another property");
+            throw com.renterp.common.exception.ApiException.conflict("REQUEST_PENDING_ELSEWHERE",
+                    "You already asked to join " + name + ". Withdraw that request first.");
+        });
+
         Instant now = Instant.now();
         JoinRequest jr = JoinRequest.builder()
                 .tenantProfileId(req.getTenantProfileId())
@@ -189,6 +199,20 @@ public class JoinRequestService {
         jr.setStatus(JoinRequestStatus.CANCELLED);
         jr.setRespondedAt(Instant.now());
         return JoinRequestResponse.from(joinRepository.saveAndFlush(jr), requestTtl);
+    }
+
+    /**
+     * The tenant's request that is still waiting at a property other than
+     * [exceptPropertyId], if any (past-expiry ones do not count).
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional<JoinRequest> pendingElsewhere(UUID tenantProfileId, UUID exceptPropertyId) {
+        Instant now = Instant.now();
+        return joinRepository.findByTenantProfileId(tenantProfileId, org.springframework.data.domain.Pageable.unpaged())
+                .getContent().stream()
+                .filter(j -> j.getStatus() == JoinRequestStatus.PENDING && !j.isStale(requestTtl, now))
+                .filter(j -> !j.getPropertyId().equals(exceptPropertyId))
+                .findFirst();
     }
 
     /** The join-request lifetime (for /me/stay, which reports the same expiry). */
