@@ -13,10 +13,18 @@ public class RoomResponse {
     private final UUID floorId;
     private final String name;
     private final boolean active;
+
+    /**
+     * True when the room has a current tenant (an open assignment on an ACTIVE
+     * membership). Null where it was not worked out; the list endpoint
+     * always fills it.
+     */
+    private final Boolean occupied;
     private final Instant createdAt;
     private final Instant updatedAt;
 
-    private RoomResponse(Room room) {
+    private RoomResponse(Room room, Boolean occupied) {
+        this.occupied = occupied;
         this.id = room.getId();
         this.floorId = room.getFloorId();
         this.name = room.getName();
@@ -26,6 +34,10 @@ public class RoomResponse {
     }
 
     public static RoomResponse from(Room room) {
-        return new RoomResponse(room);
+        return new RoomResponse(room, null);
+    }
+
+    public static RoomResponse from(Room room, boolean occupied) {
+        return new RoomResponse(room, occupied);
     }
 }
