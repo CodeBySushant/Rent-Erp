@@ -272,7 +272,7 @@ public class MeterService {
             throw new InvalidOperationException(
                     "Room coverage only applies to TENANT_SUPPLY meters (spec §7.1) — got " + meter.getMeterType());
         }
-        // H15: same property, active room, not already on another sub-meter.
+        // H15: same property, active room. A room may sit on several sub-meters.
         coverageRules.requireCoverable(meter, request.getRoomId());
         // Our own rule (mirrors the M4 chain-conflict logic used elsewhere): if this (meter,
         // room) pair already has an active row (effectiveToBs IS NULL), block. End the existing
