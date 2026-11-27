@@ -30,6 +30,12 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,10 +46,13 @@ import java.util.UUID;
  * still apply). If any step fails, nothing is kept: no tenant without a
  * membership, no membership without a room, no deposit without a tenancy.
  *
- * The room row is locked for the transaction, so two owners (or two taps)
- * adding a tenant to the same room are processed one after the other and the
- * second sees the room as taken; V16's unique index backs this up in the
- * database.
+ * A tenant can be given several rooms at once. Every room row is locked for
+ * the transaction (in id order, so two requests never wait on each other), so
+ * two owners (or two taps) adding a tenant to the same room are processed one
+ * after the other and the second sees the room as taken; V16's unique index
+ * backs this up in the database. The monthly rent is the tenant's total: it is
+ * shared across the rooms (see {@link #splitRent}), and billing adds the rooms
+ * back up, so the bill shows exactly the rent that was entered.
  */
 @Service
 public class TenantOnboardingService {
@@ -95,19 +104,34 @@ public class TenantOnboardingService {
             throw ApiException.badRequest("INVALID_DATE", "The deposit date is not a valid BS date.");
         }
 
-        Room room = rooms.findByIdForUpdate(req.getRoomId())
-                .orElseThrow(() -> ApiException.badRequest("ROOM_NOT_FOUND", "That room does not exist."));
-        Floor floor = floors.findById(room.getFloorId())
-                .orElseThrow(() -> ApiException.badRequest("ROOM_NOT_FOUND", "That room does not exist."));
-        if (!floor.getPropertyId().equals(propertyId)) {
-            throw ApiException.badRequest("ROOM_NOT_IN_PROPERTY", "That room belongs to a different property.");
+        List<UUID> roomIds = req.chosenRoomIds();
+        if (roomIds.isEmpty()) {
+            throw ApiException.badRequest("ROOM_REQUIRED", "Choose at least one room.");
         }
-        if (!room.isActive() || !floor.isActive()) {
-            throw ApiException.badRequest("ROOM_INACTIVE", "That room has been removed.");
+        if (new HashSet<>(roomIds).size() != roomIds.size()) {
+            throw ApiException.badRequest("DUPLICATE_ROOM", "The same room was chosen more than once.");
         }
-        if (assignments.findFirstByRoomIdAndEffectiveToBsIsNull(room.getId()).isPresent()) {
-            throw ApiException.conflict("ROOM_OCCUPIED", "Room " + room.getName() + " already has a tenant.");
+        // Lock in id order (deadlock-free), then keep the owner's order.
+        List<UUID> lockOrder = new ArrayList<>(roomIds);
+        lockOrder.sort(Comparator.naturalOrder());
+        java.util.Map<UUID, Room> locked = new java.util.HashMap<>();
+        for (UUID id : lockOrder) {
+            Room room = rooms.findByIdForUpdate(id)
+                    .orElseThrow(() -> ApiException.badRequest("ROOM_NOT_FOUND", "A chosen room does not exist."));
+            Floor floor = floors.findById(room.getFloorId())
+                    .orElseThrow(() -> ApiException.badRequest("ROOM_NOT_FOUND", "A chosen room does not exist."));
+            if (!floor.getPropertyId().equals(propertyId)) {
+                throw ApiException.badRequest("ROOM_NOT_IN_PROPERTY", "Room " + room.getName() + " belongs to a different property.");
+            }
+            if (!room.isActive() || !floor.isActive()) {
+                throw ApiException.badRequest("ROOM_INACTIVE", "Room " + room.getName() + " has been removed.");
+            }
+            if (assignments.findFirstByRoomIdAndEffectiveToBsIsNull(room.getId()).isPresent()) {
+                throw ApiException.conflict("ROOM_OCCUPIED", "Room " + room.getName() + " already has a tenant.");
+            }
+            locked.put(id, room);
         }
+        List<Room> chosen = roomIds.stream().map(locked::get).toList();
         if (memberships.countByPhoneAtProperty(req.getPhone(), propertyId, MembershipStatus.ACTIVE) > 0) {
             throw ApiException.conflict("TENANT_ALREADY_ACTIVE",
                     "A tenant with this phone number already lives at this property.");
@@ -131,12 +155,19 @@ public class TenantOnboardingService {
 
         TenantPropertyMembership membership = membershipService.createInternal(
                 profileId, propertyId, req.getMoveInDateBs(), req.getPaymentModelOverride(), null);
+        membership.setTotalMembers(req.chosenTotalMembers());
+        memberships.save(membership);
 
-        CreateRoomAssignmentRequest assignReq = new CreateRoomAssignmentRequest();
-        assignReq.setRoomId(room.getId());
-        assignReq.setEffectiveFromBs(req.getMoveInDateBs());
-        assignReq.setMonthlyRent(req.getMonthlyRent());
-        RoomAssignmentResponse assignment = membershipService.assignRoom(membership.getId(), assignReq);
+        List<BigDecimal> rents = splitRent(req.getMonthlyRent(), chosen.size());
+        List<UUID> assignmentIds = new ArrayList<>();
+        for (int i = 0; i < chosen.size(); i++) {
+            CreateRoomAssignmentRequest assignReq = new CreateRoomAssignmentRequest();
+            assignReq.setRoomId(chosen.get(i).getId());
+            assignReq.setEffectiveFromBs(req.getMoveInDateBs());
+            assignReq.setMonthlyRent(rents.get(i));
+            RoomAssignmentResponse assignment = membershipService.assignRoom(membership.getId(), assignReq);
+            assignmentIds.add(assignment.getId());
+        }
 
         UUID depositId = null;
         if (req.getDepositAmount() != null) {
@@ -148,8 +179,31 @@ public class TenantOnboardingService {
             depositId = deposit.getId();
         }
 
-        return new AddTenantResponse(membership.getId(), profileId, assignment.getId(), depositId,
-                propertyId, room.getId());
+        log.info("Tenant added — membership: {}, rooms: {}, members: {}",
+                membership.getId(), chosen.size(), membership.getTotalMembers());
+        return new AddTenantResponse(membership.getId(), profileId, assignmentIds.get(0), depositId,
+                propertyId, roomIds.get(0), List.copyOf(assignmentIds), List.copyOf(roomIds),
+                membership.getTotalMembers());
+    }
+
+    /**
+     * Shares a monthly rent across {@code rooms} rooms: equal parts rounded
+     * down to the paisa, the leftover paisa on the first room, so the parts
+     * always add up to exactly {@code total}. One room gets all of it.
+     */
+    static List<BigDecimal> splitRent(BigDecimal total, int rooms) {
+        if (rooms <= 0) {
+            throw new IllegalArgumentException("rooms must be at least 1");
+        }
+        BigDecimal amount = total.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal part = amount.divide(BigDecimal.valueOf(rooms), 2, RoundingMode.DOWN);
+        BigDecimal first = amount.subtract(part.multiply(BigDecimal.valueOf(rooms - 1L)));
+        List<BigDecimal> parts = new ArrayList<>(rooms);
+        parts.add(first);
+        for (int i = 1; i < rooms; i++) {
+            parts.add(part);
+        }
+        return parts;
     }
 
     /** A new profile from the Add Tenant form, linked to {@code userId} when given. */
@@ -160,7 +214,7 @@ public class TenantOnboardingService {
         profileReq.setPhone(req.getPhone());
         profileReq.setWhatsappNumber(req.getWhatsappNumber());
         profileReq.setPreferredLanguage(req.getPreferredLanguage() == null ? "en" : req.getPreferredLanguage());
-        profileReq.setNumOccupants(req.getNumOccupants());
+        profileReq.setNumOccupants(req.chosenTotalMembers());
         profileReq.setEmergencyContactName(req.getEmergencyContactName());
         profileReq.setEmergencyContactPhone(req.getEmergencyContactPhone());
         return profileService.createProfile(profileReq).getId();

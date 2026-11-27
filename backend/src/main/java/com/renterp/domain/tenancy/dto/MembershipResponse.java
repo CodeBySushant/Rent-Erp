@@ -21,6 +21,8 @@ public class MembershipResponse {
     private final String endedAtBs;
     private final String terminationReason;
     private final boolean active;
+    /** Total Members of the tenancy. */
+    private final short totalMembers;
     private final Instant createdAt;
     private final Instant updatedAt;
 
@@ -35,6 +37,7 @@ public class MembershipResponse {
         this.endedAtBs = m.getEndedAtBs();
         this.terminationReason = m.getTerminationReason();
         this.active = m.isActive();
+        this.totalMembers = m.getTotalMembers();
         this.createdAt = m.getCreatedAt();
         this.updatedAt = m.getUpdatedAt();
     }

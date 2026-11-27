@@ -53,6 +53,11 @@ public class TenantPropertyMembership extends BaseAuditEntity {
     @Builder.Default
     private boolean active = true;
 
+    /** Total Members: people living in this tenancy (1 to 50, V32). */
+    @Column(name = "total_members", nullable = false)
+    @Builder.Default
+    private short totalMembers = 1;
+
     // ── V30: the signed rental agreement (an AGREEMENT upload) ─────────────
     @Column(name = "agreement_file_id", columnDefinition = "uuid")
     private UUID agreementFileId;
