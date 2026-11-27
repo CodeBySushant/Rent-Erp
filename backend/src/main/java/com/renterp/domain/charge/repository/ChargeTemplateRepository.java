@@ -16,6 +16,9 @@ public interface ChargeTemplateRepository extends JpaRepository<ChargeTemplate, 
 
     boolean existsByPropertyIdAndName(UUID propertyId, String name);
 
+    /** The property's charge with this exact name, active or removed (names are unique per property). */
+    java.util.Optional<ChargeTemplate> findByPropertyIdAndName(UUID propertyId, String name);
+
     // Billing engine: active charge templates for a property (pass 1 bills active only;
     // deactivated-charge proration B7 lands in pass 2).
     List<ChargeTemplate> findByPropertyIdAndActiveTrue(UUID propertyId);
