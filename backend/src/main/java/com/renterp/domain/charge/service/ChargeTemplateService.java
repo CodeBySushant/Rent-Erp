@@ -1,6 +1,5 @@
 package com.renterp.domain.charge.service;
 
-import com.renterp.common.exception.DuplicateResourceException;
 import com.renterp.common.exception.InvalidOperationException;
 import com.renterp.common.exception.ResourceNotFoundException;
 import com.renterp.domain.charge.dto.ChargeTemplateResponse;
@@ -50,17 +49,36 @@ public class ChargeTemplateService {
             throw new ResourceNotFoundException("Property", "id", request.getPropertyId());
         }
         propertyGuard.requireActive(request.getPropertyId());   // M8
-        if (chargeTemplateRepository.existsByPropertyIdAndName(request.getPropertyId(), request.getName())) {
-            log.warn("Charge template creation failed — name '{}' already exists for property {}",
-                    request.getName(), request.getPropertyId());
-            throw new DuplicateResourceException("ChargeTemplate", "propertyId+name",
-                    request.getPropertyId() + "+" + request.getName());
-        }
+        String name = requireName(request.getName());
         requireZeroAmountAcknowledgement(request.getAmount(), request.isZeroAmountAcknowledged());
+
+        // Names are unique per property, removed charges included (V7). Adding
+        // a charge that was removed earlier brings that one back with the new
+        // amount and type, instead of failing as a duplicate (owner, 28 Nov).
+        java.util.Optional<ChargeTemplate> sameName =
+                chargeTemplateRepository.findByPropertyIdAndName(request.getPropertyId(), name);
+        if (sameName.isPresent()) {
+            ChargeTemplate old = sameName.get();
+            if (old.isActive()) {
+                log.warn("Charge template creation failed — name '{}' already exists for property {}",
+                        name, request.getPropertyId());
+                throw nameTaken(name);
+            }
+            old.setAmount(request.getAmount());
+            old.setSplitBasis(request.getSplitBasis());
+            old.setZeroAmountAcknowledged(request.isZeroAmountAcknowledged());
+            old.setActive(true);
+            old.setDeactivationMode(null);
+            old.setDeactivatedAtBs(null);
+            ChargeTemplate back = chargeTemplateRepository.saveAndFlush(old);
+            log.info("Charge template re-added — id: {}, property: {}, name: {}",
+                    back.getId(), back.getPropertyId(), back.getName());
+            return ChargeTemplateResponse.from(back);
+        }
 
         ChargeTemplate template = ChargeTemplate.builder()
                 .propertyId(request.getPropertyId())
-                .name(request.getName())
+                .name(name)
                 .amount(request.getAmount())
                 .splitBasis(request.getSplitBasis())
                 .zeroAmountAcknowledged(request.isZeroAmountAcknowledged())
@@ -114,14 +132,20 @@ public class ChargeTemplateService {
                     return new ResourceNotFoundException("ChargeTemplate", "id", id);
                 });
 
-        if (request.getName() != null && !request.getName().equals(template.getName())) {
-            if (chargeTemplateRepository.existsByPropertyIdAndName(template.getPropertyId(), request.getName())) {
-                log.warn("Update failed — name '{}' already exists for property {}",
-                        request.getName(), template.getPropertyId());
-                throw new DuplicateResourceException("ChargeTemplate", "propertyId+name",
-                        template.getPropertyId() + "+" + request.getName());
+        if (!template.isActive()) {
+            throw new InvalidOperationException("CHARGE_REMOVED",
+                    "This charge has been removed. Add it again instead of editing it.");
+        }
+        if (request.getName() != null) {
+            String name = requireName(request.getName());
+            if (!name.equals(template.getName())) {
+                if (chargeTemplateRepository.existsByPropertyIdAndName(template.getPropertyId(), name)) {
+                    log.warn("Update failed — name '{}' already exists for property {}",
+                            name, template.getPropertyId());
+                    throw nameTaken(name);
+                }
+                template.setName(name);
             }
-            template.setName(request.getName());
         }
 
         if (request.getAmount() != null) {
@@ -180,6 +204,20 @@ public class ChargeTemplateService {
     }
 
     // ── Shared validation ──────────────────────────────────────────────────────
+
+    /** The trimmed name; a blank one is refused. */
+    static String requireName(String name) {
+        String n = name == null ? "" : name.trim();
+        if (n.isEmpty()) {
+            throw new InvalidOperationException("CHARGE_NAME_REQUIRED", "Enter the charge name.");
+        }
+        return n;
+    }
+
+    private static com.renterp.common.exception.ApiException nameTaken(String name) {
+        return com.renterp.common.exception.ApiException.conflict("CHARGE_NAME_TAKEN",
+                "A charge named " + name + " already exists for this property.");
+    }
 
     private void requireZeroAmountAcknowledgement(BigDecimal amount, boolean acknowledged) {
         if (amount.compareTo(BigDecimal.ZERO) == 0 && !acknowledged) {

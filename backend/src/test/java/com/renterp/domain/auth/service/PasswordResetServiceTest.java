@@ -138,8 +138,8 @@ class PasswordResetServiceTest {
         AuthResponse session = new AuthResponse(null, "access", "refresh", "Bearer", 900, 2_592_000);
         when(tokens.openSession(user, "ua")).thenReturn(session);
 
-        assertSame(session, service.reset(reset("newpass123"), "ua"));
-        assertEquals("hash:newpass123", user.getPasswordHash());
+        assertSame(session, service.reset(reset("NewPass@123"), "ua"));
+        assertEquals("hash:NewPass@123", user.getPasswordHash());
         assertEquals(0, user.getFailedLoginAttempts());
         assertNull(user.getLoginLockedUntil());
         assertNotNull(user.getEmailVerifiedAt());
@@ -158,7 +158,7 @@ class PasswordResetServiceTest {
     @Test
     void codeForAnAddressNoLongerTheirsIsRefused() {
         codeChecksOut("old@example.com");
-        ApiException e = assertThrows(ApiException.class, () -> service.reset(reset("newpass123"), "ua"));
+        ApiException e = assertThrows(ApiException.class, () -> service.reset(reset("NewPass@123"), "ua"));
         assertEquals("OTP_EXPIRED", e.getCode());
         assertEquals("old", user.getPasswordHash());
         verify(tokens, never()).openSession(any(), any());
