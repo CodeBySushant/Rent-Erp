@@ -67,7 +67,9 @@ public class OtpService {
         this.maxSendsPerHour = maxSendsPerHour;
         this.maxAttempts = maxAttempts;
 
-        // Development shortcut: every code is this fixed value. It only works
+        // Development shortcut: a code that is not really emailed (no MAIL_HOST,
+        // so it goes to the log) is this fixed value. Emailed codes are always
+        // random, so Forgot Password by email works for real. It only works
         // with APP_ENV=local, and the app refuses to start if it is set
         // anywhere else, so it cannot reach staging/production.
         String fixed = devFixedCode == null ? "" : devFixedCode.trim();
@@ -83,7 +85,7 @@ public class OtpService {
                 throw new IllegalStateException("OTP_DEV_FIXED_CODE must be exactly " + CODE_LENGTH + " digits.");
             }
             this.devFixedCode = fixed;
-            log.warn("DEV ONLY: every code is fixed to {} (OTP_DEV_FIXED_CODE). Never use outside local development.", fixed);
+            log.warn("DEV ONLY: codes not sent by email are fixed to {} (OTP_DEV_FIXED_CODE); emailed codes stay random.", fixed);
         }
     }
 
@@ -112,7 +114,10 @@ public class OtpService {
                     "Too many codes requested for this address. Try again in an hour.");
         }
 
-        String code = devFixedCode != null ? devFixedCode : TokenHasher.randomDigits(CODE_LENGTH);
+        // A code that really goes out by email is always random.
+        String code = devFixedCode != null && !mail.isConfigured()
+                ? devFixedCode
+                : TokenHasher.randomDigits(CODE_LENGTH);
         // otp_attempts.phone holds the destination address (an email here).
         OtpAttempt attempt = repository.save(OtpAttempt.builder()
                 .phone(email)

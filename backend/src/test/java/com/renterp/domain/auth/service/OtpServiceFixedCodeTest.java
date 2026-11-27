@@ -8,10 +8,13 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,6 +49,15 @@ class OtpServiceFixedCodeTest {
     void noFixedCodeMeansRandomSixDigits() {
         String code = issuedCode(service("local", ""));
         assertTrue(code.matches("\\d{6}"));
+    }
+
+    @Test
+    void emailedCodeIsRandomEvenWithFixedCode() {
+        when(mail.isConfigured()).thenReturn(true);
+        String code = issuedCode(service("local", "123456"));
+        assertTrue(code.matches("\\d{6}"));
+        assertNotEquals("123456", code);
+        verify(mail).send(eq("sita@example.com"), anyString(), contains(code));
     }
 
     @Test
