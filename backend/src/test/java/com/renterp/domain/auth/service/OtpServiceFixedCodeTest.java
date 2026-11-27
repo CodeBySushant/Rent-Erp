@@ -9,11 +9,15 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,6 +51,18 @@ class OtpServiceFixedCodeTest {
         String code = sentCode(service("local", ""));
         assertEquals(6, code.length());
         assertNotEquals("not-a-fixed-value", code);
+    }
+
+    @Test
+    void emailedCodeIsRandomEvenWithFixedCode() {
+        when(mail.isConfigured()).thenReturn(true);
+        OtpService s = service("local", "123456");
+        s.issue("sita@example.com", OtpAttempt.Purpose.RESET_PASSWORD, null);
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(mail).send(eq("sita@example.com"), anyString(), body.capture());
+        assertFalse(body.getValue().contains("123456"));
+        assertTrue(body.getValue().matches("(?s).*\\d{6}.*"));
+        verify(sender, never()).send(any(), any(), any());
     }
 
     @Test

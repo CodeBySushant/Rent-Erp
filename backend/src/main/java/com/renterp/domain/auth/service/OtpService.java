@@ -67,8 +67,8 @@ public class OtpService {
         this.maxAttempts = maxAttempts;
         this.verificationTokenTtl = Duration.ofMinutes(verificationTokenMinutes);
 
-        // Development shortcut while no SMS provider is connected: every code is
-        // this fixed value. It only works with APP_ENV=local, and the app refuses
+        // Development shortcut while no SMS provider is connected: every code that
+        // is not really emailed is this fixed value (emailed codes stay random). It only works with APP_ENV=local, and the app refuses
         // to start if it is set anywhere else, so it cannot reach staging/production.
         String fixed = devFixedCode == null ? "" : devFixedCode.trim();
         if (fixed.isEmpty()) {
@@ -83,7 +83,7 @@ public class OtpService {
                 throw new IllegalStateException("OTP_DEV_FIXED_CODE must be exactly " + CODE_LENGTH + " digits.");
             }
             this.devFixedCode = fixed;
-            log.warn("DEV ONLY: every OTP is fixed to {} (OTP_DEV_FIXED_CODE). Never use outside local development.", fixed);
+            log.warn("DEV ONLY: OTPs not sent by email are fixed to {} (OTP_DEV_FIXED_CODE); emailed codes stay random.", fixed);
         }
     }
 
@@ -109,7 +109,12 @@ public class OtpService {
                     "Too many codes requested for this number. Try again in an hour.");
         }
 
-        String code = devFixedCode != null ? devFixedCode : TokenHasher.randomDigits(CODE_LENGTH);
+        // A code that really goes out by email is always random, so Forgot
+        // Password by email works for real even with the dev fixed code set.
+        boolean byEmail = isEmail(phone) && mail.isConfigured();
+        String code = devFixedCode != null && !byEmail
+                ? devFixedCode
+                : TokenHasher.randomDigits(CODE_LENGTH);
         OtpAttempt attempt = repository.save(OtpAttempt.builder()
                 .phone(phone)
                 .codeHash(encoder.encode(code))
