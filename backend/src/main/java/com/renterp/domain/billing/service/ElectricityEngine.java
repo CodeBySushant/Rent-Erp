@@ -177,7 +177,7 @@ public class ElectricityEngine {
                     // M1: the tenant moved in during this period - bill only their own use.
                     JoinUnits ju = unitsSinceMoveIn(sub.getId(), fromBs, toBs, mi, daysInPeriod, units);
                     amount = round(ju.units().multiply(rate), method);
-                    noteByMembership.put(mid, ju.note());
+                    addNote(noteByMembership, mid, ju.note());
                 }
                 addAmount(amountByMembership, mid, amount);
             } else {
@@ -195,8 +195,11 @@ public class ElectricityEngine {
                 }
             }
             if (!hasReading) {
+                // A room can be on several sub-meters: name the meter, and keep
+                // the notes of the tenant's other meters (they used to be overwritten).
                 for (Map.Entry<UUID, Integer> e : payers) {
-                    noteByMembership.put(e.getKey(), "electricity reading pending (B3)");
+                    addNote(noteByMembership, e.getKey(),
+                            "electricity reading pending for " + sub.getLabel() + " (B3)");
                 }
             }
         }
@@ -411,6 +414,14 @@ public class ElectricityEngine {
         return readingRepository.findConsumptionInWindow(meterId, fromBs, toBs).stream()
                 .map(MeterReading::getConsumption)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Adds [note] to the tenant's notes ("; "-joined), skipping a repeat. */
+    private static void addNote(Map<UUID, String> notes, UUID membershipId, String note) {
+        if (note == null || note.isBlank()) {
+            return;
+        }
+        notes.merge(membershipId, note, (a, b) -> a.contains(b) ? a : a + "; " + b);
     }
 
     private static void addAmount(Map<UUID, BigDecimal> map, UUID key, BigDecimal amt) {

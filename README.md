@@ -122,6 +122,17 @@ JWT_SECRET=local_dev_secret_at_least_thirty_two_chars_long
 # Local development only (see .env.example for every option):
 APP_LOG_LEVEL=DEBUG
 RATE_LIMIT_ENABLED=false
+OTP_DEV_FIXED_CODE=123456
+
+# Email (Forgot Password codes, support tickets). Optional locally; without
+# MAIL_HOST, reset codes are written to backend/logs/rent-erp.log.
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=sender@gmail.com
+MAIL_PASSWORD=sixteencharapppw
+MAIL_FROM=Rentlo <sender@gmail.com>
+MAIL_STARTTLS=true
+MAIL_SSL=false
 ```
 
 Notes:
@@ -132,6 +143,8 @@ Notes:
 - `DEV_SECURITY_USER` / `DEV_SECURITY_PASSWORD` are no longer used (hardening H17) — delete them from old `.env` files.
 - Logging is production-safe by default (INFO, no SQL, no bind values). Raise it locally with `APP_LOG_LEVEL`, `SQL_LOG_LEVEL`, `SQL_BIND_LOG_LEVEL` (see `.env.example`).
 - Request limits are on by default. Set `RATE_LIMIT_ENABLED=false` on a developer machine running the live scripts.
+- `OTP_DEV_FIXED_CODE` (6 digits, `APP_ENV=local` only — startup fails anywhere else): every code that is **not** really emailed (phone codes, or any code while `MAIL_HOST` is empty) is this value. A code that goes out by email is always random.
+- Email: with Gmail, `MAIL_PASSWORD` is a 16-character **app password** (Google Account → Security → App passwords, needs 2-Step Verification), written without spaces; `MAIL_FROM` must use the same address. A healthy start logs `Email configured — host: smtp.gmail.com`. Never commit the real values.
 - Sparrow SMS, AWS, Khalti, eSewa and FCM keys in `.env.example` are **not read by any current code**. Omit them.
 - Watch out for Notepad saving as `.env.txt`. Verify with `dir -Force .env*`.
 
@@ -158,7 +171,7 @@ Must be run from `backend/`, or `.env` won't be found.
 A healthy start looks like:
 
 ```
-Successfully applied 25 migrations to schema "public", now at version v25
+Successfully applied 31 migrations to schema "public", now at version v31
 112 mappings in 'requestMappingHandlerMapping'
 Tomcat started on port 8080 (http)
 Started RentErpApplication in 6.4 seconds
@@ -190,7 +203,7 @@ Logs are written to `backend/logs/rent-erp.log` and `backend/logs/rent-erp-sql.l
 | URL | Shows |
 |---|---|
 | `http://localhost:8080/actuator/health` | `{"status":"UP"}`; component details (db, disk) only with an ADMIN token |
-| `http://localhost:8080/actuator/flyway` | All 25 migrations with checksums (ADMIN token) |
+| `http://localhost:8080/actuator/flyway` | All 31 migrations with checksums (ADMIN token) |
 | `http://localhost:8080/actuator/metrics` | JVM memory, threads, request timings (ADMIN token) |
 | `http://localhost:8080/api/v1/users` | Real endpoint — empty paginated list on a fresh DB |
 
@@ -264,7 +277,7 @@ cd backend
 mvn test
 ```
 
-44 tests on `feature/app-integration` (+14 from the 2026-10-28 hardening: `BsCalendarBillingPeriodTest`, `ErrorNamesTest`, `NotificationTextTest`, one more `PasswordPolicyTest`): `BsCalendarTest` (BS month lengths, parsing, day arithmetic, today in Nepal time), `BillingPass2MathTest`, `JwtServiceTest`, `TokenHasherTest`, `PasswordPolicyTest`, `AccessGuardTest`, `FileTypeSnifferTest`, `LocalFileStorageTest`, `JoinCodeGeneratorTest` and the application context test (needs PostgreSQL).
+126 tests on `feature/app-integration` and 130 on `temp/signup-no-otp` (2026-11-27; the temp branch adds `AuthServiceRegisterTest`). Among them: `BsCalendarTest` (BS month lengths, parsing, day arithmetic, today in Nepal time), `BillingPass2MathTest`, `JwtServiceTest`, `TokenHasherTest`, `PasswordPolicyTest`, `AccessGuardTest`, `FileTypeSnifferTest`, `LocalFileStorageTest`, `JoinCodeGeneratorTest`, `OtpServiceDeliveryTest`, `OtpServiceFixedCodeTest`, `PasswordResetServiceTest`, `SupportTicketServiceTest`, `RoomServiceDeleteTest` and the application context test (needs PostgreSQL and a working `backend/.env`).
 
 ### Live API scripts (branch `feature/app-integration`)
 
@@ -312,7 +325,7 @@ cd backend
 mvn spring-boot:run
 ```
 
-Flyway rebuilds all 25 migrations in under a second. Whole cycle takes under a minute.
+Flyway rebuilds all 31 migrations in under a second. Whole cycle takes under a minute.
 
 If connections persist after stopping the app:
 
@@ -475,6 +488,12 @@ SQL statements and bind parameters go to `backend/logs/rent-erp-sql.log` — use
 ---
 
 ## Current state
+
+**Deployment (2026-11):** branch `temp/signup-no-otp` runs on an AWS EC2 server (Mumbai) behind Nginx, as a systemd service with settings in `/etc/rentlo/rentlo.env`, nightly `pg_dump` backups and a 12 AM–6 AM IST automatic stop. Deploy = build the jar on `temp/signup-no-otp`, copy it to `/opt/rentlo/rentlo.jar` (keep `rentlo.jar.previous`), restart, check `/actuator/health`. Every change is made on `feature/app-integration` first and then merged into `temp/signup-no-otp`; never the other way. Auth/OTP files differ between the two branches, so changes there need their own version on each.
+
+**Rooms on several meters (2026-11-26):** a room may be covered by any number of sub-meters (`CoverageRules` no longer refuses `ROOM_ALREADY_METERED`). `ElectricityEngine` bills each sub-meter's own units and adds them per tenant; "reading pending" notes name the meter and no longer overwrite each other (2026-11-27).
+
+**Forgot Password by email (2026-11-27):** with `MAIL_HOST` set, reset codes are random and emailed (Gmail SMTP in use); `OTP_DEV_FIXED_CODE` no longer applies to emailed codes. Reset by phone needs an SMS provider (not connected yet).
 
 **Hardening (2026-10-28, V25):** fixes from the pre-deployment backend audit — reading-chain integrity, billing-period overlap, draft bills hidden from tenants, one tenant profile per person, safe logging, admin-only KYC decisions, rate limits, penalties, infrastructure meters, notification languages, optimistic locking and more. Every change, API difference and new error code: [docs/devlog/DEVLOG_HARDENING.md](docs/devlog/DEVLOG_HARDENING.md).
 
