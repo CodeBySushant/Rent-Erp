@@ -194,7 +194,10 @@ public class MeterService {
             meter.setSerialNumber(newSerial);
         }
         if (request.getLabel() != null) {
-            meter.setLabel(request.getLabel());
+            if (request.getLabel().isBlank()) {
+                throw new InvalidOperationException("LABEL_REQUIRED", "Enter the meter name.");
+            }
+            meter.setLabel(request.getLabel().trim());
         }
         if (request.getSplitRuleOverride() != null) {
             meter.setSplitRuleOverride(request.getSplitRuleOverride());
