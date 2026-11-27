@@ -58,6 +58,14 @@ public class TenantPropertyMembership extends BaseAuditEntity {
     @Builder.Default
     private short totalMembers = 1;
 
+    /** V33: the deposit agreed with the tenant (null = not recorded). */
+    @Column(name = "agreed_deposit_amount", precision = 10, scale = 2)
+    private java.math.BigDecimal agreedDepositAmount;
+
+    /** V33: the advance rent agreed with the tenant (null = not recorded). */
+    @Column(name = "agreed_advance_amount", precision = 10, scale = 2)
+    private java.math.BigDecimal agreedAdvanceAmount;
+
     // ── V30: the signed rental agreement (an AGREEMENT upload) ─────────────
     @Column(name = "agreement_file_id", columnDefinition = "uuid")
     private UUID agreementFileId;
