@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -35,13 +36,28 @@ public class AddTenantRequest {
     @Min(1) @Max(50)
     private short numOccupants = 1;
 
+    /**
+     * Total Members: people living in this tenancy, 1 to 50. Older apps do not
+     * send it; then {@link #numOccupants} (default 1) is used.
+     */
+    @Min(value = 1, message = "totalMembers must be at least 1")
+    @Max(value = 50, message = "totalMembers can be at most 50")
+    private Short totalMembers;
+
     @Size(max = 255)
     private String emergencyContactName;
 
     @Pattern(regexp = "^(97|98)\\d{8}$", message = "emergencyContactPhone must be a valid 10-digit Nepal number")
     private String emergencyContactPhone;
 
-    @NotNull(message = "roomId is required")
+    /**
+     * The tenant's rooms (1 to 10, no repeats). Older apps send one
+     * {@link #roomId} instead; see {@link #chosenRoomIds()}.
+     */
+    @Size(max = 10, message = "A tenant can be given at most 10 rooms at once")
+    private List<@NotNull(message = "roomIds cannot contain empty values") UUID> roomIds;
+
+    /** One room — the older form of {@link #roomIds}. */
     private UUID roomId;
 
     @NotBlank(message = "moveInDateBs is required")
@@ -65,4 +81,17 @@ public class AddTenantRequest {
     private String depositReceivedAtBs;
 
     private PaymentModelOverride paymentModelOverride;
+
+    /** {@link #roomIds} when sent, else the single {@link #roomId}, else empty. */
+    public List<UUID> chosenRoomIds() {
+        if (roomIds != null && !roomIds.isEmpty()) {
+            return roomIds;
+        }
+        return roomId == null ? List.of() : List.of(roomId);
+    }
+
+    /** {@link #totalMembers} when sent, else {@link #numOccupants}. */
+    public short chosenTotalMembers() {
+        return totalMembers != null ? totalMembers : numOccupants;
+    }
 }
