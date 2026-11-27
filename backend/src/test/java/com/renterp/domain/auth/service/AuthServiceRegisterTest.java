@@ -48,7 +48,7 @@ class AuthServiceRegisterTest {
         r.setName("Sita Sharma");
         r.setPhone("9812345678");
         r.setEmail("Sita@Example.com");
-        r.setPassword("abc12345");
+        r.setPassword("Abc@12345");
         r.setRole(UserRole.TENANT);
         return r;
     }
@@ -64,7 +64,7 @@ class AuthServiceRegisterTest {
         verify(users).saveAndFlush(saved.capture());
         assertEquals("9812345678", saved.getValue().getPhone());
         assertEquals("sita@example.com", saved.getValue().getEmail());
-        assertEquals("hash:abc12345", saved.getValue().getPasswordHash());
+        assertEquals("hash:Abc@12345", saved.getValue().getPasswordHash());
         assertNull(saved.getValue().getPhoneVerifiedAt(), "the number was not verified");
     }
 
