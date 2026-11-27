@@ -14,6 +14,9 @@ import java.util.UUID;
  * @param overdue     an issued bill is unpaid past its due date
  * @param photoUrl    the tenant's profile photo ({@code /api/v1/files/{id}/content}),
  *                    or null when they have none or no app account
+ * @param totalMembers         people living in the tenancy (V32)
+ * @param agreedDepositAmount  deposit agreed at Add Tenant, or null (V33)
+ * @param agreedAdvanceAmount  advance rent agreed at Add Tenant, or null (V33)
  */
 public record TenantRowResponse(
         UUID membershipId,
@@ -30,7 +33,10 @@ public record TenantRowResponse(
         LatestBill latestBill,
         BigDecimal amountOwed,
         boolean overdue,
-        String photoUrl) {
+        String photoUrl,
+        short totalMembers,
+        BigDecimal agreedDepositAmount,
+        BigDecimal agreedAdvanceAmount) {
 
     public record RoomRef(UUID assignmentId, UUID roomId, String roomName, String floorName,
                           String effectiveFromBs, BigDecimal monthlyRent) {

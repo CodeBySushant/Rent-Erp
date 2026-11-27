@@ -221,7 +221,8 @@ public class DashboardService {
                     p != null && p.getUserId() != null, m.getStatus().name(), m.getStartedAtBs(),
                     m.getEndedAtBs(), refs, rent, latestBill, owed.getOrDefault(m.getId(), BigDecimal.ZERO),
                     overdue.contains(m.getId()),
-                    p == null || p.getUserId() == null ? null : photoByUser.get(p.getUserId())));
+                    p == null || p.getUserId() == null ? null : photoByUser.get(p.getUserId()),
+                    m.getTotalMembers(), m.getAgreedDepositAmount(), m.getAgreedAdvanceAmount()));
         }
         rows.sort(Comparator.comparing(r -> r.name() == null ? "" : r.name(), String.CASE_INSENSITIVE_ORDER));
         return rows;

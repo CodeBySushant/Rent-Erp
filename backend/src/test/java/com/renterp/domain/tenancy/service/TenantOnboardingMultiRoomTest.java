@@ -17,7 +17,9 @@ import com.renterp.domain.tenancy.entity.RoomAssignment;
 import com.renterp.domain.tenancy.entity.TenantPropertyMembership;
 import com.renterp.domain.tenancy.repository.RoomAssignmentRepository;
 import com.renterp.domain.tenancy.repository.TenantPropertyMembershipRepository;
+import com.renterp.domain.tenantfinance.service.TenantAdvanceRentService;
 import com.renterp.domain.tenantfinance.service.TenantDepositService;
+import com.renterp.domain.tenantfinance.service.TenantOpeningBalanceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -66,7 +68,8 @@ class TenantOnboardingMultiRoomTest {
         membershipService = mock(MembershipService.class);
         users = mock(UserRepository.class);
         service = new TenantOnboardingService(properties, rooms, floors, assignments, memberships,
-                profiles, membershipService, mock(TenantDepositService.class), users,
+                profiles, membershipService, mock(TenantDepositService.class),
+                mock(TenantAdvanceRentService.class), mock(TenantOpeningBalanceService.class), users,
                 mock(TenantProfileLinker.class));
 
         Property property = new Property();

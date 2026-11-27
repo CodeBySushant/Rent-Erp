@@ -22,9 +22,13 @@ import com.renterp.domain.tenancy.entity.TenantPropertyMembership;
 import com.renterp.domain.tenancy.entity.TenantPropertyMembership.MembershipStatus;
 import com.renterp.domain.tenancy.repository.RoomAssignmentRepository;
 import com.renterp.domain.tenancy.repository.TenantPropertyMembershipRepository;
+import com.renterp.domain.tenantfinance.dto.CreateAdvanceRentRequest;
 import com.renterp.domain.tenantfinance.dto.CreateDepositRequest;
+import com.renterp.domain.tenantfinance.dto.CreateOpeningBalanceRequest;
 import com.renterp.domain.tenantfinance.dto.DepositResponse;
+import com.renterp.domain.tenantfinance.service.TenantAdvanceRentService;
 import com.renterp.domain.tenantfinance.service.TenantDepositService;
+import com.renterp.domain.tenantfinance.service.TenantOpeningBalanceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
@@ -41,10 +45,17 @@ import java.util.UUID;
 
 /**
  * Add Tenant as one operation. Everything is checked before anything is
- * written, then profile → membership → room assignment → deposit are created
- * in a single transaction through the existing services (so their own rules
- * still apply). If any step fails, nothing is kept: no tenant without a
- * membership, no membership without a room, no deposit without a tenancy.
+ * written, then profile → membership → room assignments → deposit → advance
+ * rent → opening balance are created in a single transaction through the
+ * existing services (so their own rules still apply). If any step fails,
+ * nothing is kept: no tenant without a membership, no membership without a
+ * room, no money record without a tenancy.
+ *
+ * Money (owner, 28 Nov): every tenant, new or already living there, can be
+ * given the deposit and advance agreed and what of each is collected now,
+ * plus an opening balance (owed by or credited to the tenant). The agreed
+ * figures are kept on the tenancy; what was collected goes into the deposit
+ * and advance-rent records, which billing already uses.
  *
  * A tenant can be given several rooms at once. Every room row is locked for
  * the transaction (in id order, so two requests never wait on each other), so
@@ -67,6 +78,8 @@ public class TenantOnboardingService {
     private final TenantProfileService profileService;
     private final MembershipService membershipService;
     private final TenantDepositService depositService;
+    private final TenantAdvanceRentService advanceService;
+    private final TenantOpeningBalanceService openingBalanceService;
     private final UserRepository users;
     private final TenantProfileLinker linker;
 
@@ -74,8 +87,12 @@ public class TenantOnboardingService {
                                    RoomAssignmentRepository assignments,
                                    TenantPropertyMembershipRepository memberships,
                                    TenantProfileService profileService, MembershipService membershipService,
-                                   TenantDepositService depositService, UserRepository users,
-                                   TenantProfileLinker linker) {
+                                   TenantDepositService depositService,
+                                   TenantAdvanceRentService advanceService,
+                                   TenantOpeningBalanceService openingBalanceService,
+                                   UserRepository users, TenantProfileLinker linker) {
+        this.advanceService = advanceService;
+        this.openingBalanceService = openingBalanceService;
         this.users = users;
         this.linker = linker;
         this.properties = properties;
@@ -100,8 +117,23 @@ public class TenantOnboardingService {
             throw ApiException.badRequest("INVALID_DATE", "The move-in date is not a valid BS date.");
         }
         String depositDate = req.getDepositReceivedAtBs() != null ? req.getDepositReceivedAtBs() : req.getMoveInDateBs();
-        if (req.getDepositAmount() != null && !BsCalendar.isValid(depositDate)) {
+        BigDecimal depositCollected = AddTenantRequest.positiveOrNull(req.getDepositAmount());
+        BigDecimal advanceCollected = AddTenantRequest.positiveOrNull(req.getAdvanceAmount());
+        BigDecimal opening = AddTenantRequest.positiveOrNull(req.getOpeningBalanceAmount());
+        if (depositCollected != null && !BsCalendar.isValid(depositDate)) {
             throw ApiException.badRequest("INVALID_DATE", "The deposit date is not a valid BS date.");
+        }
+        if (moreThan(depositCollected, req.getAgreedDepositAmount())) {
+            throw ApiException.badRequest("DEPOSIT_MORE_THAN_AGREED",
+                    "The deposit collected cannot be more than the deposit agreed.");
+        }
+        if (moreThan(advanceCollected, req.getAgreedAdvanceAmount())) {
+            throw ApiException.badRequest("ADVANCE_MORE_THAN_AGREED",
+                    "The advance collected cannot be more than the advance agreed.");
+        }
+        if (opening != null && req.getOpeningBalanceDirection() == null) {
+            throw ApiException.badRequest("OPENING_BALANCE_DIRECTION_REQUIRED",
+                    "Say whether the opening balance is owed by the tenant or a credit to the tenant.");
         }
 
         List<UUID> roomIds = req.chosenRoomIds();
@@ -156,6 +188,8 @@ public class TenantOnboardingService {
         TenantPropertyMembership membership = membershipService.createInternal(
                 profileId, propertyId, req.getMoveInDateBs(), req.getPaymentModelOverride(), null);
         membership.setTotalMembers(req.chosenTotalMembers());
+        membership.setAgreedDepositAmount(agreedOr(req.getAgreedDepositAmount(), depositCollected));
+        membership.setAgreedAdvanceAmount(agreedOr(req.getAgreedAdvanceAmount(), advanceCollected));
         memberships.save(membership);
 
         List<BigDecimal> rents = splitRent(req.getMonthlyRent(), chosen.size());
@@ -170,21 +204,70 @@ public class TenantOnboardingService {
         }
 
         UUID depositId = null;
-        if (req.getDepositAmount() != null) {
+        if (depositCollected != null) {
             CreateDepositRequest depositReq = new CreateDepositRequest();
-            depositReq.setAmount(req.getDepositAmount());
+            depositReq.setAmount(depositCollected);
             depositReq.setCurrency("NPR");
             depositReq.setReceivedAtBs(depositDate);
             DepositResponse deposit = depositService.create(membership.getId(), depositReq);
             depositId = deposit.getId();
         }
 
-        log.info("Tenant added — membership: {}, rooms: {}, members: {}",
-                membership.getId(), chosen.size(), membership.getTotalMembers());
+        UUID advanceId = null;
+        if (advanceCollected != null) {
+            short months = advanceMonths(advanceCollected, req.getMonthlyRent());
+            CreateAdvanceRentRequest advanceReq = new CreateAdvanceRentRequest();
+            advanceReq.setAmount(advanceCollected);
+            advanceReq.setMonthsCovered(months);
+            advanceReq.setCoveredFromBs(req.getMoveInDateBs());
+            advanceReq.setCoveredToBs(BsCalendar.addDays(req.getMoveInDateBs(), 30 * months - 1));
+            advanceReq.setNotes("Collected at Add Tenant");
+            advanceId = advanceService.create(membership.getId(), advanceReq).getId();
+        }
+
+        UUID openingId = null;
+        if (opening != null) {
+            CreateOpeningBalanceRequest openingReq = new CreateOpeningBalanceRequest();
+            openingReq.setAmount(opening);
+            openingReq.setDirection(req.getOpeningBalanceDirection());
+            openingReq.setAsOfBs(req.getMoveInDateBs());
+            openingReq.setNotes("Entered at Add Tenant");
+            openingId = openingBalanceService.create(membership.getId(), openingReq).getId();
+        }
+
+        log.info("Tenant added — membership: {}, rooms: {}, members: {}, deposit: {}, advance: {}, opening: {}",
+                membership.getId(), chosen.size(), membership.getTotalMembers(),
+                depositId != null, advanceId != null, openingId != null);
         return new AddTenantResponse(membership.getId(), profileId, assignmentIds.get(0), depositId,
                 propertyId, roomIds.get(0), List.copyOf(assignmentIds), List.copyOf(roomIds),
-                membership.getTotalMembers());
+                membership.getTotalMembers(), advanceId, openingId);
     }
+
+    /** True when both are given and {@code collected} is more than {@code agreed}. */
+    static boolean moreThan(BigDecimal collected, BigDecimal agreed) {
+        return collected != null && agreed != null && collected.compareTo(agreed) > 0;
+    }
+
+    /** The agreed amount when given, else what was collected (or null). */
+    static BigDecimal agreedOr(BigDecimal agreed, BigDecimal collected) {
+        return agreed != null ? agreed : collected;
+    }
+
+    /**
+     * Months an advance covers from the move-in date: the advance ÷ the monthly
+     * rent, rounded up (a part month counts), at least 1 and at most
+     * {@value #MAX_ADVANCE_MONTHS}. Billing uses the advance amount itself; the
+     * months are what the record shows.
+     */
+    static short advanceMonths(BigDecimal advance, BigDecimal monthlyRent) {
+        if (monthlyRent == null || monthlyRent.signum() <= 0) {
+            return 1;
+        }
+        BigDecimal months = advance.divide(monthlyRent, 0, RoundingMode.CEILING);
+        return (short) Math.max(1, Math.min(MAX_ADVANCE_MONTHS, months.intValue()));
+    }
+
+    static final int MAX_ADVANCE_MONTHS = 60;
 
     /**
      * Shares a monthly rent across {@code rooms} rooms: equal parts rounded

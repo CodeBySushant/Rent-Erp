@@ -23,6 +23,9 @@ public class MembershipResponse {
     private final boolean active;
     /** Total Members of the tenancy. */
     private final short totalMembers;
+    /** Deposit and advance agreed with the tenant; null when not recorded. */
+    private final java.math.BigDecimal agreedDepositAmount;
+    private final java.math.BigDecimal agreedAdvanceAmount;
     private final Instant createdAt;
     private final Instant updatedAt;
 
@@ -38,6 +41,8 @@ public class MembershipResponse {
         this.terminationReason = m.getTerminationReason();
         this.active = m.isActive();
         this.totalMembers = m.getTotalMembers();
+        this.agreedDepositAmount = m.getAgreedDepositAmount();
+        this.agreedAdvanceAmount = m.getAgreedAdvanceAmount();
         this.createdAt = m.getCreatedAt();
         this.updatedAt = m.getUpdatedAt();
     }

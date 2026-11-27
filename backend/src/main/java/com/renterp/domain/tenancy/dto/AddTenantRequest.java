@@ -2,6 +2,7 @@ package com.renterp.domain.tenancy.dto;
 
 import com.renterp.common.validation.BsDate;
 import com.renterp.domain.tenancy.entity.TenantPropertyMembership.PaymentModelOverride;
+import com.renterp.domain.tenantfinance.entity.TenantOpeningBalance;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,8 +13,8 @@ import java.util.UUID;
 
 /**
  * POST /api/v1/properties/{propertyId}/tenants — the owner's "Add Tenant":
- * profile, membership, room assignment (with rent) and, optionally, the
- * deposit, created together or not at all.
+ * profile, membership, room assignments (with rent) and, optionally, the
+ * deposit, advance rent and opening balance, created together or not at all.
  */
 @Getter
 @Setter
@@ -70,10 +71,45 @@ public class AddTenantRequest {
     @Digits(integer = 8, fraction = 2, message = "monthlyRent has too many digits")
     private BigDecimal monthlyRent;
 
-    /** Optional: the security deposit received at move-in. */
-    @Positive(message = "depositAmount must be more than zero")
+    /**
+     * Optional: the security deposit collected now. 0 or absent = nothing
+     * collected yet (no deposit record is made).
+     */
+    @PositiveOrZero(message = "depositAmount cannot be negative")
     @Digits(integer = 8, fraction = 2, message = "depositAmount has too many digits")
     private BigDecimal depositAmount;
+
+    /**
+     * Optional: the security deposit agreed with the tenant. When absent and a
+     * deposit is collected, the collected amount is taken as the agreed one.
+     */
+    @PositiveOrZero(message = "agreedDepositAmount cannot be negative")
+    @Digits(integer = 8, fraction = 2, message = "agreedDepositAmount has too many digits")
+    private BigDecimal agreedDepositAmount;
+
+    /**
+     * Optional: advance rent collected now. It is held and used against the
+     * tenant's rent on the next bills. 0 or absent = none.
+     */
+    @PositiveOrZero(message = "advanceAmount cannot be negative")
+    @Digits(integer = 8, fraction = 2, message = "advanceAmount has too many digits")
+    private BigDecimal advanceAmount;
+
+    /** Optional: the advance rent agreed; same rule as {@link #agreedDepositAmount}. */
+    @PositiveOrZero(message = "agreedAdvanceAmount cannot be negative")
+    @Digits(integer = 8, fraction = 2, message = "agreedAdvanceAmount has too many digits")
+    private BigDecimal agreedAdvanceAmount;
+
+    /**
+     * Optional: money from before the tenant came on to Rentlo (it appears on
+     * the first bill). 0 or absent = none; when more than 0,
+     * {@link #openingBalanceDirection} says which way it goes.
+     */
+    @PositiveOrZero(message = "openingBalanceAmount cannot be negative")
+    @Digits(integer = 8, fraction = 2, message = "openingBalanceAmount has too many digits")
+    private BigDecimal openingBalanceAmount;
+
+    private TenantOpeningBalance.Direction openingBalanceDirection;
 
     /** Defaults to the move-in date. */
     @Pattern(regexp = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", message = "depositReceivedAtBs must be YYYY-MM-DD (BS)")
@@ -93,5 +129,10 @@ public class AddTenantRequest {
     /** {@link #totalMembers} when sent, else {@link #numOccupants}. */
     public short chosenTotalMembers() {
         return totalMembers != null ? totalMembers : numOccupants;
+    }
+
+    /** {@code v} when more than 0, else null: 0 and absent both mean "none". */
+    public static BigDecimal positiveOrNull(BigDecimal v) {
+        return v != null && v.signum() > 0 ? v : null;
     }
 }
